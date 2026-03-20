@@ -22,12 +22,10 @@ const io = new Server(server, {
 // ==========================================
 // MEMORIA CENTRAL DEL SISTEMA (MASTER ADMIN)
 // ==========================================
-let isSystemActive = true; // El Kill Switch Global
+let isSystemActive = true; 
 
-// Base de datos en memoria para los Eventos. La clave primaria es la contraseña.
 const eventsDB = new Map();
 
-// Migramos tu configuración actual a un "Evento por Defecto" para no romper el entorno
 eventsDB.set(process.env.VITE_ADMIN_PASSWORD || "admin123", {
     id: "evt_default",
     name: "Evento Principal (Por Defecto)",
@@ -35,10 +33,8 @@ eventsDB.set(process.env.VITE_ADMIN_PASSWORD || "admin123", {
     rooms: ["PRINCIPAL"]
 });
 
-// Contraseña exclusiva del Panel de Dios
 const MASTER_PASSWORD = process.env.MASTER_PASSWORD || "superadmin123";
 
-// Inventario de salas activas (oradores transmitiendo)
 const activeSpeakerRooms = new Map();
 
 const broadcastActiveRooms = () => {
@@ -53,7 +49,6 @@ app.get('/api/status', (req, res) => {
 io.on('connection', (socket) => {
     console.log(`[+] Nuevo dispositivo conectado: ${socket.id}`);
 
-    // Apenas se conecta, verificamos el estado del Kill Switch
     socket.emit('system-status', isSystemActive);
     
     if (isSystemActive) {
@@ -86,20 +81,18 @@ io.on('connection', (socket) => {
         io.emit('system-status', isSystemActive);
 
         if (!isSystemActive) {
-            // Expulsamos a todos los oradores y limpiamos las salas
             activeSpeakerRooms.clear();
             broadcastActiveRooms();
         }
     });
 
     socket.on('master-create-event', (data, callback) => {
-        // Si no mandan clave, generamos una aleatoria segura (Ej: X7A9PQ)
         const password = data.password || Math.random().toString(36).slice(-6).toUpperCase();
         const newEvent = {
             id: Date.now().toString(),
             name: data.name,
             password: password,
-            rooms: ["PRINCIPAL"] // Siempre inician con una sala principal
+            rooms: ["PRINCIPAL"] 
         };
         eventsDB.set(password, newEvent);
         callback({ success: true, event: newEvent });
@@ -118,6 +111,18 @@ io.on('connection', (socket) => {
             if (!event.rooms.includes(data.room)) {
                 event.rooms.push(data.room);
             }
+            callback({ success: true });
+            io.emit('master-data-updated', Array.from(eventsDB.values()));
+        } else {
+            callback({ success: false });
+        }
+    });
+
+    // NUEVO: Ruta para eliminar una sala específica de un evento
+    socket.on('master-delete-room', (data, callback) => {
+        const event = eventsDB.get(data.password);
+        if (event) {
+            event.rooms = event.rooms.filter(r => r !== data.room);
             callback({ success: true });
             io.emit('master-data-updated', Array.from(eventsDB.values()));
         } else {

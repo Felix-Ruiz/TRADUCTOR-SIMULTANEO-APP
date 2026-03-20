@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
-import { Shield, Power, Plus, Trash2, Key, Activity, Copy, CheckCircle2 } from 'lucide-react';
+import { Shield, Power, Plus, Trash2, Key, Activity, Copy, CheckCircle2, X } from 'lucide-react';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001', { autoConnect: false });
 
@@ -86,6 +86,13 @@ const MasterView = () => {
         setSelectedEventPwd(null);
       }
     });
+  };
+
+  // NUEVO: Función para eliminar la sala
+  const handleDeleteRoom = (pwd, room) => {
+    if (window.confirm(`¿Seguro que deseas eliminar la sala ${room}?`)) {
+      socket.emit('master-delete-room', { password: pwd, room }, () => {});
+    }
   };
 
   const copyToClipboard = (text) => {
@@ -244,8 +251,15 @@ const MasterView = () => {
 
                   <div className="flex flex-wrap gap-2">
                     {event.rooms.map(room => (
-                      <span key={room} className="px-3 py-1 bg-gray-800 text-gray-300 text-xs font-bold uppercase tracking-wider rounded-md border border-gray-700">
+                      <span key={room} className="flex items-center gap-2 px-3 py-1 bg-gray-800 text-gray-300 text-xs font-bold uppercase tracking-wider rounded-md border border-gray-700">
                         {room}
+                        <button 
+                          onClick={() => handleDeleteRoom(event.password, room)}
+                          className="text-gray-500 hover:text-red-500 transition-colors"
+                          title="Eliminar Sala"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
                       </span>
                     ))}
                   </div>
