@@ -15,7 +15,6 @@ const SpeakerView = () => {
   const [inputLanguage, setInputLanguage] = useState('es-CO'); 
   const [outputLanguage, setOutputLanguage] = useState('en'); 
   
-  // Nuevo estado para acumular toda la transcripción final
   const [fullTranscription, setFullTranscription] = useState('');
   
   const audioContextRef = useRef(null);
@@ -29,13 +28,11 @@ const SpeakerView = () => {
     socket.on('disconnect', () => setIsConnected(false));
     
     socket.on('translation-result', (data) => {
-      // Mostramos en tiempo real
       setTranscription(data.original);
       if (data.translations) {
         setAllTranslations(data.translations); 
       }
       
-      // Acumulamos silenciosamente las frases ya terminadas para el archivo de texto
       if (data.type === 'final') {
         setFullTranscription(prev => prev + data.original + " ");
       }
@@ -54,9 +51,10 @@ const SpeakerView = () => {
       streamRef.current = stream;
       
       socket.connect();
+      // Agregamos 'es' y 10 idiomas nuevos a la lista de traducciones simultáneas
       socket.emit('start-translation', { 
         fromLanguage: inputLanguage, 
-        toLanguages: ['en', 'pt', 'fr', 'de', 'it', 'zh-Hans', 'ja', 'ko', 'ru', 'ar', 'hi', 'nl', 'tr', 'pl', 'sv'] 
+        toLanguages: ['es', 'en', 'pt', 'fr', 'de', 'it', 'zh-Hans', 'ja', 'ko', 'ru', 'ar', 'hi', 'nl', 'tr', 'pl', 'sv', 'da', 'fi', 'el', 'he', 'id', 'nb', 'th', 'vi', 'cs', 'hu'] 
       });
       
       const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -88,8 +86,6 @@ const SpeakerView = () => {
       gainNode.connect(audioContext.destination);
 
       setIsRecording(true);
-      // Opcional: limpiar la transcripción anterior al iniciar un nuevo discurso
-      // setFullTranscription(''); 
     } catch (error) {
       console.error('Error accediendo al micrófono:', error);
       alert('Por favor, permite el acceso al micrófono en tu navegador.');
@@ -106,7 +102,6 @@ const SpeakerView = () => {
     setIsRecording(false);
   };
 
-  // Lógica de descarga: Transcripción Cruda
   const downloadTranscription = () => {
     const element = document.createElement("a");
     const file = new Blob([fullTranscription], {type: 'text/plain'});
@@ -117,7 +112,6 @@ const SpeakerView = () => {
     document.body.removeChild(element);
   };
 
-  // Lógica de descarga: Resumen Estructurado
   const downloadSummary = () => {
     const fecha = new Date().toLocaleDateString();
     const summaryText = `--- RESUMEN DE LA SESIÓN ---\nFecha: ${fecha}\nIdioma Original del Orador: ${inputLanguage}\nIdioma de Traducción Principal en Pantalla: ${outputLanguage}\n\n--- REGISTRO COMPLETO ---\n${fullTranscription}`;
@@ -186,6 +180,17 @@ const SpeakerView = () => {
                 <option value="tr-TR">Turco</option>
                 <option value="pl-PL">Polaco</option>
                 <option value="sv-SE">Sueco</option>
+                {/* 10 Nuevos Idiomas de Entrada */}
+                <option value="da-DK">Danés</option>
+                <option value="fi-FI">Finés</option>
+                <option value="el-GR">Griego</option>
+                <option value="he-IL">Hebreo</option>
+                <option value="id-ID">Indonesio</option>
+                <option value="nb-NO">Noruego</option>
+                <option value="th-TH">Tailandés</option>
+                <option value="vi-VN">Vietnamita</option>
+                <option value="cs-CZ">Checo</option>
+                <option value="hu-HU">Húngaro</option>
               </select>
               <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-primary">
                 <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
@@ -209,6 +214,7 @@ const SpeakerView = () => {
                 onChange={(e) => setOutputLanguage(e.target.value)}
                 className="bg-darker border border-gray-700 text-gray-400 text-sm font-bold uppercase tracking-wider rounded-lg px-3 py-1.5 focus:ring-1 focus:ring-gray-400 focus:outline-none appearance-none cursor-pointer"
               >
+                <option value="es">Español</option>
                 <option value="en">Inglés</option>
                 <option value="pt">Portugués</option>
                 <option value="fr">Francés</option>
@@ -224,6 +230,17 @@ const SpeakerView = () => {
                 <option value="tr">Turco</option>
                 <option value="pl">Polaco</option>
                 <option value="sv">Sueco</option>
+                {/* 10 Nuevos Idiomas de Salida */}
+                <option value="da">Danés</option>
+                <option value="fi">Finés</option>
+                <option value="el">Griego</option>
+                <option value="he">Hebreo</option>
+                <option value="id">Indonesio</option>
+                <option value="nb">Noruego</option>
+                <option value="th">Tailandés</option>
+                <option value="vi">Vietnamita</option>
+                <option value="cs">Checo</option>
+                <option value="hu">Húngaro</option>
               </select>
               <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
                 <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
@@ -260,7 +277,6 @@ const SpeakerView = () => {
           )}
         </div>
 
-        {/* Botones de descarga: Solo aparecen cuando no se está grabando y hay texto acumulado */}
         {!isRecording && fullTranscription && (
           <div className="flex gap-4 mt-2 transition-all duration-500 ease-in-out">
             <button 

@@ -2,11 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
 import { Headphones, Globe2 } from 'lucide-react';
 
-// Conexión blindada: Usa la variable de entorno en Vercel, o el localhost si estás probando en tu computadora
 const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001');
 
 const AudienceView = () => {
-  const [language, setLanguage] = useState('en'); 
+  const [language, setLanguage] = useState('es'); 
   const [translation, setTranslation] = useState('');
   const [isConnected, setIsConnected] = useState(false);
 
@@ -15,9 +14,12 @@ const AudienceView = () => {
     socket.on('disconnect', () => setIsConnected(false));
     
     socket.on('translation-result', (data) => {
+      // Si existe la traducción de Azure, la mostramos.
       if (data.translations && data.translations[language]) {
         setTranslation(data.translations[language]);
-      } else if (data.original && language === 'es-CO') {
+      } else if (data.original) {
+        // Fallback: Si el usuario elige español y el orador habla en español, 
+        // Azure no siempre "traduce", simplemente mostramos el texto original.
         setTranslation(data.original);
       }
     });
@@ -54,7 +56,7 @@ const AudienceView = () => {
             }}
             className="w-full bg-dark border border-gray-700 text-white text-lg rounded-xl p-4 focus:ring-2 focus:ring-accent focus:outline-none appearance-none cursor-pointer"
           >
-            <option value="es-CO">Español (Original)</option>
+            <option value="es">Español</option>
             <option value="en">English (Inglés)</option>
             <option value="pt">Português (Portugués)</option>
             <option value="fr">Français (Francés)</option>
@@ -70,6 +72,17 @@ const AudienceView = () => {
             <option value="tr">Türkçe (Turco)</option>
             <option value="pl">Polski (Polaco)</option>
             <option value="sv">Svenska (Sueco)</option>
+            {/* 10 Nuevos Idiomas para la Audiencia */}
+            <option value="da">Dansk (Danés)</option>
+            <option value="fi">Suomi (Finés)</option>
+            <option value="el">Ελληνικά (Griego)</option>
+            <option value="he">עברית (Hebreo)</option>
+            <option value="id">Bahasa Indonesia (Indonesio)</option>
+            <option value="nb">Norsk (Noruego)</option>
+            <option value="th">ไทย (Tailandés)</option>
+            <option value="vi">Tiếng Việt (Vietnamita)</option>
+            <option value="cs">Čeština (Checo)</option>
+            <option value="hu">Magyar (Húngaro)</option>
           </select>
           <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-400">
             <svg className="fill-current h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
