@@ -39,10 +39,11 @@ class TranslationService {
         this.translationConfig.setProfanity(sdk.ProfanityOption.Masked);
         
         // ==========================================
-        // OPTIMIZACIÓN DE LATENCIA (AGILIDAD)
+        // OPTIMIZACIÓN EXTREMA DE LATENCIA (HACK DE SEGMENTACIÓN)
         // ==========================================
-        // Forzamos a Azure a procesar la traducción más rápido, esperando solo 500ms de silencio
-        this.translationConfig.setProperty(sdk.PropertyId.SpeechServiceConnection_EndSilenceTimeoutMs, "500");
+        // Obliga al motor a fragmentar el discurso apenas el orador haga una micropausa de 400ms (un respiro)
+        this.translationConfig.setProperty(sdk.PropertyId.Speech_SegmentationSilenceTimeoutMs, "400");
+        this.translationConfig.setProperty(sdk.PropertyId.SpeechServiceConnection_EndSilenceTimeoutMs, "400");
         
         toLanguages.forEach(lang => {
             this.translationConfig.addTargetLanguage(lang);
@@ -118,10 +119,7 @@ class TranslationService {
 
         const synthesizer = new sdk.SpeechSynthesizer(speechConfig, null);
 
-        // ==========================================
-        // OPTIMIZACIÓN DE VELOCIDAD SSML
-        // ==========================================
-        // Le inyectamos SSML para que la IA hable un 15% más rápido (+15%)
+        // Mantenemos el aumento de velocidad al 15% para que alcance al orador
         const ssml = `
             <speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="${lang}">
                 <voice name="${voiceName}">
@@ -150,7 +148,7 @@ class TranslationService {
     }
 
     start() {
-        console.log("[Azure] Iniciando motor de traducción rápido y con filtro activo...");
+        console.log("[Azure] Iniciando motor de traducción con segmentación agresiva (400ms)...");
         if(this.recognizer) this.recognizer.startContinuousRecognitionAsync();
     }
 
