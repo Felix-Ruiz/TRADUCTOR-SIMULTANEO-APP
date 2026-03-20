@@ -3,15 +3,15 @@ const sdk = require("microsoft-cognitiveservices-speech-sdk");
 class TranslationService {
     constructor(socket, fromLanguage = 'es-CO', toLanguages = ['en', 'pt']) {
         this.socket = socket; 
-        this.targetLanguages = toLanguages; // Guardamos los idiomas solicitados dinámicamente
+        this.targetLanguages = toLanguages; 
         
         this.pushStream = sdk.AudioInputStream.createPushStream();
         
         const speechKey = process.env.AZURE_SPEECH_KEY;
         const speechRegion = process.env.AZURE_SPEECH_REGION;
 
-        if (!speechKey || !speechRegion || speechKey === "pega_aqui_tu_clave_de_azure") {
-            console.error("[!] ADVERTENCIA: Faltan credenciales válidas de Azure en el archivo .env");
+        if (!speechKey || !speechRegion) {
+            console.error("[!] ADVERTENCIA: Faltan credenciales válidas de Azure");
             return;
         }
 
@@ -32,27 +32,29 @@ class TranslationService {
         this.recognizer.recognizing = (s, e) => {
             if (e.result.reason === sdk.ResultReason.TranslatingSpeech) {
                 const translations = this.extractTranslations(e.result.translations);
-                this.socket.emit('translation-result', { 
-                    type: 'partial', 
-                    original: e.result.text, 
-                    translations 
-                });
+                const payload = { type: 'partial', original: e.result.text, translations };
+                
+                // 1. Enviamos el texto al administrador (tu PC)
+                this.socket.emit('translation-result', payload); 
+                
+                // 2. TRANSMISIÓN GLOBAL: Enviamos el texto a toda la audiencia (Celulares)
+                this.socket.broadcast.emit('translation-result', payload);
             }
         };
 
         this.recognizer.recognized = (s, e) => {
             if (e.result.reason === sdk.ResultReason.TranslatedSpeech) {
                 const translations = this.extractTranslations(e.result.translations);
-                this.socket.emit('translation-result', { 
-                    type: 'final', 
-                    original: e.result.text, 
-                    translations 
-                });
+                const payload = { type: 'final', original: e.result.text, translations };
+                
+                // Enviamos a ambos
+                this.socket.emit('translation-result', payload);
+                this.socket.broadcast.emit('translation-result', payload);
             }
         };
 
         this.recognizer.canceled = (s, e) => {
-            console.log(`[Azure] Reconocimiento cancelado o error de red: ${e.reason}`);
+            console.log(`[Azure] Reconocimiento cancelado: ${e.reason}`);
         };
 
         this.recognizer.sessionStopped = (s, e) => {
@@ -63,7 +65,6 @@ class TranslationService {
 
     extractTranslations(translationMap) {
         let result = {};
-        // Extraemos dinámicamente todos los idiomas que solicitó el orador
         this.targetLanguages.forEach(lang => {
             result[lang] = translationMap.get(lang);
         });
