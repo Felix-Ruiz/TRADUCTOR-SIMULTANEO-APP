@@ -14,8 +14,8 @@ const AudienceView = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [isAudioEnabled, setIsAudioEnabled] = useState(false);
 
-  const synthRef = useRef(window.speechSynthesis);
-  const lastSpokenTextRef = useRef('');
+  // NUEVO: Motor de audio web de alta fidelidad para recibir la voz de Azure
+  const audioContextRef = useRef(null);
 
   useEffect(() => {
     socket.on('connect', () => setIsConnected(true));
@@ -31,10 +31,29 @@ const AudienceView = () => {
         currentText = data.original;
         setTranslation(currentText);
       }
+    });
 
-      if (!isTvMode && isAudioEnabled && data.type === 'final' && currentText && currentText !== lastSpokenTextRef.current) {
-        speak(currentText, language);
-        lastSpokenTextRef.current = currentText;
+    // NUEVO: Escuchar el paquete de audio neuronal de Azure desde el servidor
+    socket.on('neural-audio', async (data) => {
+      // data = { language: 'en', audioBuffer: <ArrayBuffer> }
+      if (!isTvMode && isAudioEnabled && data.language === language && data.audioBuffer) {
+        try {
+          if (!audioContextRef.current) {
+            audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+          }
+          if (audioContextRef.current.state === 'suspended') {
+            await audioContextRef.current.resume();
+          }
+          
+          // Decodificar y reproducir el audio premium al instante
+          const audioBuffer = await audioContextRef.current.decodeAudioData(data.audioBuffer);
+          const source = audioContextRef.current.createBufferSource();
+          source.buffer = audioBuffer;
+          source.connect(audioContextRef.current.destination);
+          source.start(0);
+        } catch (error) {
+          console.error("Error reproduciendo voz neuronal:", error);
+        }
       }
     });
 
@@ -42,32 +61,22 @@ const AudienceView = () => {
       socket.off('connect');
       socket.off('disconnect');
       socket.off('translation-result');
-      if (synthRef.current) synthRef.current.cancel();
+      socket.off('neural-audio');
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        audioContextRef.current.close().catch(() => {});
+      }
     };
   }, [language, isAudioEnabled, isTvMode]); 
 
-  const speak = (text, langCode) => {
-    if (!synthRef.current) return;
-    synthRef.current.cancel(); 
-    
-    const utterance = new SpeechSynthesisUtterance(text);
-    const langMap = {
-      'es': 'es-ES', 'en': 'en-US', 'de': 'de-DE', 'fr': 'fr-FR', 'pt': 'pt-BR'
-    };
-    
-    utterance.lang = langMap[langCode] || langCode;
-    utterance.rate = 1.05; 
-    
-    synthRef.current.speak(utterance);
-  };
-
   const toggleAudio = () => {
     if (!isAudioEnabled) {
-      const unlockVoice = new SpeechSynthesisUtterance("");
-      synthRef.current.speak(unlockVoice);
-    } else {
-      synthRef.current.cancel();
-      lastSpokenTextRef.current = ''; 
+      // Desbloquear el motor de audio en el primer clic (Políticas de seguridad de Apple/Google)
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioContextRef.current.state === 'suspended') {
+        audioContextRef.current.resume();
+      }
     }
     setIsAudioEnabled(!isAudioEnabled);
   };
@@ -86,7 +95,6 @@ const AudienceView = () => {
               onChange={(e) => {
                 setLanguage(e.target.value);
                 setTranslation('');
-                lastSpokenTextRef.current = '';
               }}
               className="bg-gray-900 border border-gray-800 text-gray-500 text-xs font-bold uppercase tracking-wider rounded-lg px-3 py-1.5 focus:ring-1 focus:ring-gray-600 focus:outline-none appearance-none cursor-pointer"
             >
@@ -104,7 +112,6 @@ const AudienceView = () => {
           </div>
         </div>
 
-        {/* CONTENEDOR ESTABILIZADO: Caja anclada al fondo, ancho máximo controlado y texto sin peso extremo */}
         <div className="w-full max-w-6xl mx-auto">
           <p className="text-4xl md:text-5xl lg:text-6xl font-medium text-white text-left leading-normal tracking-wide drop-shadow-2xl">
             {translation || "..."}
@@ -150,8 +157,6 @@ const AudienceView = () => {
             onChange={(e) => {
               setLanguage(e.target.value);
               setTranslation('');
-              lastSpokenTextRef.current = '';
-              if (synthRef.current) synthRef.current.cancel();
             }}
             className="w-full bg-dark border border-gray-700 text-white text-lg rounded-xl p-4 focus:ring-2 focus:ring-accent focus:outline-none appearance-none cursor-pointer"
           >
@@ -172,14 +177,13 @@ const AudienceView = () => {
           <div className="mt-4 flex items-start gap-2 bg-yellow-500/10 border border-yellow-500/20 p-3 rounded-lg">
             <AlertCircle className="w-4 h-4 text-yellow-500 flex-shrink-0 mt-0.5" />
             <p className="text-xs text-yellow-500/90 leading-relaxed">
-              Modo de voz activado. Debido al procesamiento en tiempo real, el audio puede tener un ligero retraso respecto a la transcripción en pantalla.
+              Modo de voz activado. Transmisión de voz neuronal de alta fidelidad en curso.
             </p>
           </div>
         )}
       </div>
 
       <main className="flex-1 flex flex-col justify-end pb-8 overflow-hidden">
-        {/* TEXTO ESTABILIZADO PARA MÓVILES: Tamaño ajustado para evitar que una palabra rompa el párrafo */}
         <p className="text-2xl md:text-3xl font-normal leading-relaxed text-white min-h-[5rem] text-left tracking-wide">
           {translation || "Esperando al orador..."}
         </p>
