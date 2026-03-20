@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
 import { Headphones, Globe2 } from 'lucide-react';
 
-const socket = io('http://localhost:3001');
+const socket = io(import.meta.env.VITE_BACKEND_URL);
 
 const AudienceView = () => {
   const [language, setLanguage] = useState('en'); 

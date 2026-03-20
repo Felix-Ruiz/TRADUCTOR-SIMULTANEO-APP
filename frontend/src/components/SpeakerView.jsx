@@ -3,7 +3,7 @@ import { io } from 'socket.io-client';
 import { Mic, Square, Radio, Globe } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
-const socket = io('http://localhost:3001', { autoConnect: false });
+const socket = io(import.meta.env.VITE_BACKEND_URL, { autoConnect: false });
 
 const SpeakerView = () => {
   const [isRecording, setIsRecording] = useState(false);
