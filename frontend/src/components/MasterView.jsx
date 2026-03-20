@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
-import { Shield, Power, Plus, Trash2, Key, Activity, Copy, CheckCircle2, X, Users } from 'lucide-react';
+import { Shield, Power, Plus, Trash2, Key, Activity, Copy, CheckCircle2, X, Users, AlertCircle } from 'lucide-react';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001', { autoConnect: false });
 
@@ -17,6 +17,14 @@ const MasterView = () => {
   const [newRoomName, setNewRoomName] = useState('');
   const [selectedEventId, setSelectedEventId] = useState(null);
   const [copiedText, setCopiedText] = useState(null);
+
+  // NUEVO: Estado global para el Cuadro de Diálogo Customizado
+  const [dialogConfig, setDialogConfig] = useState({ isOpen: false, title: '', message: '', type: 'confirm', onConfirm: null, confirmStyle: '' });
+
+  const openDialog = (title, message, type, onConfirm = null, confirmStyle = 'bg-primary hover:bg-blue-600 shadow-blue-500/25') => {
+    setDialogConfig({ isOpen: true, title, message, type, onConfirm, confirmStyle });
+  };
+  const closeDialog = () => setDialogConfig(prev => ({ ...prev, isOpen: false }));
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -52,18 +60,35 @@ const MasterView = () => {
   const toggleSystem = () => {
     const newStatus = !isSystemActive;
     if (!newStatus) {
-      if (!window.confirm("¡PELIGRO! Vas a apagar la central completa. Absolutamente todos los eventos caerán. ¿Continuar?")) return;
+      openDialog(
+        "Apagar Central Principal", 
+        "¡PELIGRO! Vas a apagar la central completa. Absolutamente todos los eventos caerán. ¿Continuar?", 
+        "confirm", 
+        () => {
+          setIsSystemActive(newStatus);
+          socket.emit('master-toggle-system', newStatus);
+        },
+        "bg-red-600 hover:bg-red-700 shadow-red-500/25"
+      );
+    } else {
+      setIsSystemActive(newStatus);
+      socket.emit('master-toggle-system', newStatus);
     }
-    setIsSystemActive(newStatus);
-    socket.emit('master-toggle-system', newStatus);
   };
 
   const toggleEventStatus = (id, currentStatus) => {
     const newStatus = !currentStatus;
     if (!newStatus) {
-      if (!window.confirm("¿Seguro que deseas pausar este evento en específico?")) return;
+      openDialog(
+        "Pausar Evento", 
+        "¿Seguro que deseas pausar este evento en específico? Los oradores y la audiencia serán desconectados.", 
+        "confirm", 
+        () => socket.emit('master-toggle-event', { id, status: newStatus }, () => {}),
+        "bg-red-600 hover:bg-red-700 shadow-red-500/25"
+      );
+    } else {
+      socket.emit('master-toggle-event', { id, status: newStatus }, () => {});
     }
-    socket.emit('master-toggle-event', { id, status: newStatus }, () => {});
   };
 
   const handleCreateEvent = (e) => {
@@ -75,9 +100,13 @@ const MasterView = () => {
   };
 
   const handleDeleteEvent = (id) => {
-    if (window.confirm("¿Eliminar este evento y todas sus salas de forma permanente?")) {
-      socket.emit('master-delete-event', id, () => {});
-    }
+    openDialog(
+      "Eliminar Evento", 
+      "¿Deseas eliminar este evento y todas sus salas de forma permanente? Esta acción no se puede deshacer.", 
+      "confirm", 
+      () => socket.emit('master-delete-event', id, () => {}),
+      "bg-red-600 hover:bg-red-700 shadow-red-500/25"
+    );
   };
 
   const handleAddRoom = (e, id) => {
@@ -95,9 +124,13 @@ const MasterView = () => {
   };
 
   const handleDeleteRoom = (id, room) => {
-    if (window.confirm(`¿Seguro que deseas eliminar la sala ${room}?`)) {
-      socket.emit('master-delete-room', { id, room }, () => {});
-    }
+    openDialog(
+      "Eliminar Sala", 
+      `¿Seguro que deseas eliminar la sala ${room} de este evento?`, 
+      "confirm", 
+      () => socket.emit('master-delete-room', { id, room }, () => {}),
+      "bg-red-600 hover:bg-red-700 shadow-red-500/25"
+    );
   };
 
   const copyToClipboard = (text) => {
@@ -151,7 +184,34 @@ const MasterView = () => {
   }
 
   return (
-    <div className="flex flex-col h-screen w-full p-8 max-w-6xl mx-auto overflow-hidden bg-darker">
+    <div className="flex flex-col h-screen w-full p-8 max-w-6xl mx-auto overflow-hidden bg-darker relative">
+      
+      {/* CUADRO DE DIÁLOGO (MODAL) */}
+      {dialogConfig.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity">
+          <div className="bg-darker border border-gray-700 p-6 rounded-3xl shadow-[0_0_40px_rgba(0,0,0,0.5)] max-w-sm w-full flex flex-col gap-2 transform transition-all scale-100">
+            <div className="flex items-center gap-3 mb-2">
+               <AlertCircle className={`w-7 h-7 ${dialogConfig.type === 'alert' ? 'text-yellow-500' : 'text-red-500'}`} />
+               <h3 className="text-xl font-bold text-white tracking-wide">{dialogConfig.title}</h3>
+            </div>
+            <p className="text-gray-400 text-sm leading-relaxed mb-4">{dialogConfig.message}</p>
+            <div className="flex justify-end gap-3 mt-2">
+              {dialogConfig.type === 'confirm' && (
+                <button onClick={closeDialog} className="px-5 py-2.5 rounded-xl text-gray-400 hover:bg-gray-800 hover:text-white transition-colors text-sm font-bold tracking-wide">
+                  Cancelar
+                </button>
+              )}
+              <button 
+                onClick={() => { if(dialogConfig.onConfirm) dialogConfig.onConfirm(); closeDialog(); }} 
+                className={`px-5 py-2.5 rounded-xl text-white text-sm font-bold tracking-wide transition-all shadow-lg ${dialogConfig.confirmStyle}`}
+              >
+                {dialogConfig.type === 'alert' ? 'Entendido' : 'Confirmar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <header className="flex justify-between items-center mb-8 shrink-0 bg-dark p-6 rounded-2xl border border-gray-800 shadow-xl">
         <div className="flex items-center gap-4">
           <div className="bg-red-500/10 p-3 rounded-xl">
@@ -208,7 +268,6 @@ const MasterView = () => {
               <div className="p-5 border-b border-gray-800 bg-black/20 flex justify-between items-center">
                 <div className="flex items-center gap-3">
                     <h3 className="text-xl font-bold text-white leading-tight">{event.name}</h3>
-                    {/* NUEVO: Etiqueta dinámica atada a la Central */}
                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest ${
                       !isSystemActive 
                         ? 'bg-gray-500/20 text-gray-500 border border-gray-500/30' 

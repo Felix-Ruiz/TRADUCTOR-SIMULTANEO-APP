@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
-import { Mic, Square, Radio, Globe, Download, Lock, AlertTriangle } from 'lucide-react';
+import { Mic, Square, Radio, Globe, Download, Lock, AlertTriangle, AlertCircle } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL, { autoConnect: false });
@@ -22,7 +22,7 @@ const SpeakerView = () => {
   
   const [eventInfo, setEventInfo] = useState(null);
   const [isSystemActive, setIsSystemActive] = useState(true);
-  const [isEventActive, setIsEventActive] = useState(true); // NUEVO
+  const [isEventActive, setIsEventActive] = useState(true); 
 
   const [isRecording, setIsRecording] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
@@ -43,6 +43,14 @@ const SpeakerView = () => {
   const processorRef = useRef(null);
   const streamRef = useRef(null);
 
+  // NUEVO: Estado global para el Cuadro de Diálogo Customizado
+  const [dialogConfig, setDialogConfig] = useState({ isOpen: false, title: '', message: '', type: 'alert', onConfirm: null, confirmStyle: '' });
+
+  const openDialog = (title, message, type = 'alert', onConfirm = null, confirmStyle = 'bg-primary hover:bg-blue-600 shadow-blue-500/25') => {
+    setDialogConfig({ isOpen: true, title, message, type, onConfirm, confirmStyle });
+  };
+  const closeDialog = () => setDialogConfig(prev => ({ ...prev, isOpen: false }));
+
   const audienceUrl = `${window.location.origin}/?event=${eventInfo?.id || ''}&room=${roomName}`;
 
   const attemptLogin = (pwd) => {
@@ -51,7 +59,7 @@ const SpeakerView = () => {
       if (response.success) {
         setIsAuthenticated(true);
         setEventInfo(response.event);
-        setIsEventActive(response.event.isActive); // Guardar estado del evento
+        setIsEventActive(response.event.isActive); 
         setRoomName(response.event.rooms[0] || 'PRINCIPAL');
         sessionStorage.setItem('speakerPwd', pwd);
         setLoginError('');
@@ -93,14 +101,19 @@ const SpeakerView = () => {
 
     socket.on('system-status', (status) => {
       setIsSystemActive(status);
-      if (!status && isRecording) stopRecordingLocally();
+      if (!status && isRecording) {
+        stopRecordingLocally();
+        openDialog("Transmisión Detenida", "La Central Principal ha sido apagada. Tu transmisión se ha detenido por seguridad.", "alert", null, "bg-red-600 hover:bg-red-700 shadow-red-500/25");
+      }
     });
 
-    // NUEVO: Escucha si apagan este evento en específico
     socket.on('event-status-changed', (data) => {
         if (eventInfo && data.eventId === eventInfo.id) {
             setIsEventActive(data.status);
-            if (!data.status && isRecording) stopRecordingLocally();
+            if (!data.status && isRecording) {
+                stopRecordingLocally();
+                openDialog("Evento Pausado", "El administrador ha pausado este evento. Tu transmisión se ha detenido por seguridad.", "alert", null, "bg-red-600 hover:bg-red-700 shadow-red-500/25");
+            }
         }
     });
     
@@ -135,7 +148,7 @@ const SpeakerView = () => {
   const startRecording = async () => {
     try {
       if (!roomName) {
-        alert("Por favor selecciona una sala.");
+        openDialog("Información Incompleta", "Por favor selecciona una sala antes de iniciar la transmisión.", "alert");
         return;
       }
 
@@ -198,7 +211,7 @@ const SpeakerView = () => {
       setIsRecording(true);
     } catch (error) {
       console.error('Error accediendo al micrófono:', error);
-      alert('Por favor, permite el acceso al micrófono en tu navegador.');
+      openDialog("Permiso Denegado", "Por favor, permite el acceso al micrófono en tu navegador para poder transmitir.", "alert");
     }
   };
 
@@ -284,7 +297,6 @@ const SpeakerView = () => {
     );
   }
 
-  // SI SE APAGA EL SISTEMA O ESTE EVENTO
   if (!isSystemActive || !isEventActive) {
     return (
       <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-black">
@@ -300,7 +312,34 @@ const SpeakerView = () => {
   }
 
   return (
-    <div className="flex flex-col h-screen w-full p-8 max-w-6xl mx-auto overflow-hidden">
+    <div className="flex flex-col h-screen w-full p-8 max-w-6xl mx-auto overflow-hidden relative">
+      
+      {/* CUADRO DE DIÁLOGO (MODAL) */}
+      {dialogConfig.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity">
+          <div className="bg-darker border border-gray-700 p-6 rounded-3xl shadow-[0_0_40px_rgba(0,0,0,0.5)] max-w-sm w-full flex flex-col gap-2 transform transition-all scale-100">
+            <div className="flex items-center gap-3 mb-2">
+               <AlertCircle className={`w-7 h-7 ${dialogConfig.type === 'alert' ? 'text-yellow-500' : 'text-red-500'}`} />
+               <h3 className="text-xl font-bold text-white tracking-wide">{dialogConfig.title}</h3>
+            </div>
+            <p className="text-gray-400 text-sm leading-relaxed mb-4">{dialogConfig.message}</p>
+            <div className="flex justify-end gap-3 mt-2">
+              {dialogConfig.type === 'confirm' && (
+                <button onClick={closeDialog} className="px-5 py-2.5 rounded-xl text-gray-400 hover:bg-gray-800 hover:text-white transition-colors text-sm font-bold tracking-wide">
+                  Cancelar
+                </button>
+              )}
+              <button 
+                onClick={() => { if(dialogConfig.onConfirm) dialogConfig.onConfirm(); closeDialog(); }} 
+                className={`px-5 py-2.5 rounded-xl text-white text-sm font-bold tracking-wide transition-all shadow-lg ${dialogConfig.confirmStyle}`}
+              >
+                {dialogConfig.type === 'alert' ? 'Entendido' : 'Confirmar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <header className="flex justify-between items-start mb-8 shrink-0">
         <div className="flex flex-col gap-4">
           <div className="flex items-center gap-3">

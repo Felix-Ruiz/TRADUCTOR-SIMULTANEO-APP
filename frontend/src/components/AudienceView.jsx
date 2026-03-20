@@ -27,9 +27,17 @@ const AudienceView = () => {
   const [userMode, setUserMode] = useState(null);
 
   const [isSystemActive, setIsSystemActive] = useState(true);
-  const [isEventActive, setIsEventActive] = useState(true); // NUEVO
+  const [isEventActive, setIsEventActive] = useState(true); 
   
   const [isVerifying, setIsVerifying] = useState(!!initialEventId);
+
+  // NUEVO: Estado global para el Cuadro de Diálogo Customizado
+  const [dialogConfig, setDialogConfig] = useState({ isOpen: false, title: '', message: '', type: 'confirm', onConfirm: null, confirmStyle: '' });
+
+  const openDialog = (title, message, type = 'confirm', onConfirm = null, confirmStyle = 'bg-red-600 hover:bg-red-700 shadow-red-500/25') => {
+    setDialogConfig({ isOpen: true, title, message, type, onConfirm, confirmStyle });
+  };
+  const closeDialog = () => setDialogConfig(prev => ({ ...prev, isOpen: false }));
 
   const audioPlayerRef = useRef(null);
   const audioQueue = useRef([]);
@@ -119,22 +127,27 @@ const AudienceView = () => {
   };
 
   const handleExitEvent = () => {
-    if (window.confirm("¿Deseas salir de este evento?")) {
-      sessionStorage.removeItem('audienceEventId');
-      setUrlEvent('');
-      setRoomName('');
-      setEventInput('');
-      setUserMode(null);
-      setTranslation('');
-      audioQueue.current = [];
-      isPlaying.current = false;
-      if (audioPlayerRef.current) {
-        audioPlayerRef.current.pause();
-        audioPlayerRef.current.src = "";
+    openDialog(
+      "Salir del Evento",
+      "¿Deseas salir de este evento y volver al menú principal de acceso?",
+      "confirm",
+      () => {
+        sessionStorage.removeItem('audienceEventId');
+        setUrlEvent('');
+        setRoomName('');
+        setEventInput('');
+        setUserMode(null);
+        setTranslation('');
+        audioQueue.current = [];
+        isPlaying.current = false;
+        if (audioPlayerRef.current) {
+          audioPlayerRef.current.pause();
+          audioPlayerRef.current.src = "";
+        }
+        releaseWakeLock();
+        socket.emit('join-isolated-room', { eventId: 'NONE', roomName: 'NONE' });
       }
-      releaseWakeLock();
-      socket.emit('join-isolated-room', { eventId: 'NONE', roomName: 'NONE' });
-    }
+    );
   };
 
   const stopPlaybackAndClear = () => {
@@ -163,7 +176,6 @@ const AudienceView = () => {
       if (!status) stopPlaybackAndClear();
     });
 
-    // NUEVO: Escucha si apagan este evento en específico
     socket.on('event-status-changed', (data) => {
         if (data.eventId === urlEvent) {
             setIsEventActive(data.status);
@@ -174,7 +186,7 @@ const AudienceView = () => {
     socket.on('event-info', (data) => {
         setEventName(data.name);
         setAvailableRooms(data.allRooms);
-        setIsEventActive(data.isActive); // Tomamos el estado al entrar
+        setIsEventActive(data.isActive); 
         setRoomName(prev => {
             if (!prev || !data.allRooms.includes(prev)) return data.allRooms[0] || '';
             return prev;
@@ -274,10 +286,35 @@ const AudienceView = () => {
     );
   }
 
-  // SI LA CENTRAL O ESTE EVENTO ESTÁ APAGADO
   if (!isSystemActive || (urlEvent && !isEventActive)) {
     return (
       <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-black relative overflow-hidden">
+        
+        {dialogConfig.isOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity">
+            <div className="bg-darker border border-gray-700 p-6 rounded-3xl shadow-[0_0_40px_rgba(0,0,0,0.5)] max-w-sm w-full flex flex-col gap-2 transform transition-all scale-100">
+              <div className="flex items-center gap-3 mb-2">
+                 <AlertCircle className={`w-7 h-7 ${dialogConfig.type === 'alert' ? 'text-yellow-500' : 'text-red-500'}`} />
+                 <h3 className="text-xl font-bold text-white tracking-wide">{dialogConfig.title}</h3>
+              </div>
+              <p className="text-gray-400 text-sm leading-relaxed mb-4">{dialogConfig.message}</p>
+              <div className="flex justify-end gap-3 mt-2">
+                {dialogConfig.type === 'confirm' && (
+                  <button onClick={closeDialog} className="px-5 py-2.5 rounded-xl text-gray-400 hover:bg-gray-800 hover:text-white transition-colors text-sm font-bold tracking-wide">
+                    Cancelar
+                  </button>
+                )}
+                <button 
+                  onClick={() => { if(dialogConfig.onConfirm) dialogConfig.onConfirm(); closeDialog(); }} 
+                  className={`px-5 py-2.5 rounded-xl text-white text-sm font-bold tracking-wide transition-all shadow-lg ${dialogConfig.confirmStyle}`}
+                >
+                  Confirmar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="absolute inset-0 bg-darker/80 z-0"></div>
         <div className="w-full max-w-sm flex flex-col items-center z-10">
           <div className="bg-red-500/10 p-6 rounded-full mb-8">
@@ -337,14 +374,35 @@ const AudienceView = () => {
     );
   }
 
-  // ==================================================
-  // VISTA MODO PROYECTOR (TV) - AHORA TOTALMENTE VISIBLE
-  // ==================================================
   if (isTvMode) {
     return (
       <div className="flex flex-col justify-end h-screen w-full bg-black p-8 md:p-16 lg:pb-24 overflow-hidden relative">
         
-        {/* PANEL DE CONTROL DE TV SIEMPRE VISIBLE */}
+        {dialogConfig.isOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity">
+            <div className="bg-darker border border-gray-700 p-6 rounded-3xl shadow-[0_0_40px_rgba(0,0,0,0.5)] max-w-sm w-full flex flex-col gap-2 transform transition-all scale-100">
+              <div className="flex items-center gap-3 mb-2">
+                 <AlertCircle className={`w-7 h-7 ${dialogConfig.type === 'alert' ? 'text-yellow-500' : 'text-red-500'}`} />
+                 <h3 className="text-xl font-bold text-white tracking-wide">{dialogConfig.title}</h3>
+              </div>
+              <p className="text-gray-400 text-sm leading-relaxed mb-4">{dialogConfig.message}</p>
+              <div className="flex justify-end gap-3 mt-2">
+                {dialogConfig.type === 'confirm' && (
+                  <button onClick={closeDialog} className="px-5 py-2.5 rounded-xl text-gray-400 hover:bg-gray-800 hover:text-white transition-colors text-sm font-bold tracking-wide">
+                    Cancelar
+                  </button>
+                )}
+                <button 
+                  onClick={() => { if(dialogConfig.onConfirm) dialogConfig.onConfirm(); closeDialog(); }} 
+                  className={`px-5 py-2.5 rounded-xl text-white text-sm font-bold tracking-wide transition-all shadow-lg ${dialogConfig.confirmStyle}`}
+                >
+                  Confirmar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="absolute top-6 right-8 z-10 flex items-center gap-4 bg-dark/80 p-3 rounded-2xl backdrop-blur-md border border-gray-800 shadow-xl transition-all hover:bg-dark">
           
           <div className="relative">
@@ -409,12 +467,35 @@ const AudienceView = () => {
     );
   }
 
-  // ==================================================
-  // MODAL DE SELECCIÓN DE SALA Y MODO (MÓVIL)
-  // ==================================================
   if (!userMode) {
     return (
       <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-darker relative">
+        
+        {dialogConfig.isOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity">
+            <div className="bg-darker border border-gray-700 p-6 rounded-3xl shadow-[0_0_40px_rgba(0,0,0,0.5)] max-w-sm w-full flex flex-col gap-2 transform transition-all scale-100">
+              <div className="flex items-center gap-3 mb-2">
+                 <AlertCircle className={`w-7 h-7 ${dialogConfig.type === 'alert' ? 'text-yellow-500' : 'text-red-500'}`} />
+                 <h3 className="text-xl font-bold text-white tracking-wide">{dialogConfig.title}</h3>
+              </div>
+              <p className="text-gray-400 text-sm leading-relaxed mb-4">{dialogConfig.message}</p>
+              <div className="flex justify-end gap-3 mt-2">
+                {dialogConfig.type === 'confirm' && (
+                  <button onClick={closeDialog} className="px-5 py-2.5 rounded-xl text-gray-400 hover:bg-gray-800 hover:text-white transition-colors text-sm font-bold tracking-wide">
+                    Cancelar
+                  </button>
+                )}
+                <button 
+                  onClick={() => { if(dialogConfig.onConfirm) dialogConfig.onConfirm(); closeDialog(); }} 
+                  className={`px-5 py-2.5 rounded-xl text-white text-sm font-bold tracking-wide transition-all shadow-lg ${dialogConfig.confirmStyle}`}
+                >
+                  Confirmar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <button 
           onClick={handleExitEvent}
           className="absolute top-6 right-6 text-gray-500 hover:text-red-500 transition-colors flex items-center gap-2 text-xs font-bold uppercase tracking-widest"
@@ -490,6 +571,31 @@ const AudienceView = () => {
   return (
     <div className="flex flex-col h-screen w-full p-6 max-w-md mx-auto bg-darker relative">
       
+      {dialogConfig.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity">
+          <div className="bg-darker border border-gray-700 p-6 rounded-3xl shadow-[0_0_40px_rgba(0,0,0,0.5)] max-w-sm w-full flex flex-col gap-2 transform transition-all scale-100">
+            <div className="flex items-center gap-3 mb-2">
+               <AlertCircle className={`w-7 h-7 ${dialogConfig.type === 'alert' ? 'text-yellow-500' : 'text-red-500'}`} />
+               <h3 className="text-xl font-bold text-white tracking-wide">{dialogConfig.title}</h3>
+            </div>
+            <p className="text-gray-400 text-sm leading-relaxed mb-4">{dialogConfig.message}</p>
+            <div className="flex justify-end gap-3 mt-2">
+              {dialogConfig.type === 'confirm' && (
+                <button onClick={closeDialog} className="px-5 py-2.5 rounded-xl text-gray-400 hover:bg-gray-800 hover:text-white transition-colors text-sm font-bold tracking-wide">
+                  Cancelar
+                </button>
+              )}
+              <button 
+                onClick={() => { if(dialogConfig.onConfirm) dialogConfig.onConfirm(); closeDialog(); }} 
+                className={`px-5 py-2.5 rounded-xl text-white text-sm font-bold tracking-wide transition-all shadow-lg ${dialogConfig.confirmStyle}`}
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <audio ref={audioPlayerRef} onEnded={handleAudioEnded} className="hidden" />
 
       <header className="flex justify-between items-center mb-6 pb-4 border-b border-gray-800 shrink-0">
