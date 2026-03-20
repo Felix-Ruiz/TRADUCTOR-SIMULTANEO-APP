@@ -1,20 +1,24 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
-import { Mic, Square, Radio, Globe, Download } from 'lucide-react';
+import { Mic, Square, Radio, Globe, Download, Lock } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL, { autoConnect: false });
 
 const SpeakerView = () => {
+  // === ESTADOS DE SEGURIDAD ===
+  const [isAuthenticated, setIsAuthenticated] = useState(sessionStorage.getItem('isAdminAuth') === 'true');
+  const [passwordInput, setPasswordInput] = useState('');
+  const [loginError, setLoginError] = useState('');
+
+  // === ESTADOS DE LA APLICACIÓN ===
   const [isRecording, setIsRecording] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [transcription, setTranscription] = useState('');
   
   const [allTranslations, setAllTranslations] = useState({}); 
-  
   const [inputLanguage, setInputLanguage] = useState('es-CO'); 
   const [outputLanguage, setOutputLanguage] = useState('en'); 
-  
   const [fullTranscription, setFullTranscription] = useState('');
   
   const audioContextRef = useRef(null);
@@ -23,7 +27,25 @@ const SpeakerView = () => {
 
   const audienceUrl = `${window.location.origin}`;
 
+  // === LÓGICA DE INICIO DE SESIÓN ===
+  const handleLogin = (e) => {
+    e.preventDefault();
+    // Usa una variable de entorno, o 'admin123' como respaldo por defecto
+    const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || 'admin123';
+    
+    if (passwordInput === ADMIN_PASSWORD) {
+      setIsAuthenticated(true);
+      sessionStorage.setItem('isAdminAuth', 'true');
+      setLoginError('');
+    } else {
+      setLoginError('Contraseña incorrecta. Acceso denegado.');
+      setPasswordInput('');
+    }
+  };
+
   useEffect(() => {
+    if (!isAuthenticated) return; // No conectar sockets si no está autenticado
+
     socket.on('connect', () => setIsConnected(true));
     socket.on('disconnect', () => setIsConnected(false));
     
@@ -43,7 +65,7 @@ const SpeakerView = () => {
       socket.off('disconnect');
       socket.off('translation-result');
     };
-  }, []);
+  }, [isAuthenticated]);
 
   const startRecording = async () => {
     try {
@@ -51,7 +73,6 @@ const SpeakerView = () => {
       streamRef.current = stream;
       
       socket.connect();
-      // Solo los 5 idiomas top para máxima velocidad en Azure
       socket.emit('start-translation', { 
         fromLanguage: inputLanguage, 
         toLanguages: ['es', 'en', 'pt', 'fr', 'de'] 
@@ -63,10 +84,6 @@ const SpeakerView = () => {
 
       const source = audioContext.createMediaStreamSource(stream);
       
-      // ==========================================
-      // MOTOR ULTRA-RÁPIDO: AudioWorklet
-      // Hilo secundario para latencia cero
-      // ==========================================
       const workletCode = `
         class PCMProcessor extends AudioWorkletProcessor {
           process(inputs, outputs, parameters) {
@@ -95,7 +112,6 @@ const SpeakerView = () => {
       const workletNode = new AudioWorkletNode(audioContext, 'pcm-processor');
       processorRef.current = workletNode;
 
-      // Envío de audio a máxima velocidad por WebSockets
       workletNode.port.onmessage = (event) => {
         if (socket.connected) {
           socket.emit('audio-stream', event.data);
@@ -148,6 +164,42 @@ const SpeakerView = () => {
     document.body.removeChild(element);
   };
 
+  // === PANTALLA DE BLOQUEO ===
+  if (!isAuthenticated) {
+    return (
+      <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-darker">
+        <div className="bg-dark border border-gray-800 p-8 rounded-3xl shadow-2xl max-w-md w-full flex flex-col items-center gap-6 text-center">
+          <div className="bg-primary/10 p-5 rounded-full">
+            <Lock className="w-10 h-10 text-primary" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-white mb-2">Acceso Restringido</h2>
+            <p className="text-gray-400 text-sm leading-relaxed">
+              Ingresa la clave de administrador para gestionar el módulo de traducción simultánea.
+            </p>
+          </div>
+          <form onSubmit={handleLogin} className="w-full flex flex-col gap-4 mt-2">
+            <input
+              type="password"
+              value={passwordInput}
+              onChange={(e) => setPasswordInput(e.target.value)}
+              placeholder="Contraseña"
+              className="w-full bg-darker border border-gray-700 text-white text-lg rounded-xl p-4 focus:ring-2 focus:ring-primary focus:outline-none text-center tracking-widest transition-all"
+            />
+            {loginError && <p className="text-red-500 text-xs font-semibold animate-pulse">{loginError}</p>}
+            <button
+              type="submit"
+              className="w-full bg-primary hover:bg-blue-600 text-white px-6 py-4 rounded-xl font-bold transition-all shadow-lg hover:shadow-blue-500/25 mt-2"
+            >
+              Ingresar al Panel
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // === PANEL DE CONTROL PRINCIPAL ===
   return (
     <div className="flex flex-col h-screen w-full p-8 max-w-5xl mx-auto">
       
