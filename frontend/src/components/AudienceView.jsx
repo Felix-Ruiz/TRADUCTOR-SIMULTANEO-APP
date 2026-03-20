@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
-import { Headphones, Globe2, Volume2, VolumeX, AlertCircle } from 'lucide-react';
+import { Globe2, Volume2, VolumeX, AlertCircle } from 'lucide-react';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001');
 
@@ -47,7 +47,6 @@ const AudienceView = () => {
     synthRef.current.cancel(); 
     
     const utterance = new SpeechSynthesisUtterance(text);
-    // Mapeo exclusivo para los 5 idiomas solicitados
     const langMap = {
       'es': 'es-ES', 'en': 'en-US', 'de': 'de-DE', 'fr': 'fr-FR', 'pt': 'pt-BR'
     };
@@ -74,7 +73,8 @@ const AudienceView = () => {
       
       <header className="flex justify-between items-center mb-8 pb-4 border-b border-gray-800">
         <div className="flex items-center gap-3">
-          <Headphones className="w-7 h-7 text-accent" />
+          {/* Logo en la vista de la audiencia */}
+          <img src="/logo.png" alt="Logo" className="h-8 w-auto object-contain" onError={(e) => { e.target.style.display = 'none'; }} />
           <h1 className="text-xl font-bold text-white">Audiencia en Vivo</h1>
         </div>
         <div className="flex items-center gap-4">

@@ -1,17 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
-import { Mic, Square, Radio, Globe, Download, Lock } from 'lucide-react';
+import { Mic, Square, Radio, Download, Lock } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL, { autoConnect: false });
 
 const SpeakerView = () => {
-  // === ESTADOS DE SEGURIDAD ===
   const [isAuthenticated, setIsAuthenticated] = useState(sessionStorage.getItem('isAdminAuth') === 'true');
   const [passwordInput, setPasswordInput] = useState('');
   const [loginError, setLoginError] = useState('');
 
-  // === ESTADOS DE LA APLICACIÓN ===
   const [isRecording, setIsRecording] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [transcription, setTranscription] = useState('');
@@ -27,10 +25,8 @@ const SpeakerView = () => {
 
   const audienceUrl = `${window.location.origin}`;
 
-  // === LÓGICA DE INICIO DE SESIÓN ===
   const handleLogin = (e) => {
     e.preventDefault();
-    // Usa una variable de entorno, o 'admin123' como respaldo por defecto
     const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || 'admin123';
     
     if (passwordInput === ADMIN_PASSWORD) {
@@ -44,7 +40,7 @@ const SpeakerView = () => {
   };
 
   useEffect(() => {
-    if (!isAuthenticated) return; // No conectar sockets si no está autenticado
+    if (!isAuthenticated) return; 
 
     socket.on('connect', () => setIsConnected(true));
     socket.on('disconnect', () => setIsConnected(false));
@@ -164,11 +160,12 @@ const SpeakerView = () => {
     document.body.removeChild(element);
   };
 
-  // === PANTALLA DE BLOQUEO ===
   if (!isAuthenticated) {
     return (
       <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-darker">
         <div className="bg-dark border border-gray-800 p-8 rounded-3xl shadow-2xl max-w-md w-full flex flex-col items-center gap-6 text-center">
+          {/* Logo en la pantalla de bloqueo */}
+          <img src="/logo.png" alt="Logo" className="h-16 w-auto object-contain mb-2" onError={(e) => { e.target.style.display = 'none'; }} />
           <div className="bg-primary/10 p-5 rounded-full">
             <Lock className="w-10 h-10 text-primary" />
           </div>
@@ -199,14 +196,14 @@ const SpeakerView = () => {
     );
   }
 
-  // === PANEL DE CONTROL PRINCIPAL ===
   return (
     <div className="flex flex-col h-screen w-full p-8 max-w-5xl mx-auto">
       
       <header className="flex justify-between items-start mb-12">
         <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-3">
-            <Globe className="w-8 h-8 text-primary" />
+          <div className="flex items-center gap-4">
+            {/* Logo en el panel de control */}
+            <img src="/logo.png" alt="Logo" className="h-10 w-auto object-contain" onError={(e) => { e.target.style.display = 'none'; }} />
             <h1 className="text-2xl font-bold tracking-tight">Traducción Simultánea</h1>
           </div>
           <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full font-medium text-sm w-max ${isRecording ? 'bg-red-500/10 text-red-500' : 'bg-gray-800 text-gray-400'}`}>
