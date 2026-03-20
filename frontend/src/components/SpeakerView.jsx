@@ -10,6 +10,7 @@ const SpeakerView = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [transcription, setTranscription] = useState('');
   const [translation, setTranslation] = useState('');
+  const [inputLanguage, setInputLanguage] = useState('es-CO'); // Estado para el idioma del orador
   
   const audioContextRef = useRef(null);
   const processorRef = useRef(null);
@@ -41,9 +42,9 @@ const SpeakerView = () => {
       streamRef.current = stream;
       
       socket.connect();
+      // Ahora enviamos el idioma que el orador seleccionó dinámicamente
       socket.emit('start-translation', { 
-        fromLanguage: 'es-CO', 
-        // Desplegamos los 15 idiomas solicitados
+        fromLanguage: inputLanguage, 
         toLanguages: ['en', 'pt', 'fr', 'de', 'it', 'zh-Hans', 'ja', 'ko', 'ru', 'ar', 'hi', 'nl', 'tr', 'pl', 'sv'] 
       });
       
@@ -122,7 +123,41 @@ const SpeakerView = () => {
 
       <main className="flex-1 flex flex-col justify-center gap-8 mb-12">
         <div className="space-y-2">
-          <span className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Tu voz (Español)</span>
+          {/* Selector de idioma del orador */}
+          <div className="flex items-center gap-3 mb-2">
+            <span className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Idioma del Orador:</span>
+            <div className="relative">
+              <select 
+                value={inputLanguage}
+                onChange={(e) => setInputLanguage(e.target.value)}
+                disabled={isRecording}
+                className="bg-darker border border-gray-700 text-primary text-sm font-bold uppercase tracking-wider rounded-lg px-3 py-1.5 focus:ring-1 focus:ring-primary focus:outline-none appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <option value="es-CO">Español</option>
+                <option value="en-US">Inglés</option>
+                <option value="pt-BR">Portugués</option>
+                <option value="fr-FR">Francés</option>
+                <option value="de-DE">Alemán</option>
+                <option value="it-IT">Italiano</option>
+                <option value="zh-CN">Chino</option>
+                <option value="ja-JP">Japonés</option>
+                <option value="ko-KR">Coreano</option>
+                <option value="ru-RU">Ruso</option>
+                <option value="ar-EG">Árabe</option>
+                <option value="hi-IN">Hindi</option>
+                <option value="nl-NL">Holandés</option>
+                <option value="tr-TR">Turco</option>
+                <option value="pl-PL">Polaco</option>
+                <option value="sv-SE">Sueco</option>
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-primary">
+                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                  <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+          
           <p className="text-4xl md:text-5xl font-bold leading-tight text-white min-h-[3rem]">
             {transcription || "Presiona el botón para comenzar a hablar..."}
           </p>
