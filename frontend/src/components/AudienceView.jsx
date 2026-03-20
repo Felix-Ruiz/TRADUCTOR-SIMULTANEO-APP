@@ -5,7 +5,13 @@ import { Headphones, Globe2, Volume2, VolumeX, AlertCircle } from 'lucide-react'
 const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001');
 
 const AudienceView = () => {
-  const [language, setLanguage] = useState('es'); 
+  // 1. LECTURA DE URL PARA MODO TV
+  const queryParams = new URLSearchParams(window.location.search);
+  const isTvMode = queryParams.get('tv') === 'true';
+  const urlLang = queryParams.get('lang');
+
+  // Inicializa el idioma con el de la URL (si existe), si no, usa Español por defecto
+  const [language, setLanguage] = useState(urlLang || 'es'); 
   const [translation, setTranslation] = useState('');
   const [isConnected, setIsConnected] = useState(false);
   const [isAudioEnabled, setIsAudioEnabled] = useState(false);
@@ -28,7 +34,8 @@ const AudienceView = () => {
         setTranslation(currentText);
       }
 
-      if (isAudioEnabled && data.type === 'final' && currentText && currentText !== lastSpokenTextRef.current) {
+      // No reproducimos audio automáticamente en modo TV para evitar ecos en el recinto
+      if (!isTvMode && isAudioEnabled && data.type === 'final' && currentText && currentText !== lastSpokenTextRef.current) {
         speak(currentText, language);
         lastSpokenTextRef.current = currentText;
       }
@@ -40,7 +47,7 @@ const AudienceView = () => {
       socket.off('translation-result');
       if (synthRef.current) synthRef.current.cancel();
     };
-  }, [language, isAudioEnabled]); 
+  }, [language, isAudioEnabled, isTvMode]); 
 
   const speak = (text, langCode) => {
     if (!synthRef.current) return;
@@ -68,6 +75,24 @@ const AudienceView = () => {
     setIsAudioEnabled(!isAudioEnabled);
   };
 
+  // ==================================================
+  // VISTA MODO PROYECTOR (TV / PANTALLAS GIGANTES)
+  // ==================================================
+  if (isTvMode) {
+    return (
+      <div className="flex items-center justify-center h-screen w-full bg-black p-8 md:p-16 lg:p-24 overflow-hidden">
+        <p className="text-5xl md:text-7xl lg:text-[6rem] font-bold text-white text-center leading-tight tracking-wide drop-shadow-2xl transition-all duration-300">
+          {translation || "..."}
+        </p>
+        {/* Un puntito ultra-discreto en la esquina para que el ingeniero de AV sepa que hay conexión */}
+        <div className={`fixed bottom-4 right-4 w-2 h-2 rounded-full opacity-30 ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+      </div>
+    );
+  }
+
+  // ==================================================
+  // VISTA ESTÁNDAR (CELULARES DE LA AUDIENCIA)
+  // ==================================================
   return (
     <div className="flex flex-col h-screen w-full p-6 max-w-md mx-auto bg-darker">
       
