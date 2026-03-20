@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
-import { Headphones, Globe2, AlertCircle, MessageSquare, Radio } from 'lucide-react';
+import { Headphones, Globe2, AlertCircle, MessageSquare, Radio, PowerOff } from 'lucide-react';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001');
 
@@ -11,22 +11,21 @@ const AudienceView = () => {
   const urlRoom = queryParams.get('room');
 
   const [roomName, setRoomName] = useState(urlRoom || 'PRINCIPAL');
-  
-  // NUEVO: Estado para almacenar las salas que el servidor reporte como "activas"
   const [availableRooms, setAvailableRooms] = useState(urlRoom ? [urlRoom] : ['PRINCIPAL']);
-
   const [language, setLanguage] = useState(urlLang || 'es'); 
   const [translation, setTranslation] = useState('');
   const [isConnected, setIsConnected] = useState(false);
-  
   const [userMode, setUserMode] = useState(null);
+
+  // NUEVO: Estado que controla si la plataforma está encendida por el Master Admin
+  const [isSystemActive, setIsSystemActive] = useState(true);
 
   const audioPlayerRef = useRef(null);
   const audioQueue = useRef([]);
   const isPlaying = useRef(false);
 
   const playNextInQueue = async () => {
-    if (isPlaying.current || audioQueue.current.length === 0) return;
+    if (isPlaying.current || audioQueue.current.length === 0 || !isSystemActive) return;
     
     isPlaying.current = true;
     const nextAudioUrl = audioQueue.current.shift(); 
@@ -54,19 +53,32 @@ const AudienceView = () => {
   useEffect(() => {
     socket.on('connect', () => {
       setIsConnected(true);
-      socket.emit('join-room', roomName);
+      if (isSystemActive) socket.emit('join-room', roomName);
     });
     
     socket.on('disconnect', () => setIsConnected(false));
 
-    // NUEVO: Escucha las salas que se van abriendo o cerrando en el backend
+    // NUEVO: Escuchar el Kill Switch del Master Admin
+    socket.on('system-status', (status) => {
+      setIsSystemActive(status);
+      if (!status) {
+        // Si apagan el sistema, cortamos el audio y borramos textos para ahorrar RAM
+        if (audioPlayerRef.current) {
+          audioPlayerRef.current.pause();
+          audioPlayerRef.current.src = "";
+        }
+        audioQueue.current = [];
+        isPlaying.current = false;
+        setTranslation('');
+      }
+    });
+
     socket.on('active-rooms', (rooms) => {
-      // Combinamos las salas del backend con la del QR (por si escanean antes de que inicies)
+      if (!isSystemActive) return;
       const mergedRooms = Array.from(new Set([...rooms, urlRoom].filter(Boolean)));
       if (mergedRooms.length === 0) mergedRooms.push('PRINCIPAL');
       setAvailableRooms(mergedRooms);
       
-      // Si la sala en la que están desaparece, los pasamos a la primera disponible
       setRoomName((prev) => {
         if (!mergedRooms.includes(prev) && mergedRooms.length > 0) {
           return mergedRooms[0];
@@ -76,6 +88,7 @@ const AudienceView = () => {
     });
     
     socket.on('translation-result', (data) => {
+      if (!isSystemActive) return; // Ignoramos si está apagado
       if (isTvMode || userMode === 'text') {
         let currentText = '';
         if (data.translations && data.translations[language]) {
@@ -89,6 +102,7 @@ const AudienceView = () => {
     });
 
     socket.on('neural-audio', (data) => {
+      if (!isSystemActive) return; // Ignoramos si está apagado
       if (!isTvMode && userMode === 'audio' && data.language === language && data.audioBuffer) {
         const blob = new Blob([data.audioBuffer], { type: 'audio/mp3' });
         const url = URL.createObjectURL(blob);
@@ -104,16 +118,17 @@ const AudienceView = () => {
       socket.off('active-rooms');
       socket.off('translation-result');
       socket.off('neural-audio');
+      socket.off('system-status');
     };
-  }, [language, userMode, isTvMode, urlRoom]); 
+  }, [language, userMode, isTvMode, urlRoom, isSystemActive, roomName]); 
 
   useEffect(() => {
-    if (isConnected && roomName) {
+    if (isConnected && roomName && isSystemActive) {
       socket.emit('join-room', roomName);
       setTranslation(''); 
       audioQueue.current = [];
     }
-  }, [roomName, isConnected]);
+  }, [roomName, isConnected, isSystemActive]);
 
   const unlockAudioAndStart = async () => {
     try {
@@ -141,6 +156,29 @@ const AudienceView = () => {
     }
   };
 
+  // ==================================================
+  // PANTALLA DE APAGADO GLOBAL (KILL SWITCH)
+  // ==================================================
+  if (!isSystemActive) {
+    return (
+      <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-black relative overflow-hidden">
+        <div className="absolute inset-0 bg-darker/80 z-0"></div>
+        <div className="w-full max-w-sm flex flex-col items-center z-10">
+          <div className="bg-red-500/10 p-6 rounded-full mb-8">
+            <PowerOff className="w-16 h-16 text-red-500/80" />
+          </div>
+          <h2 className="text-3xl font-bold text-white mb-3 text-center tracking-tight">Sistema Fuera de Línea</h2>
+          <p className="text-gray-400 text-base text-center leading-relaxed max-w-xs">
+            La plataforma de traducción simultánea se encuentra inactiva en este momento. Por favor, espera a que el administrador inicie el evento.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ==================================================
+  // VISTA MODO PROYECTOR (TV)
+  // ==================================================
   if (isTvMode) {
     return (
       <div className="flex flex-col justify-end h-screen w-full bg-black p-8 md:p-16 lg:pb-24 overflow-hidden relative">
@@ -179,6 +217,9 @@ const AudienceView = () => {
     );
   }
 
+  // ==================================================
+  // MODAL DE SELECCIÓN INICIAL
+  // ==================================================
   if (!userMode) {
     return (
       <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-darker">
@@ -194,7 +235,6 @@ const AudienceView = () => {
             <label className="flex items-center gap-2 text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wider justify-center">
               Seleccionar Sala
             </label>
-            {/* NUEVO: Reemplazo del Input por un Select dinámico que mantiene tu estilo oscuro */}
             <div className="relative">
               <select 
                 value={roomName}
@@ -247,6 +287,9 @@ const AudienceView = () => {
     );
   }
 
+  // ==================================================
+  // VISTA PRINCIPAL (TEXTO O AUDIO)
+  // ==================================================
   return (
     <div className="flex flex-col h-screen w-full p-6 max-w-md mx-auto bg-darker relative">
       
