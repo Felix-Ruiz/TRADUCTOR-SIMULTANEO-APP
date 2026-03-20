@@ -35,17 +35,20 @@ const AudienceView = () => {
     socket.on('neural-audio', async (data) => {
       if (!isTvMode && isAudioEnabled && data.language === language && data.audioBuffer) {
         try {
-          if (!audioContextRef.current) {
-            audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
-          }
-          if (audioContextRef.current.state === 'suspended') {
-            await audioContextRef.current.resume();
-          }
+          if (!audioContextRef.current) return; // Si no hay contexto, ignoramos
           
-          // SOLUCIÓN 2: Limpieza de Buffer. Si Socket.io lo corrompió, lo reconstruimos a un ArrayBuffer puro.
-          let arrayBuffer = data.audioBuffer;
-          if (!(arrayBuffer instanceof ArrayBuffer)) {
-             arrayBuffer = new Uint8Array(data.audioBuffer).buffer;
+          console.log("[Audio] Paquete recibido de Azure:", data); // Para debugear en consola
+
+          // SOLUCIÓN DEFINITIVA: Desempaquetado a prueba de balas para Socket.io
+          let arrayBuffer;
+          if (data.audioBuffer instanceof ArrayBuffer) {
+            arrayBuffer = data.audioBuffer;
+          } else if (data.audioBuffer && data.audioBuffer.type === 'Buffer') {
+            // Si Socket.io lo convirtió en un objeto Buffer de Node.js
+            arrayBuffer = new Uint8Array(data.audioBuffer.data).buffer;
+          } else {
+            // Último recurso de conversión
+            arrayBuffer = new Uint8Array(data.audioBuffer).buffer;
           }
           
           const audioBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
@@ -53,8 +56,9 @@ const AudienceView = () => {
           source.buffer = audioBuffer;
           source.connect(audioContextRef.current.destination);
           source.start(0);
+          console.log("[Audio] Reproduciendo voz con éxito");
         } catch (error) {
-          console.error("Error decodificando el MP3 de Azure:", error);
+          console.error("[Audio] Error crítico reproduciendo el MP3:", error);
         }
       }
     });
@@ -70,13 +74,30 @@ const AudienceView = () => {
     };
   }, [language, isAudioEnabled, isTvMode]); 
 
-  const toggleAudio = () => {
+  // ==========================================
+  // DESBLOQUEADOR DE AUDIO PARA iPHONE / CHROME
+  // ==========================================
+  const toggleAudio = async () => {
     if (!isAudioEnabled) {
-      if (!audioContextRef.current) {
-        audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
-      }
-      if (audioContextRef.current.state === 'suspended') {
-        audioContextRef.current.resume();
+      try {
+        if (!audioContextRef.current) {
+          audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioContextRef.current.state === 'suspended') {
+          await audioContextRef.current.resume();
+        }
+        
+        // TRUCO PARA APPLE: Crear un segundo de "silencio" y reproducirlo instantáneamente
+        // Esto le demuestra a iOS que el audio fue gatillado por un humano (onClick)
+        const emptyBuffer = audioContextRef.current.createBuffer(1, 1, 22050);
+        const source = audioContextRef.current.createBufferSource();
+        source.buffer = emptyBuffer;
+        source.connect(audioContextRef.current.destination);
+        source.start(0);
+        
+        console.log("[Audio] Motor de sonido desbloqueado y listo.");
+      } catch (e) {
+        console.error("[Audio] No se pudo desbloquear el sonido:", e);
       }
     }
     setIsAudioEnabled(!isAudioEnabled);
