@@ -17,12 +17,56 @@ const AudienceView = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [userMode, setUserMode] = useState(null);
 
-  // NUEVO: Estado que controla si la plataforma está encendida por el Master Admin
   const [isSystemActive, setIsSystemActive] = useState(true);
 
   const audioPlayerRef = useRef(null);
   const audioQueue = useRef([]);
   const isPlaying = useRef(false);
+
+  // NUEVO: Referencia para mantener la pantalla encendida
+  const wakeLockRef = useRef(null);
+
+  // Función para solicitar mantener la pantalla viva
+  const requestWakeLock = async () => {
+    try {
+      if ('wakeLock' in navigator) {
+        wakeLockRef.current = await navigator.wakeLock.request('screen');
+        console.log('[UX] Screen Wake Lock activado: Pantalla se mantendrá encendida.');
+        
+        // Si el usuario minimiza la app y vuelve, el wake lock se pierde. Hay que pedirlo de nuevo.
+        wakeLockRef.current.addEventListener('release', () => {
+          console.log('[UX] Screen Wake Lock liberado.');
+        });
+      }
+    } catch (err) {
+      console.warn(`[UX] No se pudo mantener la pantalla encendida: ${err.name}, ${err.message}`);
+    }
+  };
+
+  // Función para liberar la pantalla
+  const releaseWakeLock = async () => {
+    if (wakeLockRef.current !== null) {
+      try {
+        await wakeLockRef.current.release();
+        wakeLockRef.current = null;
+      } catch (err) {
+        console.error(`[UX] Error liberando Wake Lock: ${err.message}`);
+      }
+    }
+  };
+
+  // Escuchamos si el usuario minimiza la ventana del navegador para reactivar el Wake Lock al volver
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (wakeLockRef.current !== null && document.visibilityState === 'visible' && userMode) {
+        await requestWakeLock();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [userMode]);
 
   const playNextInQueue = async () => {
     if (isPlaying.current || audioQueue.current.length === 0 || !isSystemActive) return;
@@ -58,11 +102,9 @@ const AudienceView = () => {
     
     socket.on('disconnect', () => setIsConnected(false));
 
-    // NUEVO: Escuchar el Kill Switch del Master Admin
     socket.on('system-status', (status) => {
       setIsSystemActive(status);
       if (!status) {
-        // Si apagan el sistema, cortamos el audio y borramos textos para ahorrar RAM
         if (audioPlayerRef.current) {
           audioPlayerRef.current.pause();
           audioPlayerRef.current.src = "";
@@ -70,6 +112,8 @@ const AudienceView = () => {
         audioQueue.current = [];
         isPlaying.current = false;
         setTranslation('');
+        // Si apagan el sistema, liberamos la pantalla para ahorrar batería
+        releaseWakeLock();
       }
     });
 
@@ -88,7 +132,7 @@ const AudienceView = () => {
     });
     
     socket.on('translation-result', (data) => {
-      if (!isSystemActive) return; // Ignoramos si está apagado
+      if (!isSystemActive) return; 
       if (isTvMode || userMode === 'text') {
         let currentText = '';
         if (data.translations && data.translations[language]) {
@@ -102,7 +146,7 @@ const AudienceView = () => {
     });
 
     socket.on('neural-audio', (data) => {
-      if (!isSystemActive) return; // Ignoramos si está apagado
+      if (!isSystemActive) return; 
       if (!isTvMode && userMode === 'audio' && data.language === language && data.audioBuffer) {
         const blob = new Blob([data.audioBuffer], { type: 'audio/mp3' });
         const url = URL.createObjectURL(blob);
@@ -119,6 +163,8 @@ const AudienceView = () => {
       socket.off('translation-result');
       socket.off('neural-audio');
       socket.off('system-status');
+      // Al salir de la app, liberamos la pantalla
+      releaseWakeLock();
     };
   }, [language, userMode, isTvMode, urlRoom, isSystemActive, roomName]); 
 
@@ -140,6 +186,14 @@ const AudienceView = () => {
       console.warn("[Audio] Advertencia de desbloqueo:", e);
     }
     setUserMode('audio');
+    // ACTUALIZADO: Encendemos el Wake Lock al iniciar la experiencia
+    requestWakeLock();
+  };
+
+  const startTextMode = () => {
+    setUserMode('text');
+    // ACTUALIZADO: Encendemos el Wake Lock al iniciar la experiencia
+    requestWakeLock();
   };
 
   const switchMode = async () => {
@@ -153,6 +207,8 @@ const AudienceView = () => {
         audioPlayerRef.current.pause();
         audioPlayerRef.current.src = "";
       }
+      // Asegurarnos de que el Wake Lock siga activo al cambiar de modo
+      requestWakeLock();
     }
   };
 
@@ -255,7 +311,7 @@ const AudienceView = () => {
 
           <div className="flex flex-col gap-4 w-full">
             <button 
-              onClick={() => setUserMode('text')} 
+              onClick={startTextMode} 
               disabled={!roomName.trim()}
               className="group bg-dark border border-gray-700 hover:border-gray-500 p-5 rounded-2xl flex items-center gap-5 transition-all shadow-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
             >
