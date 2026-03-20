@@ -18,6 +18,9 @@ const SpeakerView = () => {
   const [passwordInput, setPasswordInput] = useState('');
   const [loginError, setLoginError] = useState('');
   
+  // NUEVO: Estado para mostrar la pantalla de carga
+  const [isVerifying, setIsVerifying] = useState(!!sessionStorage.getItem('speakerPwd'));
+  
   const [eventInfo, setEventInfo] = useState(null);
   const [isSystemActive, setIsSystemActive] = useState(true);
 
@@ -40,7 +43,6 @@ const SpeakerView = () => {
   const processorRef = useRef(null);
   const streamRef = useRef(null);
 
-  // SEGURIDAD MÁXIMA: El QR ahora inyecta el ID PÚBLICO de la audiencia (eventInfo.id), NUNCA la clave secreta.
   const audienceUrl = `${window.location.origin}/?event=${eventInfo?.id || ''}&room=${roomName}`;
 
   const attemptLogin = (pwd) => {
@@ -58,12 +60,14 @@ const SpeakerView = () => {
         sessionStorage.removeItem('speakerPwd');
         socket.disconnect();
       }
+      setIsVerifying(false); // Detenemos la animación de carga
     });
   };
 
   const handleLogin = (e) => {
     e.preventDefault();
     if (!passwordInput.trim()) return;
+    setIsVerifying(true);
     attemptLogin(passwordInput);
   };
 
@@ -71,6 +75,8 @@ const SpeakerView = () => {
     const savedPwd = sessionStorage.getItem('speakerPwd');
     if (savedPwd) {
       attemptLogin(savedPwd);
+    } else {
+      setIsVerifying(false);
     }
   }, []);
 
@@ -129,7 +135,6 @@ const SpeakerView = () => {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
       
-      // Enviamos el ID Público para que se aísle correctamente
       socket.emit('start-translation', { 
         fromLanguage: inputLanguage, 
         toLanguages: ['es', 'en', 'pt', 'fr', 'de'],
@@ -226,6 +231,21 @@ const SpeakerView = () => {
     setPanelLanguages(newPanelLanguages);
   };
 
+  // ==========================================
+  // PANTALLA DE CARGA ELEGANTE (ANTI-FLICKER)
+  // ==========================================
+  if (isVerifying) {
+    return (
+      <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-darker">
+        <div className="flex flex-col items-center gap-6 animate-pulse">
+          <img src="/logo.png" alt="Logo" className="h-14 w-auto object-contain drop-shadow-lg" onError={(e) => { e.target.style.display = 'none'; }} />
+          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-gray-500 text-sm font-semibold tracking-widest uppercase">Verificando sesión...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!isAuthenticated) {
     return (
       <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-darker relative overflow-hidden">
@@ -276,7 +296,6 @@ const SpeakerView = () => {
 
   return (
     <div className="flex flex-col h-screen w-full p-8 max-w-6xl mx-auto overflow-hidden">
-      
       <header className="flex justify-between items-start mb-8 shrink-0">
         <div className="flex flex-col gap-4">
           <div className="flex items-center gap-3">

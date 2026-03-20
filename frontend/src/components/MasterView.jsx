@@ -8,6 +8,9 @@ const MasterView = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(sessionStorage.getItem('isMasterAuth') === 'true');
   const [passwordInput, setPasswordInput] = useState('');
   const [loginError, setLoginError] = useState('');
+  
+  // NUEVO: Estado para ocultar el parpadeo de recarga
+  const [isFetchingData, setIsFetchingData] = useState(sessionStorage.getItem('isMasterAuth') === 'true');
 
   const [isSystemActive, setIsSystemActive] = useState(true);
   const [events, setEvents] = useState([]);
@@ -23,6 +26,7 @@ const MasterView = () => {
     socket.emit('master-get-data', (data) => {
       setIsSystemActive(data.isSystemActive);
       setEvents(data.events);
+      setIsFetchingData(false); // Quitamos la pantalla de carga cuando llegan los datos
     });
     socket.on('system-status', (status) => setIsSystemActive(status));
     socket.on('master-data-updated', (updatedEvents) => setEvents(updatedEvents));
@@ -32,6 +36,7 @@ const MasterView = () => {
   const handleLogin = (e) => {
     e.preventDefault();
     socket.connect();
+    setIsFetchingData(true);
     socket.emit('master-login', passwordInput, (response) => {
       if (response.success) {
         setIsAuthenticated(true);
@@ -40,6 +45,7 @@ const MasterView = () => {
       } else {
         setLoginError('Credenciales maestras incorrectas.');
         setPasswordInput('');
+        setIsFetchingData(false);
         socket.disconnect();
       }
     });
@@ -93,6 +99,21 @@ const MasterView = () => {
     setCopiedText(text);
     setTimeout(() => setCopiedText(null), 2000);
   };
+
+  // ==========================================
+  // PANTALLA DE CARGA ELEGANTE (ANTI-FLICKER)
+  // ==========================================
+  if (isFetchingData) {
+    return (
+      <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-darker">
+        <div className="flex flex-col items-center gap-6 animate-pulse">
+          <img src="/logo.png" alt="Logo" className="h-14 w-auto object-contain drop-shadow-lg" onError={(e) => { e.target.style.display = 'none'; }} />
+          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-gray-500 text-sm font-semibold tracking-widest uppercase">Restaurando sesión maestra...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return (
@@ -191,8 +212,6 @@ const MasterView = () => {
               </div>
 
               <div className="p-5 flex-1 flex flex-col gap-5">
-                
-                {/* Doble Identificación */}
                 <div className="grid grid-cols-2 gap-4">
                     <div className="bg-darker p-4 rounded-xl border border-gray-700/50">
                         <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-1"><Users className="w-3 h-3"/> CÓDIGO AUDIENCIA</span>
@@ -255,11 +274,9 @@ const MasterView = () => {
                     ))}
                   </div>
                 </div>
-
               </div>
             </div>
           ))}
-
           {events.length === 0 && (
             <div className="col-span-full py-12 flex flex-col items-center justify-center text-gray-500 border-2 border-dashed border-gray-800 rounded-2xl">
               <Shield className="w-12 h-12 mb-4 opacity-20" />

@@ -10,7 +10,6 @@ const AudienceView = () => {
   const urlLang = queryParams.get('lang');
   const urlRoom = queryParams.get('room');
   
-  // NUEVO: Manejo estricto del Evento
   const [urlEvent, setUrlEvent] = useState(queryParams.get('event') || '');
   const [eventInput, setEventInput] = useState('');
   const [eventError, setEventError] = useState('');
@@ -24,6 +23,9 @@ const AudienceView = () => {
   const [userMode, setUserMode] = useState(null);
 
   const [isSystemActive, setIsSystemActive] = useState(true);
+  
+  // NUEVO: Estado para mostrar la pantalla de carga
+  const [isVerifying, setIsVerifying] = useState(!!queryParams.get('event'));
 
   const audioPlayerRef = useRef(null);
   const audioQueue = useRef([]);
@@ -86,29 +88,27 @@ const AudienceView = () => {
     playNextInQueue();
   };
 
-  // ==========================================
-  // FLUJO DE CONEXIÓN AL EVENTO
-  // ==========================================
   const verifyEvent = (eventId) => {
     socket.emit('check-event', eventId, (response) => {
       if (response.success) {
         setUrlEvent(eventId);
         setEventName(response.name);
         setEventError('');
-        // Al validar, nos conectamos a la red de ese evento
         socket.emit('join-event-audience', eventId);
       } else {
         setEventError('Código de evento inválido o evento finalizado.');
         if (eventId === urlEvent) {
-            setUrlEvent(''); // Si el de la URL era falso, lo borramos
+            setUrlEvent(''); 
         }
       }
+      setIsVerifying(false); // Detenemos la animación de carga
     });
   };
 
   const handleEventSubmit = (e) => {
     e.preventDefault();
     if (!eventInput.trim()) return;
+    setIsVerifying(true);
     verifyEvent(eventInput.trim());
   };
 
@@ -136,12 +136,9 @@ const AudienceView = () => {
       }
     });
 
-    // ACTUALIZADO: Recibimos SOLO las salas configuradas para el evento
     socket.on('event-info', (data) => {
         setEventName(data.name);
-        // Colocamos las salas disponibles de ese evento
         setAvailableRooms(data.allRooms);
-        // Si no hay sala seleccionada o la seleccionada no pertenece al evento, escogemos la primera
         setRoomName(prev => {
             if (!prev || !data.allRooms.includes(prev)) return data.allRooms[0] || '';
             return prev;
@@ -150,7 +147,6 @@ const AudienceView = () => {
 
     socket.on('active-rooms', (rooms) => {
       if (!isSystemActive) return;
-      // Aquí actualizamos visualmente si la sala está activa (futura mejora: poner un puntito verde)
     });
     
     socket.on('translation-result', (data) => {
@@ -190,7 +186,6 @@ const AudienceView = () => {
     };
   }, [language, userMode, isTvMode, urlEvent, isSystemActive]); 
 
-  // ACTUALIZADO: Nos unimos a la sala aislada
   useEffect(() => {
     if (isConnected && urlEvent && roomName && isSystemActive) {
       socket.emit('join-isolated-room', { eventId: urlEvent, roomName: roomName });
@@ -232,9 +227,21 @@ const AudienceView = () => {
     }
   };
 
-  // ==================================================
-  // PANTALLA DE APAGADO GLOBAL (KILL SWITCH)
-  // ==================================================
+  // ==========================================
+  // PANTALLA DE CARGA ELEGANTE (ANTI-FLICKER)
+  // ==========================================
+  if (isVerifying) {
+    return (
+      <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-darker">
+        <div className="flex flex-col items-center gap-6 animate-pulse">
+          <img src="/logo.png" alt="Logo" className="h-14 w-auto object-contain drop-shadow-lg" onError={(e) => { e.target.style.display = 'none'; }} />
+          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-gray-500 text-sm font-semibold tracking-widest uppercase">Validando evento...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!isSystemActive) {
     return (
       <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-black relative overflow-hidden">
@@ -252,9 +259,6 @@ const AudienceView = () => {
     );
   }
 
-  // ==================================================
-  // PANTALLA: SOLICITUD DE CÓDIGO DE EVENTO (FALLBACK)
-  // ==================================================
   if (!urlEvent) {
     return (
       <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-darker">
@@ -293,9 +297,6 @@ const AudienceView = () => {
     );
   }
 
-  // ==================================================
-  // VISTA MODO PROYECTOR (TV)
-  // ==================================================
   if (isTvMode) {
     return (
       <div className="flex flex-col justify-end h-screen w-full bg-black p-8 md:p-16 lg:pb-24 overflow-hidden relative">
@@ -334,9 +335,6 @@ const AudienceView = () => {
     );
   }
 
-  // ==================================================
-  // MODAL DE SELECCIÓN DE SALA Y MODO
-  // ==================================================
   if (!userMode) {
     return (
       <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-darker">
@@ -404,9 +402,6 @@ const AudienceView = () => {
     );
   }
 
-  // ==================================================
-  // VISTA PRINCIPAL (TEXTO O AUDIO)
-  // ==================================================
   return (
     <div className="flex flex-col h-screen w-full p-6 max-w-md mx-auto bg-darker relative">
       
