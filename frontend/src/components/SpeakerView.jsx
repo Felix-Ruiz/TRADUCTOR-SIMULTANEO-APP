@@ -51,6 +51,7 @@ const SpeakerView = () => {
       streamRef.current = stream;
       
       socket.connect();
+      // Solo los 5 idiomas top para máxima velocidad en Azure
       socket.emit('start-translation', { 
         fromLanguage: inputLanguage, 
         toLanguages: ['es', 'en', 'pt', 'fr', 'de'] 
@@ -62,28 +63,49 @@ const SpeakerView = () => {
 
       const source = audioContext.createMediaStreamSource(stream);
       
-      // RESTAURADO A 4096: El tamaño de paquete perfecto para que Azure escuche sin ahogarse
-      const processor = audioContext.createScriptProcessor(4096, 1, 1);
-      processorRef.current = processor;
-
-      processor.onaudioprocess = (e) => {
-        const inputData = e.inputBuffer.getChannelData(0);
-        const pcm16 = new Int16Array(inputData.length);
-        
-        for (let i = 0; i < inputData.length; i++) {
-          let s = Math.max(-1, Math.min(1, inputData[i]));
-          pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+      // ==========================================
+      // MOTOR ULTRA-RÁPIDO: AudioWorklet
+      // Hilo secundario para latencia cero
+      // ==========================================
+      const workletCode = `
+        class PCMProcessor extends AudioWorkletProcessor {
+          process(inputs, outputs, parameters) {
+            const input = inputs[0];
+            if (input && input.length > 0) {
+              const channelData = input[0];
+              const pcm16 = new Int16Array(channelData.length);
+              
+              for (let i = 0; i < channelData.length; i++) {
+                let s = Math.max(-1, Math.min(1, channelData[i]));
+                pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+              }
+              
+              this.port.postMessage(pcm16.buffer);
+            }
+            return true; 
+          }
         }
-        
+        registerProcessor('pcm-processor', PCMProcessor);
+      `;
+
+      const blob = new Blob([workletCode], { type: 'application/javascript' });
+      const workletUrl = URL.createObjectURL(blob);
+
+      await audioContext.audioWorklet.addModule(workletUrl);
+      const workletNode = new AudioWorkletNode(audioContext, 'pcm-processor');
+      processorRef.current = workletNode;
+
+      // Envío de audio a máxima velocidad por WebSockets
+      workletNode.port.onmessage = (event) => {
         if (socket.connected) {
-          socket.emit('audio-stream', pcm16.buffer);
+          socket.emit('audio-stream', event.data);
         }
       };
 
       const gainNode = audioContext.createGain();
       gainNode.gain.value = 0;
-      source.connect(processor);
-      processor.connect(gainNode);
+      source.connect(workletNode);
+      workletNode.connect(gainNode);
       gainNode.connect(audioContext.destination);
 
       setIsRecording(true);
