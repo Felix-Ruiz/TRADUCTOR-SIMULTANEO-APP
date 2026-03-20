@@ -9,8 +9,12 @@ const SpeakerView = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [transcription, setTranscription] = useState('');
-  const [translation, setTranslation] = useState('');
+  
+  // Guardamos TODAS las traducciones que llegan del backend
+  const [allTranslations, setAllTranslations] = useState({}); 
+  
   const [inputLanguage, setInputLanguage] = useState('es-CO'); 
+  const [outputLanguage, setOutputLanguage] = useState('en'); // Estado para el idioma de salida en pantalla
   
   const audioContextRef = useRef(null);
   const processorRef = useRef(null);
@@ -18,24 +22,15 @@ const SpeakerView = () => {
 
   const audienceUrl = `${window.location.origin}/audience`;
 
-  // Diccionario para que el texto visual coincida con el selector
-  const languageNames = {
-    'es-CO': 'Español', 'en-US': 'Inglés', 'pt-BR': 'Portugués',
-    'fr-FR': 'Francés', 'de-DE': 'Alemán', 'it-IT': 'Italiano',
-    'zh-CN': 'Chino', 'ja-JP': 'Japonés', 'ko-KR': 'Coreano',
-    'ru-RU': 'Ruso', 'ar-EG': 'Árabe', 'hi-IN': 'Hindi',
-    'nl-NL': 'Holandés', 'tr-TR': 'Turco', 'pl-PL': 'Polaco',
-    'sv-SE': 'Sueco'
-  };
-
   useEffect(() => {
     socket.on('connect', () => setIsConnected(true));
     socket.on('disconnect', () => setIsConnected(false));
     
     socket.on('translation-result', (data) => {
       setTranscription(data.original);
-      if (data.translations && data.translations['en']) {
-        setTranslation(data.translations['en']);
+      if (data.translations) {
+        // Guardamos el objeto completo con los 15 idiomas
+        setAllTranslations(data.translations); 
       }
     });
 
@@ -166,17 +161,48 @@ const SpeakerView = () => {
             </div>
           </div>
           
-          {/* Animación de transición agregada aquí */}
           <p className="text-4xl md:text-5xl font-bold leading-tight text-white min-h-[3rem] transition-all duration-300 ease-in-out">
             {transcription || "Presiona el botón para comenzar a hablar..."}
           </p>
         </div>
 
         <div className="space-y-2">
-          <span className="text-sm font-semibold text-primary uppercase tracking-wider">Traducción (Inglés)</span>
-          {/* Animación de transición agregada aquí */}
+          {/* Selector de idioma de Salida Principal */}
+          <div className="flex items-center gap-3 mb-2">
+            <span className="text-sm font-semibold text-primary uppercase tracking-wider">Traducción Principal:</span>
+            <div className="relative">
+              <select 
+                value={outputLanguage}
+                onChange={(e) => setOutputLanguage(e.target.value)}
+                // No se bloquea al grabar, permitiendo cambio dinámico
+                className="bg-darker border border-gray-700 text-gray-400 text-sm font-bold uppercase tracking-wider rounded-lg px-3 py-1.5 focus:ring-1 focus:ring-gray-400 focus:outline-none appearance-none cursor-pointer"
+              >
+                <option value="en">Inglés</option>
+                <option value="pt">Portugués</option>
+                <option value="fr">Francés</option>
+                <option value="de">Alemán</option>
+                <option value="it">Italiano</option>
+                <option value="zh-Hans">Chino</option>
+                <option value="ja">Japonés</option>
+                <option value="ko">Coreano</option>
+                <option value="ru">Ruso</option>
+                <option value="ar">Árabe</option>
+                <option value="hi">Hindi</option>
+                <option value="nl">Holandés</option>
+                <option value="tr">Turco</option>
+                <option value="pl">Polaco</option>
+                <option value="sv">Sueco</option>
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
+                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                  <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+
           <p className="text-3xl md:text-4xl font-medium leading-relaxed text-gray-400 min-h-[3rem] transition-all duration-300 ease-in-out">
-            {translation}
+            {allTranslations[outputLanguage] || ""}
           </p>
         </div>
       </main>
