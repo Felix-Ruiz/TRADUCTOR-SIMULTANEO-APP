@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
-import { Headphones, Globe2, Volume2, VolumeX, AlertCircle } from 'lucide-react';
+import { Headphones, Globe2, AlertCircle, MessageSquare, ArrowLeft, Radio } from 'lucide-react';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001');
 
@@ -12,21 +12,19 @@ const AudienceView = () => {
   const [language, setLanguage] = useState(urlLang || 'es'); 
   const [translation, setTranslation] = useState('');
   const [isConnected, setIsConnected] = useState(false);
-  const [isAudioEnabled, setIsAudioEnabled] = useState(false);
+  
+  // NUEVO: Estado para controlar la experiencia del usuario (null | 'text' | 'audio')
+  const [userMode, setUserMode] = useState(null);
 
-  // ==========================================
-  // ARQUITECTURA DE AUDIO PERMANENTE Y COLAS
-  // ==========================================
   const audioPlayerRef = useRef(null);
   const audioQueue = useRef([]);
   const isPlaying = useRef(false);
 
-  // Función para reproducir el siguiente audio en la fila
   const playNextInQueue = async () => {
     if (isPlaying.current || audioQueue.current.length === 0) return;
     
     isPlaying.current = true;
-    const nextAudioUrl = audioQueue.current.shift(); // Sacamos el primero de la fila
+    const nextAudioUrl = audioQueue.current.shift(); 
     
     if (audioPlayerRef.current) {
       audioPlayerRef.current.src = nextAudioUrl;
@@ -35,12 +33,11 @@ const AudienceView = () => {
       } catch (error) {
         console.error("[Audio] Error al reproducir el fragmento:", error);
         isPlaying.current = false;
-        playNextInQueue(); // Si falla, intentamos con el siguiente
+        playNextInQueue(); 
       }
     }
   };
 
-  // Cuando un audio termina, limpiamos la memoria y reproducimos el siguiente
   const handleAudioEnded = () => {
     if (audioPlayerRef.current && audioPlayerRef.current.src) {
       URL.revokeObjectURL(audioPlayerRef.current.src);
@@ -54,21 +51,22 @@ const AudienceView = () => {
     socket.on('disconnect', () => setIsConnected(false));
     
     socket.on('translation-result', (data) => {
-      let currentText = '';
-
-      if (data.translations && data.translations[language]) {
-        currentText = data.translations[language];
-        setTranslation(currentText);
-      } else if (data.original) {
-        currentText = data.original;
-        setTranslation(currentText);
+      // Solo actualizamos el texto si estamos en modo TV o en modo texto (ahorro de RAM)
+      if (isTvMode || userMode === 'text') {
+        let currentText = '';
+        if (data.translations && data.translations[language]) {
+          currentText = data.translations[language];
+          setTranslation(currentText);
+        } else if (data.original) {
+          currentText = data.original;
+          setTranslation(currentText);
+        }
       }
     });
 
     socket.on('neural-audio', (data) => {
-      // Solo encolamos el audio si el usuario lo activó y coincide con su idioma
-      if (!isTvMode && isAudioEnabled && data.language === language && data.audioBuffer) {
-        console.log("[Audio] Paquete recibido de Azure. Encolando...");
+      // Solo encolamos el audio si el usuario eligió modo 'audio'
+      if (!isTvMode && userMode === 'audio' && data.language === language && data.audioBuffer) {
         const blob = new Blob([data.audioBuffer], { type: 'audio/mp3' });
         const url = URL.createObjectURL(blob);
         
@@ -83,37 +81,37 @@ const AudienceView = () => {
       socket.off('translation-result');
       socket.off('neural-audio');
     };
-  }, [language, isAudioEnabled, isTvMode]); 
+  }, [language, userMode, isTvMode]); 
 
   // ==========================================
-  // BOTÓN DE ACTIVACIÓN SEGURO (NATIVO HTML5)
+  // DESBLOQUEO DE AUDIO (Activado por el Modal)
   // ==========================================
-  const toggleAudio = async () => {
-    if (!isAudioEnabled) {
-      try {
-        // Reproducimos un audio vacío directamente en el elemento permanente
-        // Esto le demuestra a iOS y Chrome que el usuario autorizó este reproductor
-        if (audioPlayerRef.current) {
-          audioPlayerRef.current.src = "data:audio/mp3;base64,//NExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq";
-          await audioPlayerRef.current.play();
-          console.log("[Audio] Reproductor permanente desbloqueado con éxito.");
-        }
-      } catch (e) {
-        console.warn("[Audio] Advertencia de desbloqueo (normal en algunos móviles):", e);
-      }
-    } else {
-      // Si apagan el botón, vaciamos la cola y detenemos el reproductor
-      audioQueue.current = [];
-      isPlaying.current = false;
+  const unlockAudioAndStart = async () => {
+    try {
       if (audioPlayerRef.current) {
-        audioPlayerRef.current.pause();
-        audioPlayerRef.current.src = "";
+        audioPlayerRef.current.src = "data:audio/mp3;base64,//NExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq";
+        await audioPlayerRef.current.play();
       }
+    } catch (e) {
+      console.warn("[Audio] Advertencia de desbloqueo:", e);
     }
-    // Cambiamos el estado visual del botón
-    setIsAudioEnabled(!isAudioEnabled);
+    setUserMode('audio');
   };
 
+  const resetMode = () => {
+    setUserMode(null);
+    setTranslation('');
+    audioQueue.current = [];
+    isPlaying.current = false;
+    if (audioPlayerRef.current) {
+      audioPlayerRef.current.pause();
+      audioPlayerRef.current.src = "";
+    }
+  };
+
+  // ==================================================
+  // VISTA MODO PROYECTOR (TV / PANTALLAS GIGANTES)
+  // ==================================================
   if (isTvMode) {
     return (
       <div className="flex flex-col justify-end h-screen w-full bg-black p-8 md:p-16 lg:pb-24 overflow-hidden relative">
@@ -124,7 +122,6 @@ const AudienceView = () => {
               onChange={(e) => {
                 setLanguage(e.target.value);
                 setTranslation('');
-                audioQueue.current = []; // Vaciamos la cola al cambiar de idioma
               }}
               className="bg-gray-900 border border-gray-800 text-gray-500 text-xs font-bold uppercase tracking-wider rounded-lg px-3 py-1.5 focus:ring-1 focus:ring-gray-600 focus:outline-none appearance-none cursor-pointer"
             >
@@ -153,25 +150,70 @@ const AudienceView = () => {
     );
   }
 
+  // ==================================================
+  // PANTALLA 1: MODAL DE SELECCIÓN DE EXPERIENCIA
+  // ==================================================
+  if (!userMode) {
+    return (
+      <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-darker">
+        <div className="w-full max-w-sm flex flex-col items-center">
+          <img src="/logo.png" alt="Logo" className="h-14 w-auto object-contain mb-8 drop-shadow-lg" onError={(e) => { e.target.style.display = 'none'; }} />
+          
+          <h2 className="text-2xl font-bold text-white mb-3 text-center tracking-tight">Traducción en Vivo</h2>
+          <p className="text-gray-400 text-sm text-center mb-10 leading-relaxed">
+            Para garantizar la mejor experiencia sin retrasos, elige cómo deseas seguir la conferencia.
+          </p>
+          
+          <div className="flex flex-col gap-5 w-full">
+            <button 
+              onClick={() => setUserMode('text')} 
+              className="group bg-dark border border-gray-700 hover:border-gray-500 p-6 rounded-2xl flex items-center gap-5 transition-all shadow-lg hover:bg-gray-800"
+            >
+              <div className="bg-gray-800 p-4 rounded-full group-hover:bg-gray-700 transition-colors">
+                <MessageSquare className="w-7 h-7 text-white" />
+              </div>
+              <div className="flex flex-col items-start">
+                <span className="text-white font-bold text-lg">Solo Subtítulos</span>
+                <span className="text-gray-500 text-xs mt-1">Lectura silenciosa en pantalla</span>
+              </div>
+            </button>
+
+            <button 
+              onClick={unlockAudioAndStart} 
+              className="group bg-primary hover:bg-blue-600 border border-primary p-6 rounded-2xl flex items-center gap-5 transition-all shadow-lg shadow-blue-500/20"
+            >
+              <div className="bg-white/10 p-4 rounded-full">
+                <Headphones className="w-7 h-7 text-white" />
+              </div>
+              <div className="flex flex-col items-start">
+                <span className="text-white font-bold text-lg">Solo Audio</span>
+                <span className="text-blue-100/70 text-xs mt-1">Requiere uso de audífonos</span>
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ==================================================
+  // PANTALLA 2: VISTA PRINCIPAL (TEXTO O AUDIO)
+  // ==================================================
   return (
     <div className="flex flex-col h-screen w-full p-6 max-w-md mx-auto bg-darker relative">
       
-      {/* EL REPRODUCTOR INVISIBLE (NÚCLEO DEL AUDIO) */}
       <audio ref={audioPlayerRef} onEnded={handleAudioEnded} className="hidden" />
 
       <header className="flex justify-between items-center mb-8 pb-4 border-b border-gray-800 shrink-0">
         <div className="flex items-center gap-3">
-          <img src="/logo.png" alt="Logo" className="h-8 w-auto object-contain" onError={(e) => { e.target.style.display = 'none'; }} />
-          <h1 className="text-xl font-bold text-white">Audiencia en Vivo</h1>
-        </div>
-        <div className="flex items-center gap-4">
-          <button 
-            onClick={toggleAudio}
-            className={`p-2 rounded-full transition-colors ${isAudioEnabled ? 'bg-accent/20 text-accent' : 'bg-gray-800 text-gray-500 hover:bg-gray-700'}`}
-            title="Activar traducción por voz"
-          >
-            {isAudioEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+          <button onClick={resetMode} className="p-2 bg-gray-800 hover:bg-gray-700 rounded-full transition-colors">
+            <ArrowLeft className="w-5 h-5 text-gray-400" />
           </button>
+          <span className="text-sm font-bold text-white tracking-wider">
+            {userMode === 'text' ? 'Modo Lectura' : 'Modo Escucha'}
+          </span>
+        </div>
+        <div className="flex items-center gap-3">
           <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-accent animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-red-500'}`} />
         </div>
       </header>
@@ -187,7 +229,7 @@ const AudienceView = () => {
             onChange={(e) => {
               setLanguage(e.target.value);
               setTranslation('');
-              audioQueue.current = []; // Vaciamos la cola al cambiar de idioma
+              audioQueue.current = []; 
             }}
             className="w-full bg-dark border border-gray-700 text-white text-lg rounded-xl p-4 focus:ring-2 focus:ring-accent focus:outline-none appearance-none cursor-pointer"
           >
@@ -203,21 +245,30 @@ const AudienceView = () => {
             </svg>
           </div>
         </div>
-
-        {isAudioEnabled && (
-          <div className="mt-4 flex items-start gap-2 bg-yellow-500/10 border border-yellow-500/20 p-3 rounded-lg">
-            <AlertCircle className="w-4 h-4 text-yellow-500 flex-shrink-0 mt-0.5" />
-            <p className="text-xs text-yellow-500/90 leading-relaxed">
-              Modo de voz activado. Transmisión de voz neuronal de alta fidelidad en curso.
-            </p>
-          </div>
-        )}
       </div>
 
       <main className="flex-1 flex flex-col justify-end pb-8 overflow-hidden">
-        <p className="text-2xl md:text-3xl font-normal leading-relaxed text-white min-h-[5rem] text-left tracking-wide">
-          {translation || "Esperando al orador..."}
-        </p>
+        {userMode === 'text' ? (
+          <p className="text-2xl md:text-3xl font-normal leading-relaxed text-white min-h-[5rem] text-left tracking-wide">
+            {translation || "Esperando al orador..."}
+          </p>
+        ) : (
+          <div className="flex flex-col items-center justify-center h-full mb-10 opacity-70">
+            <div className="relative flex items-center justify-center w-32 h-32 mb-6">
+              <div className="absolute inset-0 bg-primary/20 rounded-full animate-ping"></div>
+              <div className="absolute inset-4 bg-primary/40 rounded-full animate-pulse"></div>
+              <div className="relative bg-primary p-6 rounded-full shadow-lg shadow-blue-500/50">
+                <Radio className="w-10 h-10 text-white" />
+              </div>
+            </div>
+            <p className="text-gray-400 text-center text-lg font-medium tracking-wide">
+              Audio neuronal activo
+            </p>
+            <p className="text-gray-500 text-sm text-center mt-2">
+              El texto ha sido ocultado para evitar distracciones visuales.
+            </p>
+          </div>
+        )}
       </main>
 
     </div>
