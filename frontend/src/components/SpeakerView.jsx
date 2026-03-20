@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
-import { Mic, Square, Radio, Globe } from 'lucide-react';
+import { Mic, Square, Radio, Globe, Download } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL, { autoConnect: false });
@@ -15,11 +15,13 @@ const SpeakerView = () => {
   const [inputLanguage, setInputLanguage] = useState('es-CO'); 
   const [outputLanguage, setOutputLanguage] = useState('en'); 
   
+  // Nuevo estado para acumular toda la transcripción final
+  const [fullTranscription, setFullTranscription] = useState('');
+  
   const audioContextRef = useRef(null);
   const processorRef = useRef(null);
   const streamRef = useRef(null);
 
-  // El QR ahora apunta a la raíz del dominio principal (Vista de la Audiencia)
   const audienceUrl = `${window.location.origin}`;
 
   useEffect(() => {
@@ -27,9 +29,15 @@ const SpeakerView = () => {
     socket.on('disconnect', () => setIsConnected(false));
     
     socket.on('translation-result', (data) => {
+      // Mostramos en tiempo real
       setTranscription(data.original);
       if (data.translations) {
         setAllTranslations(data.translations); 
+      }
+      
+      // Acumulamos silenciosamente las frases ya terminadas para el archivo de texto
+      if (data.type === 'final') {
+        setFullTranscription(prev => prev + data.original + " ");
       }
     });
 
@@ -80,6 +88,8 @@ const SpeakerView = () => {
       gainNode.connect(audioContext.destination);
 
       setIsRecording(true);
+      // Opcional: limpiar la transcripción anterior al iniciar un nuevo discurso
+      // setFullTranscription(''); 
     } catch (error) {
       console.error('Error accediendo al micrófono:', error);
       alert('Por favor, permite el acceso al micrófono en tu navegador.');
@@ -94,6 +104,31 @@ const SpeakerView = () => {
     socket.emit('stop-translation');
     socket.disconnect();
     setIsRecording(false);
+  };
+
+  // Lógica de descarga: Transcripción Cruda
+  const downloadTranscription = () => {
+    const element = document.createElement("a");
+    const file = new Blob([fullTranscription], {type: 'text/plain'});
+    element.href = URL.createObjectURL(file);
+    element.download = "transcripcion_completa.txt";
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+  };
+
+  // Lógica de descarga: Resumen Estructurado
+  const downloadSummary = () => {
+    const fecha = new Date().toLocaleDateString();
+    const summaryText = `--- RESUMEN DE LA SESIÓN ---\nFecha: ${fecha}\nIdioma Original del Orador: ${inputLanguage}\nIdioma de Traducción Principal en Pantalla: ${outputLanguage}\n\n--- REGISTRO COMPLETO ---\n${fullTranscription}`;
+    
+    const element = document.createElement("a");
+    const file = new Blob([summaryText], {type: 'text/plain'});
+    element.href = URL.createObjectURL(file);
+    element.download = `resumen_sesion_${fecha.replace(/\//g, '-')}.txt`;
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
   };
 
   return (
@@ -204,23 +239,45 @@ const SpeakerView = () => {
         </div>
       </main>
 
-      <footer className="flex justify-center pb-8">
-        {!isRecording ? (
-          <button 
-            onClick={startRecording}
-            className="flex items-center gap-3 bg-primary hover:bg-blue-600 text-white px-8 py-4 rounded-full font-semibold transition-all shadow-lg hover:shadow-blue-500/25"
-          >
-            <Mic className="w-6 h-6" />
-            Iniciar Discurso
-          </button>
-        ) : (
-          <button 
-            onClick={stopRecording}
-            className="flex items-center gap-3 bg-red-500 hover:bg-red-600 text-white px-8 py-4 rounded-full font-semibold transition-all shadow-lg hover:shadow-red-500/25"
-          >
-            <Square className="w-6 h-6 fill-current" />
-            Detener Transmisión
-          </button>
+      <footer className="flex flex-col items-center gap-4 pb-8">
+        <div className="flex justify-center">
+          {!isRecording ? (
+            <button 
+              onClick={startRecording}
+              className="flex items-center gap-3 bg-primary hover:bg-blue-600 text-white px-8 py-4 rounded-full font-semibold transition-all shadow-lg hover:shadow-blue-500/25"
+            >
+              <Mic className="w-6 h-6" />
+              Iniciar Discurso
+            </button>
+          ) : (
+            <button 
+              onClick={stopRecording}
+              className="flex items-center gap-3 bg-red-500 hover:bg-red-600 text-white px-8 py-4 rounded-full font-semibold transition-all shadow-lg hover:shadow-red-500/25"
+            >
+              <Square className="w-6 h-6 fill-current" />
+              Detener Transmisión
+            </button>
+          )}
+        </div>
+
+        {/* Botones de descarga: Solo aparecen cuando no se está grabando y hay texto acumulado */}
+        {!isRecording && fullTranscription && (
+          <div className="flex gap-4 mt-2 transition-all duration-500 ease-in-out">
+            <button 
+              onClick={downloadTranscription}
+              className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-white px-5 py-2.5 rounded-xl font-medium transition-colors text-sm border border-gray-700 shadow-lg"
+            >
+              <Download className="w-4 h-4" />
+              Transcripción Completa
+            </button>
+            <button 
+              onClick={downloadSummary}
+              className="flex items-center gap-2 bg-dark hover:bg-gray-800 text-primary px-5 py-2.5 rounded-xl font-medium transition-colors text-sm border border-primary/30 shadow-lg"
+            >
+              <Download className="w-4 h-4" />
+              Acta de Resumen
+            </button>
+          </div>
         )}
       </footer>
     </div>
