@@ -43,7 +43,20 @@ const SpeakerView = () => {
     if (!isAuthenticated) return; 
 
     socket.on('connect', () => setIsConnected(true));
-    socket.on('disconnect', () => setIsConnected(false));
+    
+    // === AUTO-APAGADO INTELIGENTE ===
+    socket.on('disconnect', () => {
+      setIsConnected(false);
+      
+      // Si el servidor corta la conexión por inactividad (ahorro de energía), 
+      // apagamos la interfaz y liberamos el micrófono automáticamente.
+      setIsRecording(false);
+      if (processorRef.current) processorRef.current.disconnect();
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        audioContextRef.current.close().catch(() => {});
+      }
+      if (streamRef.current) streamRef.current.getTracks().forEach(track => track.stop());
+    });
     
     socket.on('translation-result', (data) => {
       setTranscription(data.original);
@@ -80,27 +93,44 @@ const SpeakerView = () => {
 
       const source = audioContext.createMediaStreamSource(stream);
       
-      const processor = audioContext.createScriptProcessor(4096, 1, 1);
-      processorRef.current = processor;
-
-      processor.onaudioprocess = (e) => {
-        const inputData = e.inputBuffer.getChannelData(0);
-        const pcm16 = new Int16Array(inputData.length);
-        
-        for (let i = 0; i < inputData.length; i++) {
-          let s = Math.max(-1, Math.min(1, inputData[i]));
-          pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+      const workletCode = `
+        class PCMProcessor extends AudioWorkletProcessor {
+          process(inputs, outputs, parameters) {
+            const input = inputs[0];
+            if (input && input.length > 0) {
+              const channelData = input[0];
+              const pcm16 = new Int16Array(channelData.length);
+              
+              for (let i = 0; i < channelData.length; i++) {
+                let s = Math.max(-1, Math.min(1, channelData[i]));
+                pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+              }
+              
+              this.port.postMessage(pcm16.buffer);
+            }
+            return true; 
+          }
         }
-        
+        registerProcessor('pcm-processor', PCMProcessor);
+      `;
+
+      const blob = new Blob([workletCode], { type: 'application/javascript' });
+      const workletUrl = URL.createObjectURL(blob);
+
+      await audioContext.audioWorklet.addModule(workletUrl);
+      const workletNode = new AudioWorkletNode(audioContext, 'pcm-processor');
+      processorRef.current = workletNode;
+
+      workletNode.port.onmessage = (event) => {
         if (socket.connected) {
-          socket.emit('audio-stream', pcm16.buffer);
+          socket.emit('audio-stream', event.data);
         }
       };
 
       const gainNode = audioContext.createGain();
       gainNode.gain.value = 0;
-      source.connect(processor);
-      processor.connect(gainNode);
+      source.connect(workletNode);
+      workletNode.connect(gainNode);
       gainNode.connect(audioContext.destination);
 
       setIsRecording(true);
@@ -112,7 +142,9 @@ const SpeakerView = () => {
 
   const stopRecording = () => {
     if (processorRef.current) processorRef.current.disconnect();
-    if (audioContextRef.current) audioContextRef.current.close();
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+      audioContextRef.current.close().catch(() => {});
+    }
     if (streamRef.current) streamRef.current.getTracks().forEach(track => track.stop());
     
     socket.emit('stop-translation');
