@@ -36,12 +36,13 @@ class TranslationService {
 
         this.translationConfig = sdk.SpeechTranslationConfig.fromSubscription(speechKey, speechRegion);
         this.translationConfig.speechRecognitionLanguage = fromLanguage;
+        this.translationConfig.setProfanity(sdk.ProfanityOption.Masked);
         
         // ==========================================
-        // FILTRO DE LENGUAJE (PROFANITY FILTER)
+        // OPTIMIZACIÓN DE LATENCIA (AGILIDAD)
         // ==========================================
-        // Masked: Reemplaza malas palabras con asteriscos (***) y las omite en el audio
-        this.translationConfig.setProfanity(sdk.ProfanityOption.Masked);
+        // Forzamos a Azure a procesar la traducción más rápido, esperando solo 500ms de silencio
+        this.translationConfig.setProperty(sdk.PropertyId.SpeechServiceConnection_EndSilenceTimeoutMs, "500");
         
         toLanguages.forEach(lang => {
             this.translationConfig.addTargetLanguage(lang);
@@ -110,14 +111,27 @@ class TranslationService {
         const speechConfig = sdk.SpeechConfig.fromSubscription(speechKey, speechRegion);
         
         const selectedMap = this.voiceGender === 'male' ? maleVoiceMap : femaleVoiceMap;
-        speechConfig.speechSynthesisVoiceName = selectedMap[lang] || (this.voiceGender === 'male' ? 'en-US-GuyNeural' : 'en-US-JennyNeural');
-
+        const voiceName = selectedMap[lang] || (this.voiceGender === 'male' ? 'en-US-GuyNeural' : 'en-US-JennyNeural');
+        
+        speechConfig.speechSynthesisVoiceName = voiceName;
         speechConfig.speechSynthesisOutputFormat = sdk.SpeechSynthesisOutputFormat.Audio16Khz32KBitRateMonoMp3;
 
         const synthesizer = new sdk.SpeechSynthesizer(speechConfig, null);
 
-        synthesizer.speakTextAsync(
-            text,
+        // ==========================================
+        // OPTIMIZACIÓN DE VELOCIDAD SSML
+        // ==========================================
+        // Le inyectamos SSML para que la IA hable un 15% más rápido (+15%)
+        const ssml = `
+            <speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="${lang}">
+                <voice name="${voiceName}">
+                    <prosody rate="+15%">${text}</prosody>
+                </voice>
+            </speak>
+        `;
+
+        synthesizer.speakSsmlAsync(
+            ssml,
             result => {
                 if (result.reason === sdk.ResultReason.SynthesizingAudioCompleted) {
                     const payload = { language: lang, audioBuffer: result.audioData };
@@ -136,7 +150,7 @@ class TranslationService {
     }
 
     start() {
-        console.log("[Azure] Iniciando motor de traducción con filtro de lenguaje activo...");
+        console.log("[Azure] Iniciando motor de traducción rápido y con filtro activo...");
         if(this.recognizer) this.recognizer.startContinuousRecognitionAsync();
     }
 
