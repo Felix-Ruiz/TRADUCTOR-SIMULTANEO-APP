@@ -17,13 +17,12 @@ const maleVoiceMap = {
 };
 
 class TranslationService {
-    // ACTUALIZADO: Recibe el nombre de la sala (roomName)
     constructor(socket, fromLanguage = 'es-CO', toLanguages = ['en', 'pt'], voiceGender = 'female', roomName = 'PRINCIPAL') {
         this.socket = socket; 
         this.targetLanguages = toLanguages; 
         this.fromLanguage = fromLanguage;
         this.voiceGender = voiceGender;
-        this.roomName = roomName; // Guardamos la sala
+        this.roomName = roomName;
         
         this.pushStream = sdk.AudioInputStream.createPushStream();
         
@@ -37,6 +36,12 @@ class TranslationService {
 
         this.translationConfig = sdk.SpeechTranslationConfig.fromSubscription(speechKey, speechRegion);
         this.translationConfig.speechRecognitionLanguage = fromLanguage;
+        
+        // ==========================================
+        // FILTRO DE LENGUAJE (PROFANITY FILTER)
+        // ==========================================
+        // Masked: Reemplaza malas palabras con asteriscos (***) y las omite en el audio
+        this.translationConfig.setProfanity(sdk.ProfanityOption.Masked);
         
         toLanguages.forEach(lang => {
             this.translationConfig.addTargetLanguage(lang);
@@ -55,7 +60,6 @@ class TranslationService {
                 const payload = { type: 'partial', original: e.result.text, translations };
                 
                 this.socket.emit('translation-result', payload); 
-                // ACTUALIZADO: Solo emite a los celulares de la sala específica
                 this.socket.broadcast.to(this.roomName).emit('translation-result', payload);
             }
         };
@@ -66,7 +70,6 @@ class TranslationService {
                 const payload = { type: 'final', original: e.result.text, translations };
                 
                 this.socket.emit('translation-result', payload);
-                // ACTUALIZADO: Solo emite a los celulares de la sala específica
                 this.socket.broadcast.to(this.roomName).emit('translation-result', payload);
 
                 this.targetLanguages.forEach(lang => {
@@ -119,7 +122,6 @@ class TranslationService {
                 if (result.reason === sdk.ResultReason.SynthesizingAudioCompleted) {
                     const payload = { language: lang, audioBuffer: result.audioData };
                     this.socket.emit('neural-audio', payload);
-                    // ACTUALIZADO: El audio premium solo va a la sala designada
                     this.socket.broadcast.to(this.roomName).emit('neural-audio', payload);
                 } else {
                     console.error(`[Azure TTS] Error en síntesis: ${result.errorDetails}`);
@@ -134,7 +136,7 @@ class TranslationService {
     }
 
     start() {
-        console.log("[Azure] Iniciando motor de traducción...");
+        console.log("[Azure] Iniciando motor de traducción con filtro de lenguaje activo...");
         if(this.recognizer) this.recognizer.startContinuousRecognitionAsync();
     }
 
