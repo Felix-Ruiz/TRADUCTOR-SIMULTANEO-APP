@@ -5,12 +5,10 @@ import { Headphones, Globe2, Volume2, VolumeX, AlertCircle } from 'lucide-react'
 const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001');
 
 const AudienceView = () => {
-  // 1. LECTURA DE URL PARA MODO TV
   const queryParams = new URLSearchParams(window.location.search);
   const isTvMode = queryParams.get('tv') === 'true';
   const urlLang = queryParams.get('lang');
 
-  // Inicializa el idioma con el de la URL (si existe), si no, usa Español por defecto
   const [language, setLanguage] = useState(urlLang || 'es'); 
   const [translation, setTranslation] = useState('');
   const [isConnected, setIsConnected] = useState(false);
@@ -34,7 +32,6 @@ const AudienceView = () => {
         setTranslation(currentText);
       }
 
-      // No reproducimos audio automáticamente en modo TV para evitar ecos en el recinto
       if (!isTvMode && isAudioEnabled && data.type === 'final' && currentText && currentText !== lastSpokenTextRef.current) {
         speak(currentText, language);
         lastSpokenTextRef.current = currentText;
@@ -80,11 +77,38 @@ const AudienceView = () => {
   // ==================================================
   if (isTvMode) {
     return (
-      <div className="flex items-center justify-center h-screen w-full bg-black p-8 md:p-16 lg:p-24 overflow-hidden">
+      <div className="flex items-center justify-center h-screen w-full bg-black p-8 md:p-16 lg:p-24 overflow-hidden relative">
+        
+        {/* Selector de idioma "Fantasma" en la esquina */}
+        <div className="absolute top-6 right-8 z-10 opacity-30 hover:opacity-100 transition-opacity duration-300">
+          <div className="relative">
+            <select 
+              value={language} 
+              onChange={(e) => {
+                setLanguage(e.target.value);
+                setTranslation('');
+                lastSpokenTextRef.current = '';
+              }}
+              className="bg-gray-900 border border-gray-800 text-gray-500 text-xs font-bold uppercase tracking-wider rounded-lg px-3 py-1.5 focus:ring-1 focus:ring-gray-600 focus:outline-none appearance-none cursor-pointer"
+            >
+              <option value="es">Español</option>
+              <option value="en">Inglés</option>
+              <option value="de">Alemán</option>
+              <option value="fr">Francés</option>
+              <option value="pt">Portugués</option>
+            </select>
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-600">
+              <svg className="fill-current h-3 w-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+
         <p className="text-5xl md:text-7xl lg:text-[6rem] font-bold text-white text-center leading-tight tracking-wide drop-shadow-2xl transition-all duration-300">
           {translation || "..."}
         </p>
-        {/* Un puntito ultra-discreto en la esquina para que el ingeniero de AV sepa que hay conexión */}
+        
         <div className={`fixed bottom-4 right-4 w-2 h-2 rounded-full opacity-30 ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
       </div>
     );
@@ -98,7 +122,7 @@ const AudienceView = () => {
       
       <header className="flex justify-between items-center mb-8 pb-4 border-b border-gray-800">
         <div className="flex items-center gap-3">
-          <Headphones className="w-7 h-7 text-accent" />
+          <img src="/logo.png" alt="Logo" className="h-8 w-auto object-contain" onError={(e) => { e.target.style.display = 'none'; }} />
           <h1 className="text-xl font-bold text-white">Audiencia en Vivo</h1>
         </div>
         <div className="flex items-center gap-4">
