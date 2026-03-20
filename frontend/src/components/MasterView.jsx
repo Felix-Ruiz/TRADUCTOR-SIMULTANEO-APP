@@ -58,7 +58,6 @@ const MasterView = () => {
     socket.emit('master-toggle-system', newStatus);
   };
 
-  // NUEVO: Función para encender/apagar evento individual
   const toggleEventStatus = (id, currentStatus) => {
     const newStatus = !currentStatus;
     if (!newStatus) {
@@ -177,7 +176,7 @@ const MasterView = () => {
       </header>
 
       <main className="flex-1 overflow-y-auto pr-2 flex flex-col gap-8">
-        <div className="bg-dark border border-gray-800 p-6 rounded-2xl shadow-lg shrink-0">
+        <div className={`bg-dark border p-6 rounded-2xl shadow-lg shrink-0 transition-all ${!isSystemActive ? 'border-gray-800 opacity-50 grayscale' : 'border-gray-800'}`}>
           <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
             <Activity className="w-5 h-5 text-primary" />
             Generar Nuevo Evento
@@ -188,12 +187,13 @@ const MasterView = () => {
               value={newEventName}
               onChange={(e) => setNewEventName(e.target.value)}
               placeholder="Nombre del Evento (Ej: Congreso ACOFI 2026)"
-              className="flex-1 bg-darker border border-gray-700 text-white text-base rounded-xl p-4 focus:ring-2 focus:ring-primary focus:outline-none transition-all"
+              disabled={!isSystemActive}
+              className="flex-1 bg-darker border border-gray-700 text-white text-base rounded-xl p-4 focus:ring-2 focus:ring-primary focus:outline-none transition-all disabled:cursor-not-allowed"
             />
             <button 
               type="submit"
-              disabled={!newEventName.trim()}
-              className="bg-primary hover:bg-blue-600 text-white px-8 py-4 rounded-xl font-bold transition-all shadow-lg hover:shadow-blue-500/25 disabled:opacity-50 flex items-center justify-center gap-2"
+              disabled={!newEventName.trim() || !isSystemActive}
+              className="bg-primary hover:bg-blue-600 text-white px-8 py-4 rounded-xl font-bold transition-all shadow-lg hover:shadow-blue-500/25 disabled:opacity-50 flex items-center justify-center gap-2 disabled:cursor-not-allowed"
             >
               <Plus className="w-5 h-5" />
               Crear Instancia
@@ -203,20 +203,34 @@ const MasterView = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-8">
           {events.map((event) => (
-            <div key={event.id} className={`bg-dark border rounded-2xl flex flex-col overflow-hidden shadow-xl transition-all ${event.isActive ? 'border-gray-800' : 'border-red-900/50 opacity-80'}`}>
+            <div key={event.id} className={`bg-dark border rounded-2xl flex flex-col overflow-hidden shadow-xl transition-all ${!isSystemActive ? 'border-gray-800 opacity-60' : event.isActive ? 'border-gray-800' : 'border-red-900/50 opacity-80'}`}>
               
               <div className="p-5 border-b border-gray-800 bg-black/20 flex justify-between items-center">
                 <div className="flex items-center gap-3">
                     <h3 className="text-xl font-bold text-white leading-tight">{event.name}</h3>
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest ${event.isActive ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>
-                        {event.isActive ? 'Online' : 'Offline'}
+                    {/* NUEVO: Etiqueta dinámica atada a la Central */}
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest ${
+                      !isSystemActive 
+                        ? 'bg-gray-500/20 text-gray-500 border border-gray-500/30' 
+                        : event.isActive 
+                          ? 'bg-green-500/20 text-green-500' 
+                          : 'bg-red-500/20 text-red-500'
+                    }`}>
+                        {!isSystemActive ? 'Bloqueado por Central' : (event.isActive ? 'Online' : 'Offline')}
                     </span>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                     <button 
                         onClick={() => toggleEventStatus(event.id, event.isActive)}
-                        className={`p-2 rounded-lg transition-colors ${event.isActive ? 'bg-green-500/10 hover:bg-green-500 text-green-500 hover:text-white' : 'bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white'}`}
-                        title={event.isActive ? "Pausar Evento" : "Reactivar Evento"}
+                        disabled={!isSystemActive}
+                        className={`p-2 rounded-lg transition-colors ${
+                          !isSystemActive 
+                            ? 'opacity-30 cursor-not-allowed' 
+                            : event.isActive 
+                              ? 'bg-green-500/10 hover:bg-green-500 text-green-500 hover:text-white' 
+                              : 'bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white'
+                        }`}
+                        title={!isSystemActive ? "Enciende la Central primero" : (event.isActive ? "Pausar Evento" : "Reactivar Evento")}
                     >
                         <Power className="w-4 h-4" />
                     </button>
@@ -259,13 +273,13 @@ const MasterView = () => {
                     <button 
                       onClick={() => setSelectedEventId(selectedEventId === event.id ? null : event.id)}
                       className="text-xs font-bold text-primary hover:text-blue-400 transition-colors uppercase disabled:opacity-50"
-                      disabled={!event.isActive}
+                      disabled={!isSystemActive || !event.isActive}
                     >
                       + Añadir Sala
                     </button>
                   </div>
 
-                  {selectedEventId === event.id && event.isActive && (
+                  {selectedEventId === event.id && isSystemActive && event.isActive && (
                     <form onSubmit={(e) => handleAddRoom(e, event.id)} className="mb-3 flex gap-2">
                       <input 
                         type="text"
@@ -283,7 +297,7 @@ const MasterView = () => {
                     {event.rooms.map(room => (
                       <span key={room} className="flex items-center gap-2 px-3 py-1 bg-gray-800 text-gray-300 text-xs font-bold uppercase tracking-wider rounded-md border border-gray-700">
                         {room}
-                        {event.isActive && (
+                        {isSystemActive && event.isActive && (
                             <button 
                             onClick={() => handleDeleteRoom(event.id, room)}
                             className="text-gray-500 hover:text-red-500 transition-colors"
