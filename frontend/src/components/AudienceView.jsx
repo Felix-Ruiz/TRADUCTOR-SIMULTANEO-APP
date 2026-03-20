@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
-import { Headphones, Globe2, AlertCircle, MessageSquare, ArrowLeft, Radio } from 'lucide-react';
+import { Headphones, Globe2, AlertCircle, MessageSquare, Radio } from 'lucide-react';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001');
 
@@ -13,7 +13,6 @@ const AudienceView = () => {
   const [translation, setTranslation] = useState('');
   const [isConnected, setIsConnected] = useState(false);
   
-  // NUEVO: Estado para controlar la experiencia del usuario (null | 'text' | 'audio')
   const [userMode, setUserMode] = useState(null);
 
   const audioPlayerRef = useRef(null);
@@ -51,7 +50,6 @@ const AudienceView = () => {
     socket.on('disconnect', () => setIsConnected(false));
     
     socket.on('translation-result', (data) => {
-      // Solo actualizamos el texto si estamos en modo TV o en modo texto (ahorro de RAM)
       if (isTvMode || userMode === 'text') {
         let currentText = '';
         if (data.translations && data.translations[language]) {
@@ -65,7 +63,6 @@ const AudienceView = () => {
     });
 
     socket.on('neural-audio', (data) => {
-      // Solo encolamos el audio si el usuario eligió modo 'audio'
       if (!isTvMode && userMode === 'audio' && data.language === language && data.audioBuffer) {
         const blob = new Blob([data.audioBuffer], { type: 'audio/mp3' });
         const url = URL.createObjectURL(blob);
@@ -84,7 +81,7 @@ const AudienceView = () => {
   }, [language, userMode, isTvMode]); 
 
   // ==========================================
-  // DESBLOQUEO DE AUDIO (Activado por el Modal)
+  // DESBLOQUEO DE AUDIO Y CAMBIO DE MODO
   // ==========================================
   const unlockAudioAndStart = async () => {
     try {
@@ -98,14 +95,19 @@ const AudienceView = () => {
     setUserMode('audio');
   };
 
-  const resetMode = () => {
-    setUserMode(null);
-    setTranslation('');
-    audioQueue.current = [];
-    isPlaying.current = false;
-    if (audioPlayerRef.current) {
-      audioPlayerRef.current.pause();
-      audioPlayerRef.current.src = "";
+  const switchMode = async () => {
+    if (userMode === 'text') {
+      // Cambiar a Audio: Desbloqueamos el reproductor en el clic
+      await unlockAudioAndStart();
+    } else {
+      // Cambiar a Texto: Vaciamos la cola y silenciamos
+      setUserMode('text');
+      audioQueue.current = [];
+      isPlaying.current = false;
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.pause();
+        audioPlayerRef.current.src = "";
+      }
     }
   };
 
@@ -151,7 +153,7 @@ const AudienceView = () => {
   }
 
   // ==================================================
-  // PANTALLA 1: MODAL DE SELECCIÓN DE EXPERIENCIA
+  // PANTALLA 1: MODAL DE SELECCIÓN INICIAL
   // ==================================================
   if (!userMode) {
     return (
@@ -204,16 +206,15 @@ const AudienceView = () => {
       
       <audio ref={audioPlayerRef} onEnded={handleAudioEnded} className="hidden" />
 
-      <header className="flex justify-between items-center mb-8 pb-4 border-b border-gray-800 shrink-0">
+      <header className="flex justify-between items-center mb-6 pb-4 border-b border-gray-800 shrink-0">
         <div className="flex items-center gap-3">
-          <button onClick={resetMode} className="p-2 bg-gray-800 hover:bg-gray-700 rounded-full transition-colors">
-            <ArrowLeft className="w-5 h-5 text-gray-400" />
-          </button>
-          <span className="text-sm font-bold text-white tracking-wider">
-            {userMode === 'text' ? 'Modo Lectura' : 'Modo Escucha'}
-          </span>
+          <img src="/logo.png" alt="Logo" className="h-8 w-auto object-contain" onError={(e) => { e.target.style.display = 'none'; }} />
+          <h1 className="text-lg font-bold text-white">Audiencia en Vivo</h1>
         </div>
         <div className="flex items-center gap-3">
+          <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">
+            {userMode === 'text' ? 'Modo Lectura' : 'Modo Escucha'}
+          </span>
           <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-accent animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-red-500'}`} />
         </div>
       </header>
@@ -221,7 +222,7 @@ const AudienceView = () => {
       <div className="mb-6 shrink-0">
         <label className="flex items-center gap-2 text-sm font-semibold text-gray-400 mb-3 uppercase tracking-wider">
           <Globe2 className="w-4 h-4" />
-          Selecciona tu idioma
+          Idioma de destino
         </label>
         <div className="relative">
           <select 
@@ -247,13 +248,13 @@ const AudienceView = () => {
         </div>
       </div>
 
-      <main className="flex-1 flex flex-col justify-end pb-8 overflow-hidden">
+      <main className="flex-1 flex flex-col justify-end pb-6 overflow-hidden">
         {userMode === 'text' ? (
           <p className="text-2xl md:text-3xl font-normal leading-relaxed text-white min-h-[5rem] text-left tracking-wide">
             {translation || "Esperando al orador..."}
           </p>
         ) : (
-          <div className="flex flex-col items-center justify-center h-full mb-10 opacity-70">
+          <div className="flex flex-col items-center justify-center h-full mb-4 opacity-70">
             <div className="relative flex items-center justify-center w-32 h-32 mb-6">
               <div className="absolute inset-0 bg-primary/20 rounded-full animate-ping"></div>
               <div className="absolute inset-4 bg-primary/40 rounded-full animate-pulse"></div>
@@ -264,12 +265,34 @@ const AudienceView = () => {
             <p className="text-gray-400 text-center text-lg font-medium tracking-wide">
               Audio neuronal activo
             </p>
-            <p className="text-gray-500 text-sm text-center mt-2">
-              El texto ha sido ocultado para evitar distracciones visuales.
+            <p className="text-gray-500 text-sm text-center mt-2 px-4">
+              La transcripción visual está pausada para maximizar el rendimiento.
             </p>
           </div>
         )}
       </main>
+
+      {/* BOTÓN FLOTANTE PARA CAMBIO DINÁMICO DE MODO */}
+      <footer className="shrink-0 pb-4 pt-2 border-t border-gray-800/50">
+        <button
+          onClick={switchMode}
+          className="w-full group relative flex items-center justify-center gap-3 bg-dark border border-gray-700 hover:border-gray-500 p-4 rounded-xl transition-all shadow-lg overflow-hidden"
+        >
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+          
+          {userMode === 'text' ? (
+            <>
+              <Headphones className="w-5 h-5 text-gray-400 group-hover:text-white transition-colors" />
+              <span className="text-gray-300 font-medium tracking-wide">Cambiar a Modo Audio</span>
+            </>
+          ) : (
+            <>
+              <MessageSquare className="w-5 h-5 text-gray-400 group-hover:text-white transition-colors" />
+              <span className="text-gray-300 font-medium tracking-wide">Cambiar a Modo Texto</span>
+            </>
+          )}
+        </button>
+      </footer>
 
     </div>
   );
