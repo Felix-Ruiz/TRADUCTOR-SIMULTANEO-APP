@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
 import { Headphones, Globe2 } from 'lucide-react';
 
-const socket = io(import.meta.env.VITE_BACKEND_URL);
+// Conexión blindada: Usa la variable de entorno en Vercel, o el localhost si estás probando en tu computadora
+const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001');
 
 const AudienceView = () => {
   const [language, setLanguage] = useState('en'); 
@@ -79,7 +80,6 @@ const AudienceView = () => {
       </div>
 
       <main className="flex-1 flex flex-col justify-center pb-12">
-        {/* Animación de transición agregada aquí */}
         <p className="text-3xl md:text-4xl font-medium leading-relaxed text-white min-h-[3rem] text-center transition-all duration-300 ease-in-out">
           {translation || "Esperando al orador..."}
         </p>
