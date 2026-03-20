@@ -10,7 +10,12 @@ const AudienceView = () => {
   const urlLang = queryParams.get('lang');
   const urlRoom = queryParams.get('room');
   
-  const [urlEvent, setUrlEvent] = useState(queryParams.get('event') || '');
+  // ACTUALIZADO: Leemos el código del evento desde la URL (si escanearon QR) o desde la memoria del celular
+  const urlEventParam = queryParams.get('event');
+  const savedEventId = sessionStorage.getItem('audienceEventId');
+  const initialEventId = urlEventParam || savedEventId || '';
+
+  const [urlEvent, setUrlEvent] = useState(initialEventId);
   const [eventInput, setEventInput] = useState('');
   const [eventError, setEventError] = useState('');
   const [eventName, setEventName] = useState('Traducción en Vivo');
@@ -24,8 +29,8 @@ const AudienceView = () => {
 
   const [isSystemActive, setIsSystemActive] = useState(true);
   
-  // NUEVO: Estado para mostrar la pantalla de carga
-  const [isVerifying, setIsVerifying] = useState(!!queryParams.get('event'));
+  // ACTUALIZADO: Si hay un ID inicial, activamos la pantalla de carga para validar sin parpadeos
+  const [isVerifying, setIsVerifying] = useState(!!initialEventId);
 
   const audioPlayerRef = useRef(null);
   const audioQueue = useRef([]);
@@ -94,14 +99,18 @@ const AudienceView = () => {
         setUrlEvent(eventId);
         setEventName(response.name);
         setEventError('');
+        // ACTUALIZADO: Guardamos el código exitoso en la memoria del navegador
+        sessionStorage.setItem('audienceEventId', eventId);
         socket.emit('join-event-audience', eventId);
       } else {
         setEventError('Código de evento inválido o evento finalizado.');
         if (eventId === urlEvent) {
             setUrlEvent(''); 
         }
+        // ACTUALIZADO: Si el código ya no sirve, limpiamos la memoria
+        sessionStorage.removeItem('audienceEventId');
       }
-      setIsVerifying(false); // Detenemos la animación de carga
+      setIsVerifying(false); 
     });
   };
 
