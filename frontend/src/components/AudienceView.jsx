@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
-import { Headphones, Globe2 } from 'lucide-react';
+import { Headphones, Globe2, Volume2, VolumeX } from 'lucide-react';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001');
 
@@ -8,19 +8,29 @@ const AudienceView = () => {
   const [language, setLanguage] = useState('es'); 
   const [translation, setTranslation] = useState('');
   const [isConnected, setIsConnected] = useState(false);
+  const [isAudioEnabled, setIsAudioEnabled] = useState(false);
+  
+  // Referencia para no solapar voces
+  const synthRef = useRef(window.speechSynthesis);
 
   useEffect(() => {
     socket.on('connect', () => setIsConnected(true));
     socket.on('disconnect', () => setIsConnected(false));
     
     socket.on('translation-result', (data) => {
-      // Si existe la traducción de Azure, la mostramos.
+      let textToRead = "";
+
       if (data.translations && data.translations[language]) {
-        setTranslation(data.translations[language]);
+        textToRead = data.translations[language];
+        setTranslation(textToRead);
       } else if (data.original) {
-        // Fallback: Si el usuario elige español y el orador habla en español, 
-        // Azure no siempre "traduce", simplemente mostramos el texto original.
-        setTranslation(data.original);
+        textToRead = data.original;
+        setTranslation(textToRead);
+      }
+
+      // Lógica de Voz Nativa (Solo si el audio está activado y el fragmento es final)
+      if (isAudioEnabled && textToRead && data.type === 'final') {
+        speak(textToRead, language);
       }
     });
 
@@ -28,8 +38,40 @@ const AudienceView = () => {
       socket.off('connect');
       socket.off('disconnect');
       socket.off('translation-result');
+      if (synthRef.current) synthRef.current.cancel();
     };
-  }, [language]); 
+  }, [language, isAudioEnabled]);
+
+  const speak = (text, langCode) => {
+    // Cancelamos cualquier voz previa para evitar amontonamiento
+    synthRef.current.cancel();
+    
+    const utterance = new SpeechSynthesisUtterance(text);
+    
+    // Mapeo de códigos cortos a códigos de voz nativos
+    const langMap = {
+      'es': 'es-ES', 'en': 'en-US', 'pt': 'pt-BR', 'fr': 'fr-FR',
+      'de': 'de-DE', 'it': 'it-IT', 'ja': 'ja-JP', 'ko': 'ko-KR',
+      'zh-Hans': 'zh-CN', 'ru': 'ru-RU'
+    };
+    
+    utterance.lang = langMap[langCode] || langCode;
+    utterance.rate = 1.0; // Velocidad normal
+    utterance.pitch = 1.0;
+    
+    synthRef.current.speak(utterance);
+  };
+
+  const toggleAudio = () => {
+    // Truco para desbloquear el audio en móviles: reproducir un silencio al hacer clic
+    if (!isAudioEnabled) {
+      const v = new SpeechSynthesisUtterance("");
+      synthRef.current.speak(v);
+    } else {
+      synthRef.current.cancel();
+    }
+    setIsAudioEnabled(!isAudioEnabled);
+  };
 
   return (
     <div className="flex flex-col h-screen w-full p-6 max-w-md mx-auto bg-darker">
@@ -39,7 +81,15 @@ const AudienceView = () => {
           <Headphones className="w-7 h-7 text-accent" />
           <h1 className="text-xl font-bold text-white">Audiencia en Vivo</h1>
         </div>
-        <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-accent animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-red-500'}`} />
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={toggleAudio}
+            className={`p-2 rounded-full transition-colors ${isAudioEnabled ? 'bg-accent/20 text-accent' : 'bg-gray-800 text-gray-500'}`}
+          >
+            {isAudioEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
+          </button>
+          <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-accent animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-red-500'}`} />
+        </div>
       </header>
 
       <div className="mb-10">
@@ -53,6 +103,7 @@ const AudienceView = () => {
             onChange={(e) => {
               setLanguage(e.target.value);
               setTranslation('');
+              if (synthRef.current) synthRef.current.cancel();
             }}
             className="w-full bg-dark border border-gray-700 text-white text-lg rounded-xl p-4 focus:ring-2 focus:ring-accent focus:outline-none appearance-none cursor-pointer"
           >
@@ -72,7 +123,6 @@ const AudienceView = () => {
             <option value="tr">Türkçe (Turco)</option>
             <option value="pl">Polski (Polaco)</option>
             <option value="sv">Svenska (Sueco)</option>
-            {/* 10 Nuevos Idiomas para la Audiencia */}
             <option value="da">Dansk (Danés)</option>
             <option value="fi">Suomi (Finés)</option>
             <option value="el">Ελληνικά (Griego)</option>
@@ -90,6 +140,11 @@ const AudienceView = () => {
             </svg>
           </div>
         </div>
+        {isAudioEnabled && (
+          <p className="mt-2 text-xs text-accent font-medium animate-pulse text-center">
+            Audio activado. Usa tus audífonos para una mejor experiencia.
+          </p>
+        )}
       </div>
 
       <main className="flex-1 flex flex-col justify-center pb-12">
