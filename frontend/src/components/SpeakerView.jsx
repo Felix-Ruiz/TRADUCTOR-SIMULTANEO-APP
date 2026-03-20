@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { Mic, Square, Radio, Globe } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 
-// Conectamos con nuestro backend local
 const socket = io('http://localhost:3001', { autoConnect: false });
 
 const SpeakerView = () => {
@@ -11,10 +11,11 @@ const SpeakerView = () => {
   const [transcription, setTranscription] = useState('');
   const [translation, setTranslation] = useState('');
   
-  // Referencias para limpiar la memoria al detener
   const audioContextRef = useRef(null);
   const processorRef = useRef(null);
   const streamRef = useRef(null);
+
+  const audienceUrl = `${window.location.origin}/audience`;
 
   useEffect(() => {
     socket.on('connect', () => setIsConnected(true));
@@ -36,32 +37,27 @@ const SpeakerView = () => {
 
   const startRecording = async () => {
     try {
-      // 1. Pedir permisos de micrófono
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
       
-      // 2. Conectar el socket e iniciar la IA en Azure
       socket.connect();
       socket.emit('start-translation', { 
         fromLanguage: 'es-CO', 
-        toLanguages: ['en', 'pt'] 
+        // Desplegamos los 15 idiomas solicitados
+        toLanguages: ['en', 'pt', 'fr', 'de', 'it', 'zh-Hans', 'ja', 'ko', 'ru', 'ar', 'hi', 'nl', 'tr', 'pl', 'sv'] 
       });
       
-      // 3. Crear el contexto de audio exigiendo formato de estudio (16kHz)
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       const audioContext = new AudioContext({ sampleRate: 16000 });
       audioContextRef.current = audioContext;
 
-      // 4. Conectar el micrófono al procesador
       const source = audioContext.createMediaStreamSource(stream);
-      // Crear un procesador que tome muestras (4096), con 1 canal de entrada (Mono) y 1 de salida
       const processor = audioContext.createScriptProcessor(4096, 1, 1);
       processorRef.current = processor;
 
-      // 5. Convertir y enviar el audio crudo (PCM 16-bit) en tiempo real
       processor.onaudioprocess = (e) => {
-        const inputData = e.inputBuffer.getChannelData(0); // Audio en formato Float32
-        const pcm16 = new Int16Array(inputData.length); // Array para el formato Int16 que pide Azure
+        const inputData = e.inputBuffer.getChannelData(0);
+        const pcm16 = new Int16Array(inputData.length);
         
         for (let i = 0; i < inputData.length; i++) {
           let s = Math.max(-1, Math.min(1, inputData[i]));
@@ -73,9 +69,8 @@ const SpeakerView = () => {
         }
       };
 
-      // 6. Completar el circuito de audio (silenciado para que no escuches eco)
       const gainNode = audioContext.createGain();
-      gainNode.gain.value = 0; // Volumen cero
+      gainNode.gain.value = 0;
       source.connect(processor);
       processor.connect(gainNode);
       gainNode.connect(audioContext.destination);
@@ -83,20 +78,14 @@ const SpeakerView = () => {
       setIsRecording(true);
     } catch (error) {
       console.error('Error accediendo al micrófono:', error);
-      alert('Por favor, permite el acceso al micrófono en tu navegador para continuar.');
+      alert('Por favor, permite el acceso al micrófono en tu navegador.');
     }
   };
 
   const stopRecording = () => {
-    if (processorRef.current) {
-      processorRef.current.disconnect();
-    }
-    if (audioContextRef.current) {
-      audioContextRef.current.close();
-    }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-    }
+    if (processorRef.current) processorRef.current.disconnect();
+    if (audioContextRef.current) audioContextRef.current.close();
+    if (streamRef.current) streamRef.current.getTracks().forEach(track => track.stop());
     
     socket.emit('stop-translation');
     socket.disconnect();
@@ -105,15 +94,29 @@ const SpeakerView = () => {
 
   return (
     <div className="flex flex-col h-screen w-full p-8 max-w-5xl mx-auto">
-      <header className="flex justify-between items-center mb-12">
-        <div className="flex items-center gap-3">
-          <Globe className="w-8 h-8 text-primary" />
-          <h1 className="text-2xl font-bold tracking-tight">Traducción Simultánea</h1>
+      
+      <header className="flex justify-between items-start mb-12">
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center gap-3">
+            <Globe className="w-8 h-8 text-primary" />
+            <h1 className="text-2xl font-bold tracking-tight">Traducción Simultánea</h1>
+          </div>
+          <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full font-medium text-sm w-max ${isRecording ? 'bg-red-500/10 text-red-500' : 'bg-gray-800 text-gray-400'}`}>
+            <Radio className={`w-4 h-4 ${isRecording ? 'animate-pulse' : ''}`} />
+            {isRecording ? 'Transmitiendo en vivo' : 'Sistema en espera'}
+          </div>
         </div>
         
-        <div className={`flex items-center gap-2 px-4 py-2 rounded-full font-medium text-sm ${isRecording ? 'bg-red-500/10 text-red-500' : 'bg-gray-800 text-gray-400'}`}>
-          <Radio className={`w-4 h-4 ${isRecording ? 'animate-pulse' : ''}`} />
-          {isRecording ? 'Transmitiendo en vivo' : 'Sistema en espera'}
+        <div className="hidden md:flex items-center gap-5 bg-dark p-3 rounded-2xl border border-gray-800 shadow-xl">
+          <div className="bg-white p-2 rounded-xl">
+            <QRCodeSVG value={audienceUrl} size={70} />
+          </div>
+          <div className="flex flex-col pr-4">
+            <span className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-1">Acceso Audiencia</span>
+            <a href={audienceUrl} target="_blank" rel="noreferrer" className="text-sm text-primary hover:text-blue-400 font-medium transition-colors">
+              Abrir enlace remoto ↗
+            </a>
+          </div>
         </div>
       </header>
 
