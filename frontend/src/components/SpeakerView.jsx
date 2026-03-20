@@ -10,17 +10,17 @@ const SpeakerView = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [transcription, setTranscription] = useState('');
   
-  // Guardamos TODAS las traducciones que llegan del backend
   const [allTranslations, setAllTranslations] = useState({}); 
   
   const [inputLanguage, setInputLanguage] = useState('es-CO'); 
-  const [outputLanguage, setOutputLanguage] = useState('en'); // Estado para el idioma de salida en pantalla
+  const [outputLanguage, setOutputLanguage] = useState('en'); 
   
   const audioContextRef = useRef(null);
   const processorRef = useRef(null);
   const streamRef = useRef(null);
 
-  const audienceUrl = `${window.location.origin}/audience`;
+  // El QR ahora apunta a la raíz del dominio principal (Vista de la Audiencia)
+  const audienceUrl = `${window.location.origin}`;
 
   useEffect(() => {
     socket.on('connect', () => setIsConnected(true));
@@ -29,7 +29,6 @@ const SpeakerView = () => {
     socket.on('translation-result', (data) => {
       setTranscription(data.original);
       if (data.translations) {
-        // Guardamos el objeto completo con los 15 idiomas
         setAllTranslations(data.translations); 
       }
     });
@@ -167,14 +166,12 @@ const SpeakerView = () => {
         </div>
 
         <div className="space-y-2">
-          {/* Selector de idioma de Salida Principal */}
           <div className="flex items-center gap-3 mb-2">
             <span className="text-sm font-semibold text-primary uppercase tracking-wider">Traducción Principal:</span>
             <div className="relative">
               <select 
                 value={outputLanguage}
                 onChange={(e) => setOutputLanguage(e.target.value)}
-                // No se bloquea al grabar, permitiendo cambio dinámico
                 className="bg-darker border border-gray-700 text-gray-400 text-sm font-bold uppercase tracking-wider rounded-lg px-3 py-1.5 focus:ring-1 focus:ring-gray-400 focus:outline-none appearance-none cursor-pointer"
               >
                 <option value="en">Inglés</option>
