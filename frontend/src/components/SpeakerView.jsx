@@ -5,7 +5,6 @@ import { QRCodeSVG } from 'qrcode.react';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL, { autoConnect: false });
 
-// Diccionario para los nombres de los idiomas en las descargas
 const langNames = {
   'es': 'Español',
   'en': 'Inglés',
@@ -26,9 +25,8 @@ const SpeakerView = () => {
   const [allTranslations, setAllTranslations] = useState({}); 
   const [inputLanguage, setInputLanguage] = useState('es-CO'); 
   
-  // === NUEVA LÓGICA DE MULTI-VIEWER DINÁMICO ===
-  const [panelCount, setPanelCount] = useState(1); // Cuántos paneles mostrar (1, 2 o 3)
-  const [panelLanguages, setPanelLanguages] = useState(['en', 'de', 'fr']); // Idiomas asignados a cada panel
+  const [panelCount, setPanelCount] = useState(1); 
+  const [panelLanguages, setPanelLanguages] = useState(['en', 'de', 'fr']); 
   
   const [fullTranscription, setFullTranscription] = useState('');
   
@@ -173,7 +171,6 @@ const SpeakerView = () => {
 
   const downloadSummary = () => {
     const fecha = new Date().toLocaleDateString();
-    // Extraemos solo los idiomas que estaban activos en pantalla al descargar
     const activeLangs = panelLanguages.slice(0, panelCount).map(code => langNames[code]).join(', ');
     
     const summaryText = `--- RESUMEN DE LA SESIÓN ---\nFecha: ${fecha}\nIdioma Original del Orador: ${inputLanguage}\nIdiomas Monitoreados: ${activeLangs}\n\n--- REGISTRO COMPLETO ---\n${fullTranscription}`;
@@ -187,7 +184,6 @@ const SpeakerView = () => {
     document.body.removeChild(element);
   };
 
-  // Función para actualizar el idioma de un panel específico
   const handlePanelLanguageChange = (index, newLang) => {
     const newPanelLanguages = [...panelLanguages];
     newPanelLanguages[index] = newLang;
@@ -281,7 +277,8 @@ const SpeakerView = () => {
             </div>
           </div>
           
-          <p className="text-3xl md:text-4xl font-bold leading-tight text-white min-h-[3rem] transition-all duration-300 ease-in-out">
+          {/* Texto de origen sin animaciones para mayor estabilidad de lectura */}
+          <p className="text-3xl md:text-4xl font-bold leading-tight text-white min-h-[3rem] text-left">
             {transcription || "Presiona el botón para comenzar a hablar..."}
           </p>
         </div>
@@ -312,10 +309,9 @@ const SpeakerView = () => {
             'grid-cols-1 md:grid-cols-3'
           }`}>
             {Array.from({ length: panelCount }).map((_, index) => (
-              <div key={index} className="bg-dark border border-gray-800 rounded-2xl p-5 flex flex-col min-h-[10rem] shadow-xl relative">
+              <div key={index} className="bg-dark border border-gray-800 rounded-2xl p-5 flex flex-col justify-start min-h-[10rem] shadow-xl relative">
                 
-                {/* Selector Independiente para cada Panel */}
-                <div className="mb-3 border-b border-gray-800 pb-2 relative">
+                <div className="mb-3 border-b border-gray-800 pb-2 relative shrink-0">
                   <select 
                     value={panelLanguages[index]}
                     onChange={(e) => handlePanelLanguageChange(index, e.target.value)}
@@ -334,7 +330,8 @@ const SpeakerView = () => {
                   </div>
                 </div>
 
-                <p className="text-xl md:text-2xl font-medium leading-relaxed text-gray-300">
+                {/* Texto de traducción anclado arriba y sin animaciones molestas */}
+                <p className="text-xl md:text-2xl font-medium leading-relaxed text-gray-300 text-left">
                   {allTranslations[panelLanguages[index]] || "..."}
                 </p>
               </div>

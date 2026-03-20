@@ -77,9 +77,8 @@ const AudienceView = () => {
   // ==================================================
   if (isTvMode) {
     return (
-      <div className="flex items-center justify-center h-screen w-full bg-black p-8 md:p-16 lg:p-24 overflow-hidden relative">
+      <div className="flex flex-col justify-end h-screen w-full bg-black p-8 md:p-16 lg:pb-24 overflow-hidden relative">
         
-        {/* Selector de idioma "Fantasma" en la esquina */}
         <div className="absolute top-6 right-8 z-10 opacity-30 hover:opacity-100 transition-opacity duration-300">
           <div className="relative">
             <select 
@@ -105,7 +104,8 @@ const AudienceView = () => {
           </div>
         </div>
 
-        <p className="text-5xl md:text-7xl lg:text-[6rem] font-bold text-white text-center leading-tight tracking-wide drop-shadow-2xl transition-all duration-300">
+        {/* Texto anclado abajo y a la izquierda, sin animaciones que lo hagan saltar */}
+        <p className="text-5xl md:text-7xl lg:text-[5.5rem] font-bold text-white text-left leading-tight tracking-wide drop-shadow-2xl">
           {translation || "..."}
         </p>
         
@@ -120,7 +120,7 @@ const AudienceView = () => {
   return (
     <div className="flex flex-col h-screen w-full p-6 max-w-md mx-auto bg-darker">
       
-      <header className="flex justify-between items-center mb-8 pb-4 border-b border-gray-800">
+      <header className="flex justify-between items-center mb-8 pb-4 border-b border-gray-800 shrink-0">
         <div className="flex items-center gap-3">
           <img src="/logo.png" alt="Logo" className="h-8 w-auto object-contain" onError={(e) => { e.target.style.display = 'none'; }} />
           <h1 className="text-xl font-bold text-white">Audiencia en Vivo</h1>
@@ -137,7 +137,7 @@ const AudienceView = () => {
         </div>
       </header>
 
-      <div className="mb-10">
+      <div className="mb-6 shrink-0">
         <label className="flex items-center gap-2 text-sm font-semibold text-gray-400 mb-3 uppercase tracking-wider">
           <Globe2 className="w-4 h-4" />
           Selecciona tu idioma
@@ -176,8 +176,9 @@ const AudienceView = () => {
         )}
       </div>
 
-      <main className="flex-1 flex flex-col justify-center pb-12">
-        <p className="text-3xl md:text-4xl font-medium leading-relaxed text-white min-h-[3rem] text-center transition-all duration-300 ease-in-out">
+      {/* Contenedor anclado al fondo y texto a la izquierda */}
+      <main className="flex-1 flex flex-col justify-end pb-8 overflow-hidden">
+        <p className="text-3xl md:text-4xl font-medium leading-relaxed text-white min-h-[3rem] text-left">
           {translation || "Esperando al orador..."}
         </p>
       </main>
