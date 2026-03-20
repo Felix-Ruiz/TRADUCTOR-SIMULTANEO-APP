@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
-import { Headphones, Globe2, AlertCircle, MessageSquare, Radio, PowerOff, Key } from 'lucide-react';
+import { Headphones, Globe2, AlertCircle, MessageSquare, Radio, PowerOff, Key, LogOut } from 'lucide-react';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001');
 
@@ -27,6 +27,7 @@ const AudienceView = () => {
   const [userMode, setUserMode] = useState(null);
 
   const [isSystemActive, setIsSystemActive] = useState(true);
+  const [isEventActive, setIsEventActive] = useState(true); // NUEVO
   
   const [isVerifying, setIsVerifying] = useState(!!initialEventId);
 
@@ -67,7 +68,7 @@ const AudienceView = () => {
   }, [userMode]);
 
   const playNextInQueue = async () => {
-    if (isPlaying.current || audioQueue.current.length === 0 || !isSystemActive) return;
+    if (isPlaying.current || audioQueue.current.length === 0 || !isSystemActive || !isEventActive) return;
     
     isPlaying.current = true;
     const nextAudioUrl = audioQueue.current.shift(); 
@@ -117,6 +118,36 @@ const AudienceView = () => {
     verifyEvent(eventInput.trim());
   };
 
+  const handleExitEvent = () => {
+    if (window.confirm("¿Deseas salir de este evento?")) {
+      sessionStorage.removeItem('audienceEventId');
+      setUrlEvent('');
+      setRoomName('');
+      setEventInput('');
+      setUserMode(null);
+      setTranslation('');
+      audioQueue.current = [];
+      isPlaying.current = false;
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.pause();
+        audioPlayerRef.current.src = "";
+      }
+      releaseWakeLock();
+      socket.emit('join-isolated-room', { eventId: 'NONE', roomName: 'NONE' });
+    }
+  };
+
+  const stopPlaybackAndClear = () => {
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.pause();
+        audioPlayerRef.current.src = "";
+      }
+      audioQueue.current = [];
+      isPlaying.current = false;
+      setTranslation('');
+      releaseWakeLock();
+  };
+
   useEffect(() => {
     socket.on('connect', () => {
       setIsConnected(true);
@@ -129,33 +160,31 @@ const AudienceView = () => {
 
     socket.on('system-status', (status) => {
       setIsSystemActive(status);
-      if (!status) {
-        if (audioPlayerRef.current) {
-          audioPlayerRef.current.pause();
-          audioPlayerRef.current.src = "";
+      if (!status) stopPlaybackAndClear();
+    });
+
+    // NUEVO: Escucha si apagan este evento en específico
+    socket.on('event-status-changed', (data) => {
+        if (data.eventId === urlEvent) {
+            setIsEventActive(data.status);
+            if (!data.status) stopPlaybackAndClear();
         }
-        audioQueue.current = [];
-        isPlaying.current = false;
-        setTranslation('');
-        releaseWakeLock();
-      }
     });
 
     socket.on('event-info', (data) => {
         setEventName(data.name);
         setAvailableRooms(data.allRooms);
+        setIsEventActive(data.isActive); // Tomamos el estado al entrar
         setRoomName(prev => {
             if (!prev || !data.allRooms.includes(prev)) return data.allRooms[0] || '';
             return prev;
         });
     });
 
-    socket.on('active-rooms', (rooms) => {
-      if (!isSystemActive) return;
-    });
+    socket.on('active-rooms', (rooms) => {});
     
     socket.on('translation-result', (data) => {
-      if (!isSystemActive) return; 
+      if (!isSystemActive || !isEventActive) return; 
       if (isTvMode || userMode === 'text') {
         let currentText = '';
         if (data.translations && data.translations[language]) {
@@ -169,7 +198,7 @@ const AudienceView = () => {
     });
 
     socket.on('neural-audio', (data) => {
-      if (!isSystemActive) return; 
+      if (!isSystemActive || !isEventActive) return; 
       if (!isTvMode && userMode === 'audio' && data.language === language && data.audioBuffer) {
         const blob = new Blob([data.audioBuffer], { type: 'audio/mp3' });
         const url = URL.createObjectURL(blob);
@@ -184,20 +213,21 @@ const AudienceView = () => {
       socket.off('disconnect');
       socket.off('active-rooms');
       socket.off('event-info');
+      socket.off('event-status-changed');
       socket.off('translation-result');
       socket.off('neural-audio');
       socket.off('system-status');
       releaseWakeLock();
     };
-  }, [language, userMode, isTvMode, urlEvent, isSystemActive]); 
+  }, [language, userMode, isTvMode, urlEvent, isSystemActive, isEventActive]); 
 
   useEffect(() => {
-    if (isConnected && urlEvent && roomName && isSystemActive) {
+    if (isConnected && urlEvent && roomName && isSystemActive && isEventActive) {
       socket.emit('join-isolated-room', { eventId: urlEvent, roomName: roomName });
       setTranslation(''); 
       audioQueue.current = [];
     }
-  }, [roomName, isConnected, isSystemActive, urlEvent]);
+  }, [roomName, isConnected, isSystemActive, isEventActive, urlEvent]);
 
   const unlockAudioAndStart = async () => {
     try {
@@ -244,7 +274,8 @@ const AudienceView = () => {
     );
   }
 
-  if (!isSystemActive) {
+  // SI LA CENTRAL O ESTE EVENTO ESTÁ APAGADO
+  if (!isSystemActive || (urlEvent && !isEventActive)) {
     return (
       <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-black relative overflow-hidden">
         <div className="absolute inset-0 bg-darker/80 z-0"></div>
@@ -252,10 +283,17 @@ const AudienceView = () => {
           <div className="bg-red-500/10 p-6 rounded-full mb-8">
             <PowerOff className="w-16 h-16 text-red-500/80" />
           </div>
-          <h2 className="text-3xl font-bold text-white mb-3 text-center tracking-tight">Sistema Fuera de Línea</h2>
-          <p className="text-gray-400 text-base text-center leading-relaxed max-w-xs">
-            La plataforma de traducción simultánea se encuentra inactiva en este momento. Por favor, espera a que el administrador inicie el evento.
+          <h2 className="text-3xl font-bold text-white mb-3 text-center tracking-tight">Evento Pausado</h2>
+          <p className="text-gray-400 text-base text-center leading-relaxed max-w-xs mb-8">
+            La plataforma de traducción se encuentra inactiva en este momento. Por favor, espera a que se inicie el evento.
           </p>
+          <button 
+            onClick={handleExitEvent}
+            className="text-gray-500 hover:text-white transition-colors flex items-center gap-2 text-xs font-bold uppercase tracking-widest border border-gray-800 rounded-lg px-4 py-2"
+          >
+            <LogOut className="w-4 h-4" />
+            Salir al menú
+          </button>
         </div>
       </div>
     );
@@ -300,12 +338,14 @@ const AudienceView = () => {
   }
 
   // ==================================================
-  // VISTA MODO PROYECTOR (TV) - AHORA CON SELECTOR DE SALA
+  // VISTA MODO PROYECTOR (TV) - AHORA TOTALMENTE VISIBLE
   // ==================================================
   if (isTvMode) {
     return (
       <div className="flex flex-col justify-end h-screen w-full bg-black p-8 md:p-16 lg:pb-24 overflow-hidden relative">
-        <div className="absolute top-6 right-8 z-10 opacity-30 hover:opacity-100 transition-opacity duration-300 flex items-center gap-4">
+        
+        {/* PANEL DE CONTROL DE TV SIEMPRE VISIBLE */}
+        <div className="absolute top-6 right-8 z-10 flex items-center gap-4 bg-dark/80 p-3 rounded-2xl backdrop-blur-md border border-gray-800 shadow-xl transition-all hover:bg-dark">
           
           <div className="relative">
             <select 
@@ -314,13 +354,13 @@ const AudienceView = () => {
                 setRoomName(e.target.value);
                 setTranslation('');
               }}
-              className="bg-gray-900 border border-gray-800 text-gray-500 text-xs font-bold uppercase tracking-wider rounded-lg px-3 py-1.5 focus:ring-1 focus:ring-gray-600 focus:outline-none appearance-none cursor-pointer"
+              className="bg-black/50 border border-gray-700 text-gray-300 text-xs font-bold uppercase tracking-wider rounded-lg px-3 py-2 focus:ring-1 focus:ring-primary focus:outline-none appearance-none cursor-pointer"
             >
               {availableRooms.map((room) => (
                 <option key={room} value={room}>{room}</option>
               ))}
             </select>
-            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-600">
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
               <svg className="fill-current h-3 w-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
                 <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
               </svg>
@@ -334,7 +374,7 @@ const AudienceView = () => {
                 setLanguage(e.target.value);
                 setTranslation('');
               }}
-              className="bg-gray-900 border border-gray-800 text-gray-500 text-xs font-bold uppercase tracking-wider rounded-lg px-3 py-1.5 focus:ring-1 focus:ring-gray-600 focus:outline-none appearance-none cursor-pointer"
+              className="bg-black/50 border border-gray-700 text-gray-300 text-xs font-bold uppercase tracking-wider rounded-lg px-3 py-2 focus:ring-1 focus:ring-primary focus:outline-none appearance-none cursor-pointer"
             >
               <option value="es">Español</option>
               <option value="en">Inglés</option>
@@ -342,12 +382,20 @@ const AudienceView = () => {
               <option value="fr">Francés</option>
               <option value="pt">Portugués</option>
             </select>
-            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-600">
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
               <svg className="fill-current h-3 w-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
                 <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
               </svg>
             </div>
           </div>
+
+          <button 
+            onClick={handleExitEvent}
+            className="bg-red-500/10 hover:bg-red-500 border border-red-500/30 text-red-500 hover:text-white text-xs font-bold uppercase tracking-wider rounded-lg px-4 py-2 transition-all flex items-center gap-2 shadow-sm"
+            title="Desconectar y Salir del Evento"
+          >
+            <LogOut className="w-3 h-3" /> Salir
+          </button>
         </div>
 
         <div className="w-full max-w-6xl mx-auto">
@@ -366,8 +414,16 @@ const AudienceView = () => {
   // ==================================================
   if (!userMode) {
     return (
-      <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-darker">
-        <div className="w-full max-w-sm flex flex-col items-center">
+      <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-darker relative">
+        <button 
+          onClick={handleExitEvent}
+          className="absolute top-6 right-6 text-gray-500 hover:text-red-500 transition-colors flex items-center gap-2 text-xs font-bold uppercase tracking-widest"
+        >
+          <LogOut className="w-4 h-4" />
+          Salir
+        </button>
+
+        <div className="w-full max-w-sm flex flex-col items-center mt-6">
           <img src="/logo.png" alt="Logo" className="h-14 w-auto object-contain mb-6 drop-shadow-lg" onError={(e) => { e.target.style.display = 'none'; }} />
           
           <h2 className="text-2xl font-bold text-white mb-2 text-center tracking-tight">{eventName}</h2>
@@ -449,6 +505,13 @@ const AudienceView = () => {
             {userMode === 'text' ? 'Lectura' : 'Escucha'}
           </span>
           <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-accent animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-red-500'}`} />
+          <button 
+            onClick={handleExitEvent}
+            className="ml-2 text-gray-600 hover:text-red-500 transition-colors"
+            title="Salir del Evento"
+          >
+            <LogOut className="w-5 h-5" />
+          </button>
         </div>
       </header>
 

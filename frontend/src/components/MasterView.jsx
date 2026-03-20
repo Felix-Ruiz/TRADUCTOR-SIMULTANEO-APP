@@ -8,11 +8,9 @@ const MasterView = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(sessionStorage.getItem('isMasterAuth') === 'true');
   const [passwordInput, setPasswordInput] = useState('');
   const [loginError, setLoginError] = useState('');
-  
-  // NUEVO: Estado para ocultar el parpadeo de recarga
   const [isFetchingData, setIsFetchingData] = useState(sessionStorage.getItem('isMasterAuth') === 'true');
 
-  const [isSystemActive, setIsSystemActive] = useState(true);
+  const [isSystemActive, setIsSystemActive] = useState(false);
   const [events, setEvents] = useState([]);
   
   const [newEventName, setNewEventName] = useState('');
@@ -26,7 +24,7 @@ const MasterView = () => {
     socket.emit('master-get-data', (data) => {
       setIsSystemActive(data.isSystemActive);
       setEvents(data.events);
-      setIsFetchingData(false); // Quitamos la pantalla de carga cuando llegan los datos
+      setIsFetchingData(false); 
     });
     socket.on('system-status', (status) => setIsSystemActive(status));
     socket.on('master-data-updated', (updatedEvents) => setEvents(updatedEvents));
@@ -54,10 +52,19 @@ const MasterView = () => {
   const toggleSystem = () => {
     const newStatus = !isSystemActive;
     if (!newStatus) {
-      if (!window.confirm("¡PELIGRO! Vas a apagar todo el sistema. Todas las traducciones en vivo se cortarán. ¿Estás seguro?")) return;
+      if (!window.confirm("¡PELIGRO! Vas a apagar la central completa. Absolutamente todos los eventos caerán. ¿Continuar?")) return;
     }
     setIsSystemActive(newStatus);
     socket.emit('master-toggle-system', newStatus);
+  };
+
+  // NUEVO: Función para encender/apagar evento individual
+  const toggleEventStatus = (id, currentStatus) => {
+    const newStatus = !currentStatus;
+    if (!newStatus) {
+      if (!window.confirm("¿Seguro que deseas pausar este evento en específico?")) return;
+    }
+    socket.emit('master-toggle-event', { id, status: newStatus }, () => {});
   };
 
   const handleCreateEvent = (e) => {
@@ -69,7 +76,7 @@ const MasterView = () => {
   };
 
   const handleDeleteEvent = (id) => {
-    if (window.confirm("¿Eliminar este evento y todas sus salas?")) {
+    if (window.confirm("¿Eliminar este evento y todas sus salas de forma permanente?")) {
       socket.emit('master-delete-event', id, () => {});
     }
   };
@@ -100,9 +107,6 @@ const MasterView = () => {
     setTimeout(() => setCopiedText(null), 2000);
   };
 
-  // ==========================================
-  // PANTALLA DE CARGA ELEGANTE (ANTI-FLICKER)
-  // ==========================================
   if (isFetchingData) {
     return (
       <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-darker">
@@ -168,7 +172,7 @@ const MasterView = () => {
           }`}
         >
           <Power className="w-5 h-5" />
-          {isSystemActive ? 'Sistema Online' : 'Sistema Apagado'}
+          {isSystemActive ? 'Central Online' : 'Central Apagada'}
         </button>
       </header>
 
@@ -199,16 +203,31 @@ const MasterView = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-8">
           {events.map((event) => (
-            <div key={event.id} className="bg-dark border border-gray-800 rounded-2xl flex flex-col overflow-hidden shadow-xl">
-              <div className="p-5 border-b border-gray-800 bg-black/20 flex justify-between items-start">
-                <h3 className="text-xl font-bold text-white leading-tight pr-4">{event.name}</h3>
-                <button 
-                  onClick={() => handleDeleteEvent(event.id)}
-                  className="p-2 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-lg transition-colors shrink-0"
-                  title="Eliminar Evento"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+            <div key={event.id} className={`bg-dark border rounded-2xl flex flex-col overflow-hidden shadow-xl transition-all ${event.isActive ? 'border-gray-800' : 'border-red-900/50 opacity-80'}`}>
+              
+              <div className="p-5 border-b border-gray-800 bg-black/20 flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                    <h3 className="text-xl font-bold text-white leading-tight">{event.name}</h3>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest ${event.isActive ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>
+                        {event.isActive ? 'Online' : 'Offline'}
+                    </span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                    <button 
+                        onClick={() => toggleEventStatus(event.id, event.isActive)}
+                        className={`p-2 rounded-lg transition-colors ${event.isActive ? 'bg-green-500/10 hover:bg-green-500 text-green-500 hover:text-white' : 'bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white'}`}
+                        title={event.isActive ? "Pausar Evento" : "Reactivar Evento"}
+                    >
+                        <Power className="w-4 h-4" />
+                    </button>
+                    <button 
+                        onClick={() => handleDeleteEvent(event.id)}
+                        className="p-2 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-lg transition-colors"
+                        title="Eliminar Evento Definitivamente"
+                    >
+                        <Trash2 className="w-4 h-4" />
+                    </button>
+                </div>
               </div>
 
               <div className="p-5 flex-1 flex flex-col gap-5">
@@ -224,7 +243,7 @@ const MasterView = () => {
                     </div>
                     
                     <div className="bg-primary/5 p-4 rounded-xl border border-primary/20">
-                        <span className="text-[10px] font-bold text-primary uppercase tracking-widest mb-2 flex items-center gap-1"><Key className="w-3 h-3"/> CLAVE ORADOR (SECRETA)</span>
+                        <span className="text-[10px] font-bold text-primary uppercase tracking-widest mb-2 flex items-center gap-1"><Key className="w-3 h-3"/> CLAVE ORADOR</span>
                         <div className="flex items-center justify-between gap-2">
                             <span className="text-primary font-mono text-base font-bold tracking-widest">{event.password}</span>
                             <button onClick={() => copyToClipboard(event.password)} className="text-primary hover:text-white">
@@ -239,13 +258,14 @@ const MasterView = () => {
                     <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Salas Asignadas ({event.rooms.length}):</span>
                     <button 
                       onClick={() => setSelectedEventId(selectedEventId === event.id ? null : event.id)}
-                      className="text-xs font-bold text-primary hover:text-blue-400 transition-colors uppercase"
+                      className="text-xs font-bold text-primary hover:text-blue-400 transition-colors uppercase disabled:opacity-50"
+                      disabled={!event.isActive}
                     >
                       + Añadir Sala
                     </button>
                   </div>
 
-                  {selectedEventId === event.id && (
+                  {selectedEventId === event.id && event.isActive && (
                     <form onSubmit={(e) => handleAddRoom(e, event.id)} className="mb-3 flex gap-2">
                       <input 
                         type="text"
@@ -263,13 +283,15 @@ const MasterView = () => {
                     {event.rooms.map(room => (
                       <span key={room} className="flex items-center gap-2 px-3 py-1 bg-gray-800 text-gray-300 text-xs font-bold uppercase tracking-wider rounded-md border border-gray-700">
                         {room}
-                        <button 
-                          onClick={() => handleDeleteRoom(event.id, room)}
-                          className="text-gray-500 hover:text-red-500 transition-colors"
-                          title="Eliminar Sala"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
+                        {event.isActive && (
+                            <button 
+                            onClick={() => handleDeleteRoom(event.id, room)}
+                            className="text-gray-500 hover:text-red-500 transition-colors"
+                            title="Eliminar Sala"
+                            >
+                            <X className="w-3 h-3" />
+                            </button>
+                        )}
                       </span>
                     ))}
                   </div>

@@ -19,16 +19,16 @@ const io = new Server(server, {
     }
 });
 
-let isSystemActive = true; 
+let isSystemActive = false; // Por seguridad ante reinicios (Cold Start)
 
-// La clave primaria ahora es el ID PÚBLICO de la audiencia
 const eventsDB = new Map();
 
 eventsDB.set("DEFAULT", {
-    id: "DEFAULT", // Código Público
+    id: "DEFAULT",
     name: "Evento Principal (Por Defecto)",
-    password: process.env.VITE_ADMIN_PASSWORD || "admin123", // Clave Privada
-    rooms: ["PRINCIPAL"]
+    password: process.env.VITE_ADMIN_PASSWORD || "admin123",
+    rooms: ["PRINCIPAL"],
+    isActive: true // NUEVO: Estado individual por evento
 });
 
 const MASTER_PASSWORD = process.env.MASTER_PASSWORD || "superadmin123";
@@ -68,7 +68,7 @@ io.on('connection', (socket) => {
 
     socket.on('master-toggle-system', (status) => {
         isSystemActive = status;
-        console.log(`[MASTER] Estado del sistema: ${isSystemActive ? 'ENCENDIDO' : 'APAGADO'}`);
+        console.log(`[MASTER] Estado global del sistema: ${isSystemActive ? 'ENCENDIDO' : 'APAGADO'}`);
         io.emit('system-status', isSystemActive);
 
         if (!isSystemActive) {
@@ -77,16 +77,40 @@ io.on('connection', (socket) => {
         }
     });
 
+    // NUEVO: Ruta para apagar/encender un evento en específico
+    socket.on('master-toggle-event', (data, callback) => {
+        const event = eventsDB.get(data.id);
+        if (event) {
+            event.isActive = data.status;
+            
+            // Si apagan el evento, limpiamos sus salas y oradores
+            if (!event.isActive) {
+                const eventRoomsMap = activeSpeakerRooms.get(data.id);
+                if (eventRoomsMap) {
+                    eventRoomsMap.clear();
+                    broadcastActiveRoomsToEvent(data.id);
+                }
+            }
+            
+            io.emit('master-data-updated', Array.from(eventsDB.values()));
+            // Avisamos a todos los clientes que este evento cambió de estado
+            io.emit('event-status-changed', { eventId: data.id, status: data.status });
+            callback({ success: true });
+        } else {
+            callback({ success: false });
+        }
+    });
+
     socket.on('master-create-event', (data, callback) => {
-        // Generamos DOS llaves distintas
-        const publicId = Math.random().toString(36).slice(-6).toUpperCase(); // Para la audiencia
-        const secretPassword = Math.random().toString(36).slice(-6).toUpperCase(); // Para el orador
+        const publicId = Math.random().toString(36).slice(-6).toUpperCase();
+        const secretPassword = Math.random().toString(36).slice(-6).toUpperCase();
         
         const newEvent = {
             id: publicId,
             name: data.name,
             password: secretPassword,
-            rooms: ["PRINCIPAL"] 
+            rooms: ["PRINCIPAL"],
+            isActive: true // Nacen encendidos
         };
         eventsDB.set(publicId, newEvent);
         callback({ success: true, event: newEvent });
@@ -126,7 +150,6 @@ io.on('connection', (socket) => {
     // RUTAS DEL SPEAKER ADMIN (ORADOR)
     // ==========================================
     socket.on('speaker-login', (password, callback) => {
-        // Buscamos si ALGÚN evento tiene esta clave PRIVADA
         let foundEvent = null;
         for (const event of eventsDB.values()) {
             if (event.password === password) {
@@ -134,7 +157,6 @@ io.on('connection', (socket) => {
                 break;
             }
         }
-
         if (foundEvent) {
             callback({ success: true, event: foundEvent });
         } else {
@@ -144,13 +166,16 @@ io.on('connection', (socket) => {
 
     socket.on('start-translation', (config) => {
         if (!isSystemActive) return;
+        
+        // Verificamos que el evento siga encendido antes de transmitir
+        const event = eventsDB.get(config.eventId);
+        if (!event || !event.isActive) return;
 
-        const eventId = config.eventId; // Se usa el ID Público para la conexión
+        const eventId = config.eventId;
         const roomName = config.roomName || 'PRINCIPAL';
-        
         const isolatedRoom = `${eventId}_${roomName}`;
-        socket.join(isolatedRoom);
         
+        socket.join(isolatedRoom);
         socket.speakerEventId = eventId;
         socket.speakerRoom = roomName;
 
@@ -213,7 +238,6 @@ io.on('connection', (socket) => {
     // RUTAS DE LA AUDIENCIA
     // ==========================================
     socket.on('check-event', (eventId, callback) => {
-        // La audiencia solo puede buscar por ID PÚBLICO
         const event = eventsDB.get(eventId);
         if (event) {
             callback({ success: true, name: event.name });
@@ -229,11 +253,15 @@ io.on('connection', (socket) => {
         socket.emit('active-rooms', rooms);
         
         const event = eventsDB.get(eventId);
-        if (event) socket.emit('event-info', { name: event.name, allRooms: event.rooms });
+        // Enviamos si el evento está activo para que bloqueen la pantalla
+        if (event) socket.emit('event-info', { name: event.name, allRooms: event.rooms, isActive: event.isActive });
     });
 
     socket.on('join-isolated-room', (data) => {
         if (!isSystemActive) return;
+        const event = eventsDB.get(data.eventId);
+        if (!event || !event.isActive) return;
+
         const isolatedRoom = `${data.eventId}_${data.roomName}`;
         
         Array.from(socket.rooms).forEach(r => {

@@ -18,11 +18,11 @@ const SpeakerView = () => {
   const [passwordInput, setPasswordInput] = useState('');
   const [loginError, setLoginError] = useState('');
   
-  // NUEVO: Estado para mostrar la pantalla de carga
   const [isVerifying, setIsVerifying] = useState(!!sessionStorage.getItem('speakerPwd'));
   
   const [eventInfo, setEventInfo] = useState(null);
   const [isSystemActive, setIsSystemActive] = useState(true);
+  const [isEventActive, setIsEventActive] = useState(true); // NUEVO
 
   const [isRecording, setIsRecording] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
@@ -51,6 +51,7 @@ const SpeakerView = () => {
       if (response.success) {
         setIsAuthenticated(true);
         setEventInfo(response.event);
+        setIsEventActive(response.event.isActive); // Guardar estado del evento
         setRoomName(response.event.rooms[0] || 'PRINCIPAL');
         sessionStorage.setItem('speakerPwd', pwd);
         setLoginError('');
@@ -60,7 +61,7 @@ const SpeakerView = () => {
         sessionStorage.removeItem('speakerPwd');
         socket.disconnect();
       }
-      setIsVerifying(false); // Detenemos la animación de carga
+      setIsVerifying(false); 
     });
   };
 
@@ -92,10 +93,15 @@ const SpeakerView = () => {
 
     socket.on('system-status', (status) => {
       setIsSystemActive(status);
-      if (!status && isRecording) {
-        stopRecordingLocally();
-        alert("El Administrador de la Plataforma ha finalizado la transmisión.");
-      }
+      if (!status && isRecording) stopRecordingLocally();
+    });
+
+    // NUEVO: Escucha si apagan este evento en específico
+    socket.on('event-status-changed', (data) => {
+        if (eventInfo && data.eventId === eventInfo.id) {
+            setIsEventActive(data.status);
+            if (!data.status && isRecording) stopRecordingLocally();
+        }
     });
     
     socket.on('translation-result', (data) => {
@@ -112,9 +118,10 @@ const SpeakerView = () => {
       socket.off('connect');
       socket.off('disconnect');
       socket.off('system-status');
+      socket.off('event-status-changed');
       socket.off('translation-result');
     };
-  }, [isAuthenticated, isRecording]);
+  }, [isAuthenticated, isRecording, eventInfo]);
 
   const stopRecordingLocally = () => {
     setIsRecording(false);
@@ -177,7 +184,7 @@ const SpeakerView = () => {
       processorRef.current = workletNode;
 
       workletNode.port.onmessage = (event) => {
-        if (socket.connected && isSystemActive) {
+        if (socket.connected && isSystemActive && isEventActive) {
           socket.emit('audio-stream', event.data);
         }
       };
@@ -231,9 +238,6 @@ const SpeakerView = () => {
     setPanelLanguages(newPanelLanguages);
   };
 
-  // ==========================================
-  // PANTALLA DE CARGA ELEGANTE (ANTI-FLICKER)
-  // ==========================================
   if (isVerifying) {
     return (
       <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-darker">
@@ -280,14 +284,15 @@ const SpeakerView = () => {
     );
   }
 
-  if (!isSystemActive) {
+  // SI SE APAGA EL SISTEMA O ESTE EVENTO
+  if (!isSystemActive || !isEventActive) {
     return (
       <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-black">
         <div className="w-full max-w-md flex flex-col items-center">
           <AlertTriangle className="w-16 h-16 text-yellow-500 mb-6 animate-pulse" />
           <h2 className="text-2xl font-bold text-white mb-2 text-center">Transmisión Pausada</h2>
           <p className="text-gray-400 text-center leading-relaxed">
-            El sistema global ha sido detenido por el Administrador Master. Espera instrucciones para reanudar el evento.
+            El administrador ha pausado el sistema o este evento. Espera instrucciones para reanudar.
           </p>
         </div>
       </div>
