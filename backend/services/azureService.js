@@ -1,6 +1,5 @@
 const sdk = require("microsoft-cognitiveservices-speech-sdk");
 
-// Mapas separados por género para mantener el control de calidad
 const femaleVoiceMap = {
     'es': 'es-CO-SalomeNeural',
     'en': 'en-US-JennyNeural',
@@ -18,12 +17,13 @@ const maleVoiceMap = {
 };
 
 class TranslationService {
-    // ACTUALIZADO: Recibe voiceGender por defecto en 'female'
-    constructor(socket, fromLanguage = 'es-CO', toLanguages = ['en', 'pt'], voiceGender = 'female') {
+    // ACTUALIZADO: Recibe el nombre de la sala (roomName)
+    constructor(socket, fromLanguage = 'es-CO', toLanguages = ['en', 'pt'], voiceGender = 'female', roomName = 'PRINCIPAL') {
         this.socket = socket; 
         this.targetLanguages = toLanguages; 
         this.fromLanguage = fromLanguage;
         this.voiceGender = voiceGender;
+        this.roomName = roomName; // Guardamos la sala
         
         this.pushStream = sdk.AudioInputStream.createPushStream();
         
@@ -55,7 +55,8 @@ class TranslationService {
                 const payload = { type: 'partial', original: e.result.text, translations };
                 
                 this.socket.emit('translation-result', payload); 
-                this.socket.broadcast.emit('translation-result', payload);
+                // ACTUALIZADO: Solo emite a los celulares de la sala específica
+                this.socket.broadcast.to(this.roomName).emit('translation-result', payload);
             }
         };
 
@@ -65,7 +66,8 @@ class TranslationService {
                 const payload = { type: 'final', original: e.result.text, translations };
                 
                 this.socket.emit('translation-result', payload);
-                this.socket.broadcast.emit('translation-result', payload);
+                // ACTUALIZADO: Solo emite a los celulares de la sala específica
+                this.socket.broadcast.to(this.roomName).emit('translation-result', payload);
 
                 this.targetLanguages.forEach(lang => {
                     const textToSpeak = translations[lang];
@@ -104,7 +106,6 @@ class TranslationService {
 
         const speechConfig = sdk.SpeechConfig.fromSubscription(speechKey, speechRegion);
         
-        // ACTUALIZADO: Elegimos el catálogo basado en lo que mandó el frontend
         const selectedMap = this.voiceGender === 'male' ? maleVoiceMap : femaleVoiceMap;
         speechConfig.speechSynthesisVoiceName = selectedMap[lang] || (this.voiceGender === 'male' ? 'en-US-GuyNeural' : 'en-US-JennyNeural');
 
@@ -118,7 +119,8 @@ class TranslationService {
                 if (result.reason === sdk.ResultReason.SynthesizingAudioCompleted) {
                     const payload = { language: lang, audioBuffer: result.audioData };
                     this.socket.emit('neural-audio', payload);
-                    this.socket.broadcast.emit('neural-audio', payload);
+                    // ACTUALIZADO: El audio premium solo va a la sala designada
+                    this.socket.broadcast.to(this.roomName).emit('neural-audio', payload);
                 } else {
                     console.error(`[Azure TTS] Error en síntesis: ${result.errorDetails}`);
                 }

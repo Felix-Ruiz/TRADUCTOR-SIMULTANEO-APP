@@ -24,9 +24,10 @@ const SpeakerView = () => {
   
   const [allTranslations, setAllTranslations] = useState({}); 
   const [inputLanguage, setInputLanguage] = useState('es-CO'); 
-  
-  // NUEVO: Estado para el género de la voz
   const [voiceGender, setVoiceGender] = useState('female');
+  
+  // NUEVO: Estado para el nombre de la sala dinámica
+  const [roomName, setRoomName] = useState('PRINCIPAL');
   
   const [panelCount, setPanelCount] = useState(1); 
   const [panelLanguages, setPanelLanguages] = useState(['en', 'de', 'fr']); 
@@ -37,7 +38,8 @@ const SpeakerView = () => {
   const processorRef = useRef(null);
   const streamRef = useRef(null);
 
-  const audienceUrl = `${window.location.origin}`;
+  // ACTUALIZADO: El enlace del QR ahora incluye a qué sala deben unirse
+  const audienceUrl = `${window.location.origin}/?room=${roomName}`;
 
   const handleLogin = (e) => {
     e.preventDefault();
@@ -88,16 +90,22 @@ const SpeakerView = () => {
 
   const startRecording = async () => {
     try {
+      if (!roomName.trim()) {
+        alert("Por favor ingresa un nombre para la sala antes de iniciar.");
+        return;
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
       
       socket.connect();
       
-      // ACTUALIZADO: Enviamos el género de voz elegido al backend
+      // ACTUALIZADO: Le decimos al backend qué sala vamos a inaugurar
       socket.emit('start-translation', { 
         fromLanguage: inputLanguage, 
         toLanguages: ['es', 'en', 'pt', 'fr', 'de'],
-        voiceGender: voiceGender 
+        voiceGender: voiceGender,
+        roomName: roomName 
       });
       
       const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -179,7 +187,7 @@ const SpeakerView = () => {
     const fecha = new Date().toLocaleDateString();
     const activeLangs = panelLanguages.slice(0, panelCount).map(code => langNames[code]).join(', ');
     
-    const summaryText = `--- RESUMEN DE LA SESIÓN ---\nFecha: ${fecha}\nIdioma Original del Orador: ${inputLanguage}\nIdiomas Monitoreados: ${activeLangs}\n\n--- REGISTRO COMPLETO ---\n${fullTranscription}`;
+    const summaryText = `--- RESUMEN DE LA SESIÓN ---\nSala: ${roomName}\nFecha: ${fecha}\nIdioma Original del Orador: ${inputLanguage}\nIdiomas Monitoreados: ${activeLangs}\n\n--- REGISTRO COMPLETO ---\n${fullTranscription}`;
     
     const element = document.createElement("a");
     const file = new Blob([summaryText], {type: 'text/plain'});
@@ -241,7 +249,7 @@ const SpeakerView = () => {
           </div>
           <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full font-medium text-sm w-max ${isRecording ? 'bg-red-500/10 text-red-500' : 'bg-gray-800 text-gray-400'}`}>
             <Radio className={`w-4 h-4 ${isRecording ? 'animate-pulse' : ''}`} />
-            {isRecording ? 'Transmitiendo en vivo' : 'Sistema en espera'}
+            {isRecording ? `Transmitiendo en: ${roomName}` : 'Sistema en espera'}
           </div>
         </div>
         
@@ -252,7 +260,7 @@ const SpeakerView = () => {
           <div className="flex flex-col pr-4">
             <span className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-1">Acceso Audiencia</span>
             <a href={audienceUrl} target="_blank" rel="noreferrer" className="text-sm text-primary hover:text-blue-400 font-medium transition-colors">
-              Abrir enlace remoto ↗
+              Abrir enlace de sala ↗
             </a>
           </div>
         </div>
@@ -261,9 +269,9 @@ const SpeakerView = () => {
       <main className="flex-1 flex flex-col min-h-0 gap-6 pb-6 overflow-y-auto pr-2">
         <div className="space-y-4 shrink-0">
           
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 mb-2">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 mb-2 flex-wrap">
             <div className="flex items-center gap-3">
-              <span className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Idioma del Orador:</span>
+              <span className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Idioma:</span>
               <div className="relative">
                 <select 
                   value={inputLanguage}
@@ -286,7 +294,7 @@ const SpeakerView = () => {
             </div>
 
             <div className="flex items-center gap-3">
-              <span className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Voz de la IA:</span>
+              <span className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Voz IA:</span>
               <div className="relative">
                 <select 
                   value={voiceGender}
@@ -303,6 +311,19 @@ const SpeakerView = () => {
                   </svg>
                 </div>
               </div>
+            </div>
+
+            {/* NUEVO: Campo de texto para nombrar la sala dinámica */}
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Sala:</span>
+              <input 
+                type="text"
+                value={roomName}
+                onChange={(e) => setRoomName(e.target.value.toUpperCase().replace(/\s+/g, '-'))}
+                disabled={isRecording}
+                placeholder="Ej: AUDITORIO"
+                className="bg-darker border border-gray-700 text-white text-sm font-bold uppercase tracking-wider rounded-lg px-3 py-1.5 focus:ring-1 focus:ring-primary focus:outline-none w-36 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              />
             </div>
           </div>
           

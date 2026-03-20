@@ -31,13 +31,24 @@ io.on('connection', (socket) => {
 
     let translationService = null;
 
+    // ACTUALIZADO: Antes de unirse a una sala, sale de las anteriores para no mezclar audios
+    socket.on('join-room', (room) => {
+        Array.from(socket.rooms).forEach(r => {
+            if (r !== socket.id) socket.leave(r);
+        });
+        socket.join(room);
+        console.log(`[+] Dispositivo ${socket.id} se unió a la sala: ${room}`);
+    });
+
     socket.on('start-translation', (config) => {
-        // ACTUALIZADO: Le pasamos el género de voz elegido por el administrador
+        socket.join(config.roomName);
+        
         translationService = new TranslationService(
             socket, 
             config.fromLanguage, 
             config.toLanguages, 
-            config.voiceGender
+            config.voiceGender,
+            config.roomName
         );
         translationService.start();
     });
