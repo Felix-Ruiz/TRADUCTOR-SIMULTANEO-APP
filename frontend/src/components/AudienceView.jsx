@@ -10,8 +10,9 @@ const AudienceView = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [isAudioEnabled, setIsAudioEnabled] = useState(false);
   
-  // Referencia para no solapar voces
   const synthRef = useRef(window.speechSynthesis);
+  // MEMORIA CRUCIAL: Guarda la última frase leída para no repetirla
+  const lastSpokenTextRef = useRef('');
 
   useEffect(() => {
     socket.on('connect', () => setIsConnected(true));
@@ -28,9 +29,13 @@ const AudienceView = () => {
         setTranslation(textToRead);
       }
 
-      // Lógica de Voz Nativa (Solo si el audio está activado y el fragmento es final)
-      if (isAudioEnabled && textToRead && data.type === 'final') {
+      // SOLO HABLAR SI:
+      // 1. El audio está activo
+      // 2. Es un fragmento final (frase terminada)
+      // 3. El texto es DIFERENTE al último que se leyó
+      if (isAudioEnabled && data.type === 'final' && textToRead && textToRead !== lastSpokenTextRef.current) {
         speak(textToRead, language);
+        lastSpokenTextRef.current = textToRead; // Actualizamos la memoria
       }
     });
 
@@ -43,12 +48,11 @@ const AudienceView = () => {
   }, [language, isAudioEnabled]);
 
   const speak = (text, langCode) => {
-    // Cancelamos cualquier voz previa para evitar amontonamiento
+    // Cancelamos cualquier voz previa para que no se amontonen
     synthRef.current.cancel();
     
     const utterance = new SpeechSynthesisUtterance(text);
     
-    // Mapeo de códigos cortos a códigos de voz nativos
     const langMap = {
       'es': 'es-ES', 'en': 'en-US', 'pt': 'pt-BR', 'fr': 'fr-FR',
       'de': 'de-DE', 'it': 'it-IT', 'ja': 'ja-JP', 'ko': 'ko-KR',
@@ -56,19 +60,20 @@ const AudienceView = () => {
     };
     
     utterance.lang = langMap[langCode] || langCode;
-    utterance.rate = 1.0; // Velocidad normal
+    utterance.rate = 1.1; // Un poco más rápido para mantener el ritmo del orador
     utterance.pitch = 1.0;
     
     synthRef.current.speak(utterance);
   };
 
   const toggleAudio = () => {
-    // Truco para desbloquear el audio en móviles: reproducir un silencio al hacer clic
     if (!isAudioEnabled) {
+      // Desbloqueo de audio para navegadores móviles
       const v = new SpeechSynthesisUtterance("");
       synthRef.current.speak(v);
     } else {
       synthRef.current.cancel();
+      lastSpokenTextRef.current = ''; // Limpiamos la memoria al apagar
     }
     setIsAudioEnabled(!isAudioEnabled);
   };
@@ -84,11 +89,11 @@ const AudienceView = () => {
         <div className="flex items-center gap-4">
           <button 
             onClick={toggleAudio}
-            className={`p-2 rounded-full transition-colors ${isAudioEnabled ? 'bg-accent/20 text-accent' : 'bg-gray-800 text-gray-500'}`}
+            className={`p-2 rounded-full transition-all ${isAudioEnabled ? 'bg-accent text-white shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 'bg-gray-800 text-gray-500'}`}
           >
             {isAudioEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
           </button>
-          <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-accent animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-red-500'}`} />
+          <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-accent animate-pulse' : 'bg-red-500'}`} />
         </div>
       </header>
 
@@ -103,6 +108,7 @@ const AudienceView = () => {
             onChange={(e) => {
               setLanguage(e.target.value);
               setTranslation('');
+              lastSpokenTextRef.current = ''; // Resetear memoria al cambiar idioma
               if (synthRef.current) synthRef.current.cancel();
             }}
             className="w-full bg-dark border border-gray-700 text-white text-lg rounded-xl p-4 focus:ring-2 focus:ring-accent focus:outline-none appearance-none cursor-pointer"
@@ -141,8 +147,8 @@ const AudienceView = () => {
           </div>
         </div>
         {isAudioEnabled && (
-          <p className="mt-2 text-xs text-accent font-medium animate-pulse text-center">
-            Audio activado. Usa tus audífonos para una mejor experiencia.
+          <p className="mt-4 text-xs text-accent font-bold text-center tracking-widest uppercase animate-pulse">
+            🔊 Voz Activa - Audio en Tiempo Real
           </p>
         )}
       </div>
