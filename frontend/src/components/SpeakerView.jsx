@@ -5,6 +5,14 @@ import { QRCodeSVG } from 'qrcode.react';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL, { autoConnect: false });
 
+const langNames = {
+  'es': 'Español',
+  'en': 'Inglés',
+  'de': 'Alemán',
+  'fr': 'Francés',
+  'pt': 'Portugués'
+};
+
 const SpeakerView = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(sessionStorage.getItem('isAdminAuth') === 'true');
   const [passwordInput, setPasswordInput] = useState('');
@@ -16,7 +24,10 @@ const SpeakerView = () => {
   
   const [allTranslations, setAllTranslations] = useState({}); 
   const [inputLanguage, setInputLanguage] = useState('es-CO'); 
-  const [outputLanguage, setOutputLanguage] = useState('en'); 
+  
+  // Nuevo estado para manejar hasta 3 idiomas en pantalla dividida
+  const [outputLanguages, setOutputLanguages] = useState(['en']); 
+  
   const [fullTranscription, setFullTranscription] = useState('');
   
   const audioContextRef = useRef(null);
@@ -44,12 +55,8 @@ const SpeakerView = () => {
 
     socket.on('connect', () => setIsConnected(true));
     
-    // === AUTO-APAGADO INTELIGENTE ===
     socket.on('disconnect', () => {
       setIsConnected(false);
-      
-      // Si el servidor corta la conexión por inactividad (ahorro de energía), 
-      // apagamos la interfaz y liberamos el micrófono automáticamente.
       setIsRecording(false);
       if (processorRef.current) processorRef.current.disconnect();
       if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
@@ -164,7 +171,7 @@ const SpeakerView = () => {
 
   const downloadSummary = () => {
     const fecha = new Date().toLocaleDateString();
-    const summaryText = `--- RESUMEN DE LA SESIÓN ---\nFecha: ${fecha}\nIdioma Original del Orador: ${inputLanguage}\nIdioma de Traducción Principal en Pantalla: ${outputLanguage}\n\n--- REGISTRO COMPLETO ---\n${fullTranscription}`;
+    const summaryText = `--- RESUMEN DE LA SESIÓN ---\nFecha: ${fecha}\nIdioma Original del Orador: ${inputLanguage}\nIdiomas Monitoreados: ${outputLanguages.join(', ')}\n\n--- REGISTRO COMPLETO ---\n${fullTranscription}`;
     
     const element = document.createElement("a");
     const file = new Blob([summaryText], {type: 'text/plain'});
@@ -173,6 +180,18 @@ const SpeakerView = () => {
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
+  };
+
+  const toggleLanguage = (code) => {
+    if (outputLanguages.includes(code)) {
+      if (outputLanguages.length > 1) {
+        setOutputLanguages(outputLanguages.filter(l => l !== code));
+      }
+    } else {
+      if (outputLanguages.length < 3) {
+        setOutputLanguages([...outputLanguages, code]);
+      }
+    }
   };
 
   if (!isAuthenticated) {
@@ -210,9 +229,9 @@ const SpeakerView = () => {
   }
 
   return (
-    <div className="flex flex-col h-screen w-full p-8 max-w-5xl mx-auto">
+    <div className="flex flex-col h-screen w-full p-8 max-w-6xl mx-auto overflow-hidden">
       
-      <header className="flex justify-between items-start mb-12">
+      <header className="flex justify-between items-start mb-8 shrink-0">
         <div className="flex flex-col gap-4">
           <div className="flex items-center gap-3">
             <Globe className="w-8 h-8 text-primary" />
@@ -237,8 +256,8 @@ const SpeakerView = () => {
         </div>
       </header>
 
-      <main className="flex-1 flex flex-col justify-center gap-8 mb-12">
-        <div className="space-y-2">
+      <main className="flex-1 flex flex-col min-h-0 gap-6 pb-6 overflow-y-auto pr-2">
+        <div className="space-y-2 shrink-0">
           <div className="flex items-center gap-3 mb-2">
             <span className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Idioma del Orador:</span>
             <div className="relative">
@@ -262,41 +281,56 @@ const SpeakerView = () => {
             </div>
           </div>
           
-          <p className="text-4xl md:text-5xl font-bold leading-tight text-white min-h-[3rem] transition-all duration-300 ease-in-out">
+          <p className="text-3xl md:text-4xl font-bold leading-tight text-white min-h-[3rem] transition-all duration-300 ease-in-out">
             {transcription || "Presiona el botón para comenzar a hablar..."}
           </p>
         </div>
 
-        <div className="space-y-2">
-          <div className="flex items-center gap-3 mb-2">
-            <span className="text-sm font-semibold text-primary uppercase tracking-wider">Traducción Principal:</span>
-            <div className="relative">
-              <select 
-                value={outputLanguage}
-                onChange={(e) => setOutputLanguage(e.target.value)}
-                className="bg-darker border border-gray-700 text-gray-400 text-sm font-bold uppercase tracking-wider rounded-lg px-3 py-1.5 focus:ring-1 focus:ring-gray-400 focus:outline-none appearance-none cursor-pointer"
-              >
-                <option value="es">Español</option>
-                <option value="en">Inglés</option>
-                <option value="de">Alemán</option>
-                <option value="fr">Francés</option>
-                <option value="pt">Portugués</option>
-              </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
-                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                  <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
-                </svg>
-              </div>
+        <div className="flex flex-col gap-4 shrink-0">
+          <div className="flex flex-col md:flex-row md:items-center gap-3">
+            <span className="text-sm font-semibold text-primary uppercase tracking-wider">Monitor (Máx 3):</span>
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(langNames).map(([code, name]) => {
+                const isSelected = outputLanguages.includes(code);
+                const isDisabled = !isSelected && outputLanguages.length >= 3;
+                return (
+                  <button
+                    key={code}
+                    onClick={() => toggleLanguage(code)}
+                    disabled={isDisabled}
+                    className={`px-4 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
+                      isSelected 
+                        ? 'bg-primary text-white shadow-[0_0_10px_rgba(59,130,246,0.3)]' 
+                        : 'bg-dark border border-gray-700 text-gray-400 hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed'
+                    }`}
+                  >
+                    {name}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          <p className="text-3xl md:text-4xl font-medium leading-relaxed text-gray-400 min-h-[3rem] transition-all duration-300 ease-in-out">
-            {allTranslations[outputLanguage] || ""}
-          </p>
+          <div className={`grid gap-4 transition-all duration-500 ${
+            outputLanguages.length === 1 ? 'grid-cols-1' :
+            outputLanguages.length === 2 ? 'grid-cols-1 md:grid-cols-2' :
+            'grid-cols-1 md:grid-cols-3'
+          }`}>
+            {outputLanguages.map(code => (
+              <div key={code} className="bg-dark border border-gray-800 rounded-2xl p-5 flex flex-col min-h-[10rem] shadow-xl">
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3 border-b border-gray-800 pb-2">
+                  {langNames[code]}
+                </span>
+                <p className="text-xl md:text-2xl font-medium leading-relaxed text-gray-300">
+                  {allTranslations[code] || "..."}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
       </main>
 
-      <footer className="flex flex-col items-center gap-4 pb-8">
+      <footer className="flex flex-col items-center gap-4 pt-4 border-t border-gray-800 shrink-0">
         <div className="flex justify-center">
           {!isRecording ? (
             <button 
