@@ -14,6 +14,41 @@ const AudienceView = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [isAudioEnabled, setIsAudioEnabled] = useState(false);
 
+  // ==========================================
+  // ARQUITECTURA DE AUDIO PERMANENTE Y COLAS
+  // ==========================================
+  const audioPlayerRef = useRef(null);
+  const audioQueue = useRef([]);
+  const isPlaying = useRef(false);
+
+  // Función para reproducir el siguiente audio en la fila
+  const playNextInQueue = async () => {
+    if (isPlaying.current || audioQueue.current.length === 0) return;
+    
+    isPlaying.current = true;
+    const nextAudioUrl = audioQueue.current.shift(); // Sacamos el primero de la fila
+    
+    if (audioPlayerRef.current) {
+      audioPlayerRef.current.src = nextAudioUrl;
+      try {
+        await audioPlayerRef.current.play();
+      } catch (error) {
+        console.error("[Audio] Error al reproducir el fragmento:", error);
+        isPlaying.current = false;
+        playNextInQueue(); // Si falla, intentamos con el siguiente
+      }
+    }
+  };
+
+  // Cuando un audio termina, limpiamos la memoria y reproducimos el siguiente
+  const handleAudioEnded = () => {
+    if (audioPlayerRef.current && audioPlayerRef.current.src) {
+      URL.revokeObjectURL(audioPlayerRef.current.src);
+    }
+    isPlaying.current = false;
+    playNextInQueue();
+  };
+
   useEffect(() => {
     socket.on('connect', () => setIsConnected(true));
     socket.on('disconnect', () => setIsConnected(false));
@@ -30,32 +65,15 @@ const AudienceView = () => {
       }
     });
 
-    // ==========================================
-    // REPRODUCTOR HTML5 ROBUSTO (SIN AUDIO CONTEXT)
-    // ==========================================
-    socket.on('neural-audio', async (data) => {
+    socket.on('neural-audio', (data) => {
+      // Solo encolamos el audio si el usuario lo activó y coincide con su idioma
       if (!isTvMode && isAudioEnabled && data.language === language && data.audioBuffer) {
-        try {
-          console.log("[Audio] Recibido paquete de Azure. Preparando HTML5 Audio...");
-          
-          // 1. Convertimos el paquete crudo en un archivo MP3 virtual
-          const blob = new Blob([data.audioBuffer], { type: 'audio/mp3' });
-          const url = URL.createObjectURL(blob);
-          
-          // 2. Usamos el reproductor nativo del celular
-          const audioPlayer = new Audio(url);
-          
-          // 3. Limpiamos la memoria del celular cuando termina de hablar
-          audioPlayer.onended = () => {
-            URL.revokeObjectURL(url);
-          };
-          
-          // 4. Reproducir
-          await audioPlayer.play();
-          console.log("[Audio] Reproducción exitosa.");
-        } catch (error) {
-          console.error("[Audio] Error al reproducir el MP3 con HTML5:", error);
-        }
+        console.log("[Audio] Paquete recibido de Azure. Encolando...");
+        const blob = new Blob([data.audioBuffer], { type: 'audio/mp3' });
+        const url = URL.createObjectURL(blob);
+        
+        audioQueue.current.push(url);
+        playNextInQueue();
       }
     });
 
@@ -68,19 +86,31 @@ const AudienceView = () => {
   }, [language, isAudioEnabled, isTvMode]); 
 
   // ==========================================
-  // BOTÓN DE DESBLOQUEO DE AUDIO MÁS SENCILLO
+  // BOTÓN DE ACTIVACIÓN SEGURO (NATIVO HTML5)
   // ==========================================
   const toggleAudio = async () => {
     if (!isAudioEnabled) {
       try {
-        // En HTML5, reproducir un archivo vacío desbloquea el motor en iOS/Chrome
-        const silentAudio = new Audio("data:audio/mp3;base64,//NExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq");
-        await silentAudio.play();
-        console.log("[Audio] Motor HTML5 desbloqueado por el usuario.");
+        // Reproducimos un audio vacío directamente en el elemento permanente
+        // Esto le demuestra a iOS y Chrome que el usuario autorizó este reproductor
+        if (audioPlayerRef.current) {
+          audioPlayerRef.current.src = "data:audio/mp3;base64,//NExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq";
+          await audioPlayerRef.current.play();
+          console.log("[Audio] Reproductor permanente desbloqueado con éxito.");
+        }
       } catch (e) {
-        console.log("[Audio] Advertencia al desbloquear, pero continuaremos:", e);
+        console.warn("[Audio] Advertencia de desbloqueo (normal en algunos móviles):", e);
+      }
+    } else {
+      // Si apagan el botón, vaciamos la cola y detenemos el reproductor
+      audioQueue.current = [];
+      isPlaying.current = false;
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.pause();
+        audioPlayerRef.current.src = "";
       }
     }
+    // Cambiamos el estado visual del botón
     setIsAudioEnabled(!isAudioEnabled);
   };
 
@@ -94,6 +124,7 @@ const AudienceView = () => {
               onChange={(e) => {
                 setLanguage(e.target.value);
                 setTranslation('');
+                audioQueue.current = []; // Vaciamos la cola al cambiar de idioma
               }}
               className="bg-gray-900 border border-gray-800 text-gray-500 text-xs font-bold uppercase tracking-wider rounded-lg px-3 py-1.5 focus:ring-1 focus:ring-gray-600 focus:outline-none appearance-none cursor-pointer"
             >
@@ -123,8 +154,11 @@ const AudienceView = () => {
   }
 
   return (
-    <div className="flex flex-col h-screen w-full p-6 max-w-md mx-auto bg-darker">
+    <div className="flex flex-col h-screen w-full p-6 max-w-md mx-auto bg-darker relative">
       
+      {/* EL REPRODUCTOR INVISIBLE (NÚCLEO DEL AUDIO) */}
+      <audio ref={audioPlayerRef} onEnded={handleAudioEnded} className="hidden" />
+
       <header className="flex justify-between items-center mb-8 pb-4 border-b border-gray-800 shrink-0">
         <div className="flex items-center gap-3">
           <img src="/logo.png" alt="Logo" className="h-8 w-auto object-contain" onError={(e) => { e.target.style.display = 'none'; }} />
@@ -153,6 +187,7 @@ const AudienceView = () => {
             onChange={(e) => {
               setLanguage(e.target.value);
               setTranslation('');
+              audioQueue.current = []; // Vaciamos la cola al cambiar de idioma
             }}
             className="w-full bg-dark border border-gray-700 text-white text-lg rounded-xl p-4 focus:ring-2 focus:ring-accent focus:outline-none appearance-none cursor-pointer"
           >
