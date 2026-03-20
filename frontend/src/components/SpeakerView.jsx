@@ -18,7 +18,6 @@ const SpeakerView = () => {
   const [passwordInput, setPasswordInput] = useState('');
   const [loginError, setLoginError] = useState('');
   
-  // NUEVO: Guardamos la información del evento que nos da el servidor
   const [eventInfo, setEventInfo] = useState(null);
   const [isSystemActive, setIsSystemActive] = useState(true);
 
@@ -30,7 +29,6 @@ const SpeakerView = () => {
   const [inputLanguage, setInputLanguage] = useState('es-CO'); 
   const [voiceGender, setVoiceGender] = useState('female');
   
-  // NUEVO: La sala ahora dependerá de las opciones del evento
   const [roomName, setRoomName] = useState('');
   
   const [panelCount, setPanelCount] = useState(1); 
@@ -42,18 +40,16 @@ const SpeakerView = () => {
   const processorRef = useRef(null);
   const streamRef = useRef(null);
 
-  const audienceUrl = `${window.location.origin}/?room=${roomName}`;
+  // ACTUALIZADO: El enlace de la audiencia ahora incluye el ID del evento de forma invisible
+  const audienceUrl = `${window.location.origin}/?event=${eventInfo?.password || ''}&room=${roomName}`;
 
-  // ==========================================
-  // AUTENTICACIÓN SEGURA CONTRA EL SERVIDOR
-  // ==========================================
   const attemptLogin = (pwd) => {
     socket.connect();
     socket.emit('speaker-login', pwd, (response) => {
       if (response.success) {
         setIsAuthenticated(true);
         setEventInfo(response.event);
-        setRoomName(response.event.rooms[0] || 'PRINCIPAL'); // Selecciona la primera sala por defecto
+        setRoomName(response.event.rooms[0] || 'PRINCIPAL');
         sessionStorage.setItem('speakerPwd', pwd);
         setLoginError('');
       } else {
@@ -71,7 +67,6 @@ const SpeakerView = () => {
     attemptLogin(passwordInput);
   };
 
-  // Recuperar sesión si recargan la página
   useEffect(() => {
     const savedPwd = sessionStorage.getItem('speakerPwd');
     if (savedPwd) {
@@ -89,7 +84,6 @@ const SpeakerView = () => {
       stopRecordingLocally();
     });
 
-    // Escuchar el Kill Switch del Master
     socket.on('system-status', (status) => {
       setIsSystemActive(status);
       if (!status && isRecording) {
@@ -135,11 +129,13 @@ const SpeakerView = () => {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
       
+      // ACTUALIZADO: Le indicamos al servidor que aísle esta sala dentro de este evento
       socket.emit('start-translation', { 
         fromLanguage: inputLanguage, 
         toLanguages: ['es', 'en', 'pt', 'fr', 'de'],
         voiceGender: voiceGender,
-        roomName: roomName 
+        roomName: roomName,
+        eventId: eventInfo.password 
       });
       
       const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -264,9 +260,6 @@ const SpeakerView = () => {
     );
   }
 
-  // ==========================================
-  // PANTALLA DE BLOQUEO SI EL MASTER APAGA
-  // ==========================================
   if (!isSystemActive) {
     return (
       <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-black">
@@ -363,7 +356,6 @@ const SpeakerView = () => {
               </div>
             </div>
 
-            {/* NUEVO: El Orador ya no tipea la sala, escoge de las que el Master le asignó */}
             <div className="flex items-center gap-3">
               <span className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Sala Asignada:</span>
               <div className="relative">

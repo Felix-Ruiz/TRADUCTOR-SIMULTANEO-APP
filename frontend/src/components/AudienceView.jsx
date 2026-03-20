@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
-import { Headphones, Globe2, AlertCircle, MessageSquare, Radio, PowerOff } from 'lucide-react';
+import { Headphones, Globe2, AlertCircle, MessageSquare, Radio, PowerOff, Key } from 'lucide-react';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001');
 
@@ -9,9 +9,15 @@ const AudienceView = () => {
   const isTvMode = queryParams.get('tv') === 'true';
   const urlLang = queryParams.get('lang');
   const urlRoom = queryParams.get('room');
+  
+  // NUEVO: Manejo estricto del Evento
+  const [urlEvent, setUrlEvent] = useState(queryParams.get('event') || '');
+  const [eventInput, setEventInput] = useState('');
+  const [eventError, setEventError] = useState('');
+  const [eventName, setEventName] = useState('Traducción en Vivo');
 
-  const [roomName, setRoomName] = useState(urlRoom || 'PRINCIPAL');
-  const [availableRooms, setAvailableRooms] = useState(urlRoom ? [urlRoom] : ['PRINCIPAL']);
+  const [roomName, setRoomName] = useState(urlRoom || '');
+  const [availableRooms, setAvailableRooms] = useState([]);
   const [language, setLanguage] = useState(urlLang || 'es'); 
   const [translation, setTranslation] = useState('');
   const [isConnected, setIsConnected] = useState(false);
@@ -23,39 +29,28 @@ const AudienceView = () => {
   const audioQueue = useRef([]);
   const isPlaying = useRef(false);
 
-  // NUEVO: Referencia para mantener la pantalla encendida
   const wakeLockRef = useRef(null);
 
-  // Función para solicitar mantener la pantalla viva
   const requestWakeLock = async () => {
     try {
       if ('wakeLock' in navigator) {
         wakeLockRef.current = await navigator.wakeLock.request('screen');
-        console.log('[UX] Screen Wake Lock activado: Pantalla se mantendrá encendida.');
-        
-        // Si el usuario minimiza la app y vuelve, el wake lock se pierde. Hay que pedirlo de nuevo.
-        wakeLockRef.current.addEventListener('release', () => {
-          console.log('[UX] Screen Wake Lock liberado.');
-        });
+        wakeLockRef.current.addEventListener('release', () => {});
       }
     } catch (err) {
-      console.warn(`[UX] No se pudo mantener la pantalla encendida: ${err.name}, ${err.message}`);
+      console.warn(`[UX] No se pudo mantener la pantalla encendida: ${err.message}`);
     }
   };
 
-  // Función para liberar la pantalla
   const releaseWakeLock = async () => {
     if (wakeLockRef.current !== null) {
       try {
         await wakeLockRef.current.release();
         wakeLockRef.current = null;
-      } catch (err) {
-        console.error(`[UX] Error liberando Wake Lock: ${err.message}`);
-      }
+      } catch (err) {}
     }
   };
 
-  // Escuchamos si el usuario minimiza la ventana del navegador para reactivar el Wake Lock al volver
   useEffect(() => {
     const handleVisibilityChange = async () => {
       if (wakeLockRef.current !== null && document.visibilityState === 'visible' && userMode) {
@@ -63,9 +58,7 @@ const AudienceView = () => {
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [userMode]);
 
   const playNextInQueue = async () => {
@@ -79,7 +72,6 @@ const AudienceView = () => {
       try {
         await audioPlayerRef.current.play();
       } catch (error) {
-        console.error("[Audio] Error al reproducir el fragmento:", error);
         isPlaying.current = false;
         playNextInQueue(); 
       }
@@ -94,10 +86,38 @@ const AudienceView = () => {
     playNextInQueue();
   };
 
+  // ==========================================
+  // FLUJO DE CONEXIÓN AL EVENTO
+  // ==========================================
+  const verifyEvent = (eventId) => {
+    socket.emit('check-event', eventId, (response) => {
+      if (response.success) {
+        setUrlEvent(eventId);
+        setEventName(response.name);
+        setEventError('');
+        // Al validar, nos conectamos a la red de ese evento
+        socket.emit('join-event-audience', eventId);
+      } else {
+        setEventError('Código de evento inválido o evento finalizado.');
+        if (eventId === urlEvent) {
+            setUrlEvent(''); // Si el de la URL era falso, lo borramos
+        }
+      }
+    });
+  };
+
+  const handleEventSubmit = (e) => {
+    e.preventDefault();
+    if (!eventInput.trim()) return;
+    verifyEvent(eventInput.trim());
+  };
+
   useEffect(() => {
     socket.on('connect', () => {
       setIsConnected(true);
-      if (isSystemActive) socket.emit('join-room', roomName);
+      if (isSystemActive && urlEvent) {
+          verifyEvent(urlEvent);
+      }
     });
     
     socket.on('disconnect', () => setIsConnected(false));
@@ -112,23 +132,25 @@ const AudienceView = () => {
         audioQueue.current = [];
         isPlaying.current = false;
         setTranslation('');
-        // Si apagan el sistema, liberamos la pantalla para ahorrar batería
         releaseWakeLock();
       }
     });
 
+    // ACTUALIZADO: Recibimos SOLO las salas configuradas para el evento
+    socket.on('event-info', (data) => {
+        setEventName(data.name);
+        // Colocamos las salas disponibles de ese evento
+        setAvailableRooms(data.allRooms);
+        // Si no hay sala seleccionada o la seleccionada no pertenece al evento, escogemos la primera
+        setRoomName(prev => {
+            if (!prev || !data.allRooms.includes(prev)) return data.allRooms[0] || '';
+            return prev;
+        });
+    });
+
     socket.on('active-rooms', (rooms) => {
       if (!isSystemActive) return;
-      const mergedRooms = Array.from(new Set([...rooms, urlRoom].filter(Boolean)));
-      if (mergedRooms.length === 0) mergedRooms.push('PRINCIPAL');
-      setAvailableRooms(mergedRooms);
-      
-      setRoomName((prev) => {
-        if (!mergedRooms.includes(prev) && mergedRooms.length > 0) {
-          return mergedRooms[0];
-        }
-        return prev;
-      });
+      // Aquí actualizamos visualmente si la sala está activa (futura mejora: poner un puntito verde)
     });
     
     socket.on('translation-result', (data) => {
@@ -160,21 +182,22 @@ const AudienceView = () => {
       socket.off('connect');
       socket.off('disconnect');
       socket.off('active-rooms');
+      socket.off('event-info');
       socket.off('translation-result');
       socket.off('neural-audio');
       socket.off('system-status');
-      // Al salir de la app, liberamos la pantalla
       releaseWakeLock();
     };
-  }, [language, userMode, isTvMode, urlRoom, isSystemActive, roomName]); 
+  }, [language, userMode, isTvMode, urlEvent, isSystemActive]); 
 
+  // ACTUALIZADO: Nos unimos a la sala aislada
   useEffect(() => {
-    if (isConnected && roomName && isSystemActive) {
-      socket.emit('join-room', roomName);
+    if (isConnected && urlEvent && roomName && isSystemActive) {
+      socket.emit('join-isolated-room', { eventId: urlEvent, roomName: roomName });
       setTranslation(''); 
       audioQueue.current = [];
     }
-  }, [roomName, isConnected, isSystemActive]);
+  }, [roomName, isConnected, isSystemActive, urlEvent]);
 
   const unlockAudioAndStart = async () => {
     try {
@@ -186,13 +209,11 @@ const AudienceView = () => {
       console.warn("[Audio] Advertencia de desbloqueo:", e);
     }
     setUserMode('audio');
-    // ACTUALIZADO: Encendemos el Wake Lock al iniciar la experiencia
     requestWakeLock();
   };
 
   const startTextMode = () => {
     setUserMode('text');
-    // ACTUALIZADO: Encendemos el Wake Lock al iniciar la experiencia
     requestWakeLock();
   };
 
@@ -207,7 +228,6 @@ const AudienceView = () => {
         audioPlayerRef.current.pause();
         audioPlayerRef.current.src = "";
       }
-      // Asegurarnos de que el Wake Lock siga activo al cambiar de modo
       requestWakeLock();
     }
   };
@@ -227,6 +247,47 @@ const AudienceView = () => {
           <p className="text-gray-400 text-base text-center leading-relaxed max-w-xs">
             La plataforma de traducción simultánea se encuentra inactiva en este momento. Por favor, espera a que el administrador inicie el evento.
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ==================================================
+  // PANTALLA: SOLICITUD DE CÓDIGO DE EVENTO (FALLBACK)
+  // ==================================================
+  if (!urlEvent) {
+    return (
+      <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-darker">
+        <div className="w-full max-w-sm flex flex-col items-center">
+          <img src="/logo.png" alt="Logo" className="h-14 w-auto object-contain mb-6 drop-shadow-lg" onError={(e) => { e.target.style.display = 'none'; }} />
+          
+          <h2 className="text-2xl font-bold text-white mb-2 text-center tracking-tight">Traducción en Vivo</h2>
+          <p className="text-gray-400 text-sm text-center mb-8 leading-relaxed">
+            Ingresa el código del evento para acceder a las salas de traducción.
+          </p>
+          
+          <form onSubmit={handleEventSubmit} className="w-full flex flex-col gap-4">
+            <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <Key className="w-5 h-5 text-gray-500" />
+                </div>
+                <input 
+                    type="text"
+                    value={eventInput}
+                    onChange={(e) => setEventInput(e.target.value.toUpperCase().trim())}
+                    placeholder="Código de Evento"
+                    className="w-full bg-dark border border-gray-700 text-white text-center text-lg font-bold tracking-widest rounded-xl py-4 px-10 focus:ring-2 focus:ring-primary focus:outline-none transition-all shadow-inner"
+                />
+            </div>
+            {eventError && <p className="text-red-500 text-xs font-semibold text-center animate-pulse">{eventError}</p>}
+            <button 
+              type="submit"
+              disabled={!eventInput.trim() || !isConnected}
+              className="w-full bg-primary hover:bg-blue-600 text-white px-6 py-4 rounded-xl font-bold transition-all shadow-lg hover:shadow-blue-500/25 disabled:opacity-50 tracking-widest uppercase mt-2"
+            >
+              Ingresar al Evento
+            </button>
+          </form>
         </div>
       </div>
     );
@@ -274,7 +335,7 @@ const AudienceView = () => {
   }
 
   // ==================================================
-  // MODAL DE SELECCIÓN INICIAL
+  // MODAL DE SELECCIÓN DE SALA Y MODO
   // ==================================================
   if (!userMode) {
     return (
@@ -282,7 +343,7 @@ const AudienceView = () => {
         <div className="w-full max-w-sm flex flex-col items-center">
           <img src="/logo.png" alt="Logo" className="h-14 w-auto object-contain mb-6 drop-shadow-lg" onError={(e) => { e.target.style.display = 'none'; }} />
           
-          <h2 className="text-2xl font-bold text-white mb-2 text-center tracking-tight">Traducción en Vivo</h2>
+          <h2 className="text-2xl font-bold text-white mb-2 text-center tracking-tight">{eventName}</h2>
           <p className="text-gray-400 text-sm text-center mb-8 leading-relaxed">
             Asegúrate de estar en la sala correcta y elige cómo deseas seguir la conferencia.
           </p>
@@ -355,7 +416,7 @@ const AudienceView = () => {
         <div className="flex items-center gap-3">
           <img src="/logo.png" alt="Logo" className="h-8 w-auto object-contain" onError={(e) => { e.target.style.display = 'none'; }} />
           <div className="flex flex-col">
-            <h1 className="text-base font-bold text-white leading-tight">Audiencia en Vivo</h1>
+            <h1 className="text-base font-bold text-white leading-tight truncate max-w-[150px]">{eventName}</h1>
             <span className="text-xs text-primary font-bold tracking-widest">{roomName}</span>
           </div>
         </div>
