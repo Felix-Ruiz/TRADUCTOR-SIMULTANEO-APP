@@ -79,7 +79,8 @@ const AudienceView = () => {
       </div>
 
       <main className="flex-1 flex flex-col justify-center pb-12">
-        <p className="text-3xl md:text-4xl font-medium leading-relaxed text-white min-h-[3rem] text-center transition-opacity duration-300">
+        {/* Animación de transición agregada aquí */}
+        <p className="text-3xl md:text-4xl font-medium leading-relaxed text-white min-h-[3rem] text-center transition-all duration-300 ease-in-out">
           {translation || "Esperando al orador..."}
         </p>
       </main>

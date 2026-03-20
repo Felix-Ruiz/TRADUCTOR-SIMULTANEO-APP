@@ -10,13 +10,23 @@ const SpeakerView = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [transcription, setTranscription] = useState('');
   const [translation, setTranslation] = useState('');
-  const [inputLanguage, setInputLanguage] = useState('es-CO'); // Estado para el idioma del orador
+  const [inputLanguage, setInputLanguage] = useState('es-CO'); 
   
   const audioContextRef = useRef(null);
   const processorRef = useRef(null);
   const streamRef = useRef(null);
 
   const audienceUrl = `${window.location.origin}/audience`;
+
+  // Diccionario para que el texto visual coincida con el selector
+  const languageNames = {
+    'es-CO': 'Español', 'en-US': 'Inglés', 'pt-BR': 'Portugués',
+    'fr-FR': 'Francés', 'de-DE': 'Alemán', 'it-IT': 'Italiano',
+    'zh-CN': 'Chino', 'ja-JP': 'Japonés', 'ko-KR': 'Coreano',
+    'ru-RU': 'Ruso', 'ar-EG': 'Árabe', 'hi-IN': 'Hindi',
+    'nl-NL': 'Holandés', 'tr-TR': 'Turco', 'pl-PL': 'Polaco',
+    'sv-SE': 'Sueco'
+  };
 
   useEffect(() => {
     socket.on('connect', () => setIsConnected(true));
@@ -42,7 +52,6 @@ const SpeakerView = () => {
       streamRef.current = stream;
       
       socket.connect();
-      // Ahora enviamos el idioma que el orador seleccionó dinámicamente
       socket.emit('start-translation', { 
         fromLanguage: inputLanguage, 
         toLanguages: ['en', 'pt', 'fr', 'de', 'it', 'zh-Hans', 'ja', 'ko', 'ru', 'ar', 'hi', 'nl', 'tr', 'pl', 'sv'] 
@@ -123,7 +132,6 @@ const SpeakerView = () => {
 
       <main className="flex-1 flex flex-col justify-center gap-8 mb-12">
         <div className="space-y-2">
-          {/* Selector de idioma del orador */}
           <div className="flex items-center gap-3 mb-2">
             <span className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Idioma del Orador:</span>
             <div className="relative">
@@ -158,14 +166,16 @@ const SpeakerView = () => {
             </div>
           </div>
           
-          <p className="text-4xl md:text-5xl font-bold leading-tight text-white min-h-[3rem]">
+          {/* Animación de transición agregada aquí */}
+          <p className="text-4xl md:text-5xl font-bold leading-tight text-white min-h-[3rem] transition-all duration-300 ease-in-out">
             {transcription || "Presiona el botón para comenzar a hablar..."}
           </p>
         </div>
 
         <div className="space-y-2">
           <span className="text-sm font-semibold text-primary uppercase tracking-wider">Traducción (Inglés)</span>
-          <p className="text-3xl md:text-4xl font-medium leading-relaxed text-gray-400 min-h-[3rem]">
+          {/* Animación de transición agregada aquí */}
+          <p className="text-3xl md:text-4xl font-medium leading-relaxed text-gray-400 min-h-[3rem] transition-all duration-300 ease-in-out">
             {translation}
           </p>
         </div>
