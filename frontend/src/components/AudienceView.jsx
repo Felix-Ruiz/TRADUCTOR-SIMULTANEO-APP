@@ -14,8 +14,6 @@ const AudienceView = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [isAudioEnabled, setIsAudioEnabled] = useState(false);
 
-  const audioContextRef = useRef(null);
-
   useEffect(() => {
     socket.on('connect', () => setIsConnected(true));
     socket.on('disconnect', () => setIsConnected(false));
@@ -32,33 +30,31 @@ const AudienceView = () => {
       }
     });
 
+    // ==========================================
+    // REPRODUCTOR HTML5 ROBUSTO (SIN AUDIO CONTEXT)
+    // ==========================================
     socket.on('neural-audio', async (data) => {
       if (!isTvMode && isAudioEnabled && data.language === language && data.audioBuffer) {
         try {
-          if (!audioContextRef.current) return; // Si no hay contexto, ignoramos
+          console.log("[Audio] Recibido paquete de Azure. Preparando HTML5 Audio...");
           
-          console.log("[Audio] Paquete recibido de Azure:", data); // Para debugear en consola
-
-          // SOLUCIÓN DEFINITIVA: Desempaquetado a prueba de balas para Socket.io
-          let arrayBuffer;
-          if (data.audioBuffer instanceof ArrayBuffer) {
-            arrayBuffer = data.audioBuffer;
-          } else if (data.audioBuffer && data.audioBuffer.type === 'Buffer') {
-            // Si Socket.io lo convirtió en un objeto Buffer de Node.js
-            arrayBuffer = new Uint8Array(data.audioBuffer.data).buffer;
-          } else {
-            // Último recurso de conversión
-            arrayBuffer = new Uint8Array(data.audioBuffer).buffer;
-          }
+          // 1. Convertimos el paquete crudo en un archivo MP3 virtual
+          const blob = new Blob([data.audioBuffer], { type: 'audio/mp3' });
+          const url = URL.createObjectURL(blob);
           
-          const audioBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
-          const source = audioContextRef.current.createBufferSource();
-          source.buffer = audioBuffer;
-          source.connect(audioContextRef.current.destination);
-          source.start(0);
-          console.log("[Audio] Reproduciendo voz con éxito");
+          // 2. Usamos el reproductor nativo del celular
+          const audioPlayer = new Audio(url);
+          
+          // 3. Limpiamos la memoria del celular cuando termina de hablar
+          audioPlayer.onended = () => {
+            URL.revokeObjectURL(url);
+          };
+          
+          // 4. Reproducir
+          await audioPlayer.play();
+          console.log("[Audio] Reproducción exitosa.");
         } catch (error) {
-          console.error("[Audio] Error crítico reproduciendo el MP3:", error);
+          console.error("[Audio] Error al reproducir el MP3 con HTML5:", error);
         }
       }
     });
@@ -68,36 +64,21 @@ const AudienceView = () => {
       socket.off('disconnect');
       socket.off('translation-result');
       socket.off('neural-audio');
-      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-        audioContextRef.current.close().catch(() => {});
-      }
     };
   }, [language, isAudioEnabled, isTvMode]); 
 
   // ==========================================
-  // DESBLOQUEADOR DE AUDIO PARA iPHONE / CHROME
+  // BOTÓN DE DESBLOQUEO DE AUDIO MÁS SENCILLO
   // ==========================================
   const toggleAudio = async () => {
     if (!isAudioEnabled) {
       try {
-        if (!audioContextRef.current) {
-          audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
-        }
-        if (audioContextRef.current.state === 'suspended') {
-          await audioContextRef.current.resume();
-        }
-        
-        // TRUCO PARA APPLE: Crear un segundo de "silencio" y reproducirlo instantáneamente
-        // Esto le demuestra a iOS que el audio fue gatillado por un humano (onClick)
-        const emptyBuffer = audioContextRef.current.createBuffer(1, 1, 22050);
-        const source = audioContextRef.current.createBufferSource();
-        source.buffer = emptyBuffer;
-        source.connect(audioContextRef.current.destination);
-        source.start(0);
-        
-        console.log("[Audio] Motor de sonido desbloqueado y listo.");
+        // En HTML5, reproducir un archivo vacío desbloquea el motor en iOS/Chrome
+        const silentAudio = new Audio("data:audio/mp3;base64,//NExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq");
+        await silentAudio.play();
+        console.log("[Audio] Motor HTML5 desbloqueado por el usuario.");
       } catch (e) {
-        console.error("[Audio] No se pudo desbloquear el sonido:", e);
+        console.log("[Audio] Advertencia al desbloquear, pero continuaremos:", e);
       }
     }
     setIsAudioEnabled(!isAudioEnabled);
