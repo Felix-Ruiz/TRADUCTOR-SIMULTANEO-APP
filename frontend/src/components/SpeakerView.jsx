@@ -25,6 +25,9 @@ const SpeakerView = () => {
   const [allTranslations, setAllTranslations] = useState({}); 
   const [inputLanguage, setInputLanguage] = useState('es-CO'); 
   
+  // NUEVO: Estado para el género de la voz
+  const [voiceGender, setVoiceGender] = useState('female');
+  
   const [panelCount, setPanelCount] = useState(1); 
   const [panelLanguages, setPanelLanguages] = useState(['en', 'de', 'fr']); 
   
@@ -89,9 +92,12 @@ const SpeakerView = () => {
       streamRef.current = stream;
       
       socket.connect();
+      
+      // ACTUALIZADO: Enviamos el género de voz elegido al backend
       socket.emit('start-translation', { 
         fromLanguage: inputLanguage, 
-        toLanguages: ['es', 'en', 'pt', 'fr', 'de'] 
+        toLanguages: ['es', 'en', 'pt', 'fr', 'de'],
+        voiceGender: voiceGender 
       });
       
       const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -253,31 +259,53 @@ const SpeakerView = () => {
       </header>
 
       <main className="flex-1 flex flex-col min-h-0 gap-6 pb-6 overflow-y-auto pr-2">
-        <div className="space-y-2 shrink-0">
-          <div className="flex items-center gap-3 mb-2">
-            <span className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Idioma del Orador:</span>
-            <div className="relative">
-              <select 
-                value={inputLanguage}
-                onChange={(e) => setInputLanguage(e.target.value)}
-                disabled={isRecording}
-                className="bg-darker border border-gray-700 text-primary text-sm font-bold uppercase tracking-wider rounded-lg px-3 py-1.5 focus:ring-1 focus:ring-primary focus:outline-none appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <option value="es-CO">Español</option>
-                <option value="en-US">Inglés</option>
-                <option value="de-DE">Alemán</option>
-                <option value="fr-FR">Francés</option>
-                <option value="pt-BR">Portugués</option>
-              </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-primary">
-                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                  <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
-                </svg>
+        <div className="space-y-4 shrink-0">
+          
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 mb-2">
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Idioma del Orador:</span>
+              <div className="relative">
+                <select 
+                  value={inputLanguage}
+                  onChange={(e) => setInputLanguage(e.target.value)}
+                  disabled={isRecording}
+                  className="bg-darker border border-gray-700 text-primary text-sm font-bold uppercase tracking-wider rounded-lg px-3 py-1.5 focus:ring-1 focus:ring-primary focus:outline-none appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <option value="es-CO">Español</option>
+                  <option value="en-US">Inglés</option>
+                  <option value="de-DE">Alemán</option>
+                  <option value="fr-FR">Francés</option>
+                  <option value="pt-BR">Portugués</option>
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-primary">
+                  <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Voz de la IA:</span>
+              <div className="relative">
+                <select 
+                  value={voiceGender}
+                  onChange={(e) => setVoiceGender(e.target.value)}
+                  disabled={isRecording}
+                  className="bg-darker border border-gray-700 text-primary text-sm font-bold uppercase tracking-wider rounded-lg px-3 py-1.5 focus:ring-1 focus:ring-primary focus:outline-none appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <option value="female">👩 Mujer</option>
+                  <option value="male">👨 Hombre</option>
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-primary">
+                  <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                  </svg>
+                </div>
               </div>
             </div>
           </div>
           
-          {/* Texto de origen sin animaciones para mayor estabilidad de lectura */}
           <p className="text-3xl md:text-4xl font-bold leading-tight text-white min-h-[3rem] text-left">
             {transcription || "Presiona el botón para comenzar a hablar..."}
           </p>
@@ -330,7 +358,6 @@ const SpeakerView = () => {
                   </div>
                 </div>
 
-                {/* Texto de traducción anclado arriba y sin animaciones molestas */}
                 <p className="text-xl md:text-2xl font-medium leading-relaxed text-gray-300 text-left">
                   {allTranslations[panelLanguages[index]] || "..."}
                 </p>

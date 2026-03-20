@@ -1,6 +1,7 @@
 const sdk = require("microsoft-cognitiveservices-speech-sdk");
 
-const voiceMap = {
+// Mapas separados por género para mantener el control de calidad
+const femaleVoiceMap = {
     'es': 'es-CO-SalomeNeural',
     'en': 'en-US-JennyNeural',
     'de': 'de-DE-AmalaNeural',
@@ -8,11 +9,21 @@ const voiceMap = {
     'pt': 'pt-BR-FranciscaNeural'
 };
 
+const maleVoiceMap = {
+    'es': 'es-CO-GonzaloNeural',
+    'en': 'en-US-GuyNeural',
+    'de': 'de-DE-ConradNeural',
+    'fr': 'fr-FR-HenriNeural',
+    'pt': 'pt-BR-AntonioNeural'
+};
+
 class TranslationService {
-    constructor(socket, fromLanguage = 'es-CO', toLanguages = ['en', 'pt']) {
+    // ACTUALIZADO: Recibe voiceGender por defecto en 'female'
+    constructor(socket, fromLanguage = 'es-CO', toLanguages = ['en', 'pt'], voiceGender = 'female') {
         this.socket = socket; 
         this.targetLanguages = toLanguages; 
         this.fromLanguage = fromLanguage;
+        this.voiceGender = voiceGender;
         
         this.pushStream = sdk.AudioInputStream.createPushStream();
         
@@ -92,9 +103,11 @@ class TranslationService {
         const speechRegion = process.env.AZURE_SPEECH_REGION;
 
         const speechConfig = sdk.SpeechConfig.fromSubscription(speechKey, speechRegion);
-        speechConfig.speechSynthesisVoiceName = voiceMap[lang] || 'en-US-JennyNeural';
+        
+        // ACTUALIZADO: Elegimos el catálogo basado en lo que mandó el frontend
+        const selectedMap = this.voiceGender === 'male' ? maleVoiceMap : femaleVoiceMap;
+        speechConfig.speechSynthesisVoiceName = selectedMap[lang] || (this.voiceGender === 'male' ? 'en-US-GuyNeural' : 'en-US-JennyNeural');
 
-        // SOLUCIÓN 1: Forzamos la salida a MP3 ligero (Universal para todos los navegadores)
         speechConfig.speechSynthesisOutputFormat = sdk.SpeechSynthesisOutputFormat.Audio16Khz32KBitRateMonoMp3;
 
         const synthesizer = new sdk.SpeechSynthesizer(speechConfig, null);
