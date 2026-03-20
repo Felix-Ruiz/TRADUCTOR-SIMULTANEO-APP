@@ -51,7 +51,6 @@ const SpeakerView = () => {
       streamRef.current = stream;
       
       socket.connect();
-      // Petición ultra-rápida: Solo los 5 idiomas exactos solicitados
       socket.emit('start-translation', { 
         fromLanguage: inputLanguage, 
         toLanguages: ['es', 'en', 'pt', 'fr', 'de'] 
@@ -63,7 +62,8 @@ const SpeakerView = () => {
 
       const source = audioContext.createMediaStreamSource(stream);
       
-      const processor = audioContext.createScriptProcessor(2048, 1, 1);
+      // RESTAURADO A 4096: El tamaño de paquete perfecto para que Azure escuche sin ahogarse
+      const processor = audioContext.createScriptProcessor(4096, 1, 1);
       processorRef.current = processor;
 
       processor.onaudioprocess = (e) => {
