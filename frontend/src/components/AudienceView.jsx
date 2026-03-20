@@ -104,10 +104,12 @@ const AudienceView = () => {
           </div>
         </div>
 
-        {/* Texto anclado abajo y a la izquierda, sin animaciones que lo hagan saltar */}
-        <p className="text-5xl md:text-7xl lg:text-[5.5rem] font-bold text-white text-left leading-tight tracking-wide drop-shadow-2xl">
-          {translation || "..."}
-        </p>
+        {/* CONTENEDOR ESTABILIZADO: Caja anclada al fondo, ancho máximo controlado y texto sin peso extremo */}
+        <div className="w-full max-w-6xl mx-auto">
+          <p className="text-4xl md:text-5xl lg:text-6xl font-medium text-white text-left leading-normal tracking-wide drop-shadow-2xl">
+            {translation || "..."}
+          </p>
+        </div>
         
         <div className={`fixed bottom-4 right-4 w-2 h-2 rounded-full opacity-30 ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
       </div>
@@ -176,9 +178,9 @@ const AudienceView = () => {
         )}
       </div>
 
-      {/* Contenedor anclado al fondo y texto a la izquierda */}
       <main className="flex-1 flex flex-col justify-end pb-8 overflow-hidden">
-        <p className="text-3xl md:text-4xl font-medium leading-relaxed text-white min-h-[3rem] text-left">
+        {/* TEXTO ESTABILIZADO PARA MÓVILES: Tamaño ajustado para evitar que una palabra rompa el párrafo */}
+        <p className="text-2xl md:text-3xl font-normal leading-relaxed text-white min-h-[5rem] text-left tracking-wide">
           {translation || "Esperando al orador..."}
         </p>
       </main>
