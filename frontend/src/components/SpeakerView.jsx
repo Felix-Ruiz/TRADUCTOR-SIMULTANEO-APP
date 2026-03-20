@@ -5,6 +5,7 @@ import { QRCodeSVG } from 'qrcode.react';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL, { autoConnect: false });
 
+// Diccionario para los nombres de los idiomas en las descargas
 const langNames = {
   'es': 'Español',
   'en': 'Inglés',
@@ -25,8 +26,9 @@ const SpeakerView = () => {
   const [allTranslations, setAllTranslations] = useState({}); 
   const [inputLanguage, setInputLanguage] = useState('es-CO'); 
   
-  // Nuevo estado para manejar hasta 3 idiomas en pantalla dividida
-  const [outputLanguages, setOutputLanguages] = useState(['en']); 
+  // === NUEVA LÓGICA DE MULTI-VIEWER DINÁMICO ===
+  const [panelCount, setPanelCount] = useState(1); // Cuántos paneles mostrar (1, 2 o 3)
+  const [panelLanguages, setPanelLanguages] = useState(['en', 'de', 'fr']); // Idiomas asignados a cada panel
   
   const [fullTranscription, setFullTranscription] = useState('');
   
@@ -171,7 +173,10 @@ const SpeakerView = () => {
 
   const downloadSummary = () => {
     const fecha = new Date().toLocaleDateString();
-    const summaryText = `--- RESUMEN DE LA SESIÓN ---\nFecha: ${fecha}\nIdioma Original del Orador: ${inputLanguage}\nIdiomas Monitoreados: ${outputLanguages.join(', ')}\n\n--- REGISTRO COMPLETO ---\n${fullTranscription}`;
+    // Extraemos solo los idiomas que estaban activos en pantalla al descargar
+    const activeLangs = panelLanguages.slice(0, panelCount).map(code => langNames[code]).join(', ');
+    
+    const summaryText = `--- RESUMEN DE LA SESIÓN ---\nFecha: ${fecha}\nIdioma Original del Orador: ${inputLanguage}\nIdiomas Monitoreados: ${activeLangs}\n\n--- REGISTRO COMPLETO ---\n${fullTranscription}`;
     
     const element = document.createElement("a");
     const file = new Blob([summaryText], {type: 'text/plain'});
@@ -182,16 +187,11 @@ const SpeakerView = () => {
     document.body.removeChild(element);
   };
 
-  const toggleLanguage = (code) => {
-    if (outputLanguages.includes(code)) {
-      if (outputLanguages.length > 1) {
-        setOutputLanguages(outputLanguages.filter(l => l !== code));
-      }
-    } else {
-      if (outputLanguages.length < 3) {
-        setOutputLanguages([...outputLanguages, code]);
-      }
-    }
+  // Función para actualizar el idioma de un panel específico
+  const handlePanelLanguageChange = (index, newLang) => {
+    const newPanelLanguages = [...panelLanguages];
+    newPanelLanguages[index] = newLang;
+    setPanelLanguages(newPanelLanguages);
   };
 
   if (!isAuthenticated) {
@@ -288,41 +288,54 @@ const SpeakerView = () => {
 
         <div className="flex flex-col gap-4 shrink-0">
           <div className="flex flex-col md:flex-row md:items-center gap-3">
-            <span className="text-sm font-semibold text-primary uppercase tracking-wider">Monitor (Máx 3):</span>
-            <div className="flex flex-wrap gap-2">
-              {Object.entries(langNames).map(([code, name]) => {
-                const isSelected = outputLanguages.includes(code);
-                const isDisabled = !isSelected && outputLanguages.length >= 3;
-                return (
-                  <button
-                    key={code}
-                    onClick={() => toggleLanguage(code)}
-                    disabled={isDisabled}
-                    className={`px-4 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
-                      isSelected 
-                        ? 'bg-primary text-white shadow-[0_0_10px_rgba(59,130,246,0.3)]' 
-                        : 'bg-dark border border-gray-700 text-gray-400 hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed'
-                    }`}
-                  >
-                    {name}
-                  </button>
-                );
-              })}
+            <span className="text-sm font-semibold text-primary uppercase tracking-wider">Layout de Monitores:</span>
+            <div className="flex gap-2">
+              {[1, 2, 3].map(num => (
+                <button
+                  key={num}
+                  onClick={() => setPanelCount(num)}
+                  className={`px-4 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
+                    panelCount === num 
+                      ? 'bg-primary text-white shadow-[0_0_10px_rgba(59,130,246,0.3)]' 
+                      : 'bg-dark border border-gray-700 text-gray-400 hover:bg-gray-800'
+                  }`}
+                >
+                  {num} {num === 1 ? 'Panel' : 'Paneles'}
+                </button>
+              ))}
             </div>
           </div>
 
           <div className={`grid gap-4 transition-all duration-500 ${
-            outputLanguages.length === 1 ? 'grid-cols-1' :
-            outputLanguages.length === 2 ? 'grid-cols-1 md:grid-cols-2' :
+            panelCount === 1 ? 'grid-cols-1' :
+            panelCount === 2 ? 'grid-cols-1 md:grid-cols-2' :
             'grid-cols-1 md:grid-cols-3'
           }`}>
-            {outputLanguages.map(code => (
-              <div key={code} className="bg-dark border border-gray-800 rounded-2xl p-5 flex flex-col min-h-[10rem] shadow-xl">
-                <span className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3 border-b border-gray-800 pb-2">
-                  {langNames[code]}
-                </span>
+            {Array.from({ length: panelCount }).map((_, index) => (
+              <div key={index} className="bg-dark border border-gray-800 rounded-2xl p-5 flex flex-col min-h-[10rem] shadow-xl relative">
+                
+                {/* Selector Independiente para cada Panel */}
+                <div className="mb-3 border-b border-gray-800 pb-2 relative">
+                  <select 
+                    value={panelLanguages[index]}
+                    onChange={(e) => handlePanelLanguageChange(index, e.target.value)}
+                    className="w-full bg-transparent text-xs font-bold text-gray-400 uppercase tracking-widest focus:outline-none cursor-pointer hover:text-white transition-colors appearance-none pr-6"
+                  >
+                    <option value="es" className="bg-darker text-white">Español</option>
+                    <option value="en" className="bg-darker text-white">Inglés</option>
+                    <option value="de" className="bg-darker text-white">Alemán</option>
+                    <option value="fr" className="bg-darker text-white">Francés</option>
+                    <option value="pt" className="bg-darker text-white">Portugués</option>
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-1 text-gray-500">
+                    <svg className="fill-current h-3 w-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                      <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                    </svg>
+                  </div>
+                </div>
+
                 <p className="text-xl md:text-2xl font-medium leading-relaxed text-gray-300">
-                  {allTranslations[code] || "..."}
+                  {allTranslations[panelLanguages[index]] || "..."}
                 </p>
               </div>
             ))}
