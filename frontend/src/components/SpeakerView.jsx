@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
-import { Mic, Square, Radio, Download, Lock } from 'lucide-react';
+import { Mic, Square, Radio, Globe, Download, Lock } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL, { autoConnect: false });
@@ -80,44 +80,27 @@ const SpeakerView = () => {
 
       const source = audioContext.createMediaStreamSource(stream);
       
-      const workletCode = `
-        class PCMProcessor extends AudioWorkletProcessor {
-          process(inputs, outputs, parameters) {
-            const input = inputs[0];
-            if (input && input.length > 0) {
-              const channelData = input[0];
-              const pcm16 = new Int16Array(channelData.length);
-              
-              for (let i = 0; i < channelData.length; i++) {
-                let s = Math.max(-1, Math.min(1, channelData[i]));
-                pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-              }
-              
-              this.port.postMessage(pcm16.buffer);
-            }
-            return true; 
-          }
+      const processor = audioContext.createScriptProcessor(4096, 1, 1);
+      processorRef.current = processor;
+
+      processor.onaudioprocess = (e) => {
+        const inputData = e.inputBuffer.getChannelData(0);
+        const pcm16 = new Int16Array(inputData.length);
+        
+        for (let i = 0; i < inputData.length; i++) {
+          let s = Math.max(-1, Math.min(1, inputData[i]));
+          pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
         }
-        registerProcessor('pcm-processor', PCMProcessor);
-      `;
-
-      const blob = new Blob([workletCode], { type: 'application/javascript' });
-      const workletUrl = URL.createObjectURL(blob);
-
-      await audioContext.audioWorklet.addModule(workletUrl);
-      const workletNode = new AudioWorkletNode(audioContext, 'pcm-processor');
-      processorRef.current = workletNode;
-
-      workletNode.port.onmessage = (event) => {
+        
         if (socket.connected) {
-          socket.emit('audio-stream', event.data);
+          socket.emit('audio-stream', pcm16.buffer);
         }
       };
 
       const gainNode = audioContext.createGain();
       gainNode.gain.value = 0;
-      source.connect(workletNode);
-      workletNode.connect(gainNode);
+      source.connect(processor);
+      processor.connect(gainNode);
       gainNode.connect(audioContext.destination);
 
       setIsRecording(true);
@@ -164,8 +147,6 @@ const SpeakerView = () => {
     return (
       <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-darker">
         <div className="bg-dark border border-gray-800 p-8 rounded-3xl shadow-2xl max-w-md w-full flex flex-col items-center gap-6 text-center">
-          {/* Logo en la pantalla de bloqueo */}
-          <img src="/logo.png" alt="Logo" className="h-16 w-auto object-contain mb-2" onError={(e) => { e.target.style.display = 'none'; }} />
           <div className="bg-primary/10 p-5 rounded-full">
             <Lock className="w-10 h-10 text-primary" />
           </div>
@@ -201,9 +182,8 @@ const SpeakerView = () => {
       
       <header className="flex justify-between items-start mb-12">
         <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-4">
-            {/* Logo en el panel de control */}
-            <img src="/logo.png" alt="Logo" className="h-10 w-auto object-contain" onError={(e) => { e.target.style.display = 'none'; }} />
+          <div className="flex items-center gap-3">
+            <Globe className="w-8 h-8 text-primary" />
             <h1 className="text-2xl font-bold tracking-tight">Traducción Simultánea</h1>
           </div>
           <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full font-medium text-sm w-max ${isRecording ? 'bg-red-500/10 text-red-500' : 'bg-gray-800 text-gray-400'}`}>
