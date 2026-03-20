@@ -19,29 +19,25 @@ const io = new Server(server, {
     }
 });
 
-// ==========================================
-// MEMORIA CENTRAL DEL SISTEMA (MASTER ADMIN)
-// ==========================================
 let isSystemActive = true; 
 
+// La clave primaria ahora es el ID PÚBLICO de la audiencia
 const eventsDB = new Map();
 
-eventsDB.set(process.env.VITE_ADMIN_PASSWORD || "admin123", {
-    id: "evt_default",
+eventsDB.set("DEFAULT", {
+    id: "DEFAULT", // Código Público
     name: "Evento Principal (Por Defecto)",
-    password: process.env.VITE_ADMIN_PASSWORD || "admin123",
+    password: process.env.VITE_ADMIN_PASSWORD || "admin123", // Clave Privada
     rooms: ["PRINCIPAL"]
 });
 
 const MASTER_PASSWORD = process.env.MASTER_PASSWORD || "superadmin123";
 
-// Inventario aislado por eventos: Map<eventId, Map<roomName, count>>
 const activeSpeakerRooms = new Map();
 
 const broadcastActiveRoomsToEvent = (eventId) => {
     const eventRoomsMap = activeSpeakerRooms.get(eventId);
     const rooms = eventRoomsMap ? Array.from(eventRoomsMap.keys()) : [];
-    // Emitimos SOLO a los celulares que están en la "sala de espera" de este evento
     io.to(`audience_${eventId}`).emit('active-rooms', rooms);
 };
 
@@ -51,7 +47,6 @@ app.get('/api/status', (req, res) => {
 
 io.on('connection', (socket) => {
     console.log(`[+] Nuevo dispositivo conectado: ${socket.id}`);
-
     socket.emit('system-status', isSystemActive);
 
     let translationService = null;
@@ -78,32 +73,35 @@ io.on('connection', (socket) => {
 
         if (!isSystemActive) {
             activeSpeakerRooms.clear();
-            io.emit('active-rooms', []); // Limpiamos todas las pantallas
+            io.emit('active-rooms', []); 
         }
     });
 
     socket.on('master-create-event', (data, callback) => {
-        const password = data.password || Math.random().toString(36).slice(-6).toUpperCase();
+        // Generamos DOS llaves distintas
+        const publicId = Math.random().toString(36).slice(-6).toUpperCase(); // Para la audiencia
+        const secretPassword = Math.random().toString(36).slice(-6).toUpperCase(); // Para el orador
+        
         const newEvent = {
-            id: Date.now().toString(),
+            id: publicId,
             name: data.name,
-            password: password,
+            password: secretPassword,
             rooms: ["PRINCIPAL"] 
         };
-        eventsDB.set(password, newEvent);
+        eventsDB.set(publicId, newEvent);
         callback({ success: true, event: newEvent });
         io.emit('master-data-updated', Array.from(eventsDB.values()));
     });
 
-    socket.on('master-delete-event', (password, callback) => {
-        eventsDB.delete(password);
-        activeSpeakerRooms.delete(password);
+    socket.on('master-delete-event', (id, callback) => {
+        eventsDB.delete(id);
+        activeSpeakerRooms.delete(id);
         callback({ success: true });
         io.emit('master-data-updated', Array.from(eventsDB.values()));
     });
 
     socket.on('master-add-room', (data, callback) => {
-        const event = eventsDB.get(data.password);
+        const event = eventsDB.get(data.id);
         if (event) {
             if (!event.rooms.includes(data.room)) event.rooms.push(data.room);
             callback({ success: true });
@@ -114,7 +112,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('master-delete-room', (data, callback) => {
-        const event = eventsDB.get(data.password);
+        const event = eventsDB.get(data.id);
         if (event) {
             event.rooms = event.rooms.filter(r => r !== data.room);
             callback({ success: true });
@@ -128,9 +126,17 @@ io.on('connection', (socket) => {
     // RUTAS DEL SPEAKER ADMIN (ORADOR)
     // ==========================================
     socket.on('speaker-login', (password, callback) => {
-        const event = eventsDB.get(password);
-        if (event) {
-            callback({ success: true, event });
+        // Buscamos si ALGÚN evento tiene esta clave PRIVADA
+        let foundEvent = null;
+        for (const event of eventsDB.values()) {
+            if (event.password === password) {
+                foundEvent = event;
+                break;
+            }
+        }
+
+        if (foundEvent) {
+            callback({ success: true, event: foundEvent });
         } else {
             callback({ success: false, message: "Contraseña incorrecta o evento no encontrado." });
         }
@@ -139,10 +145,9 @@ io.on('connection', (socket) => {
     socket.on('start-translation', (config) => {
         if (!isSystemActive) return;
 
-        const eventId = config.eventId;
+        const eventId = config.eventId; // Se usa el ID Público para la conexión
         const roomName = config.roomName || 'PRINCIPAL';
         
-        // Creamos una sala verdaderamente aislada combinando Evento + Sala
         const isolatedRoom = `${eventId}_${roomName}`;
         socket.join(isolatedRoom);
         
@@ -164,7 +169,7 @@ io.on('connection', (socket) => {
             config.fromLanguage, 
             config.toLanguages, 
             config.voiceGender,
-            isolatedRoom // Le pasamos la sala aislada a Azure
+            isolatedRoom 
         );
         translationService.start();
     });
@@ -205,11 +210,10 @@ io.on('connection', (socket) => {
     });
 
     // ==========================================
-    // RUTAS DE LA AUDIENCIA (AISLAMIENTO TOTAL)
+    // RUTAS DE LA AUDIENCIA
     // ==========================================
-    
-    // 1. Validar si el código del evento existe
     socket.on('check-event', (eventId, callback) => {
+        // La audiencia solo puede buscar por ID PÚBLICO
         const event = eventsDB.get(eventId);
         if (event) {
             callback({ success: true, name: event.name });
@@ -218,7 +222,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // 2. Unirse a la capa general del evento para recibir su lista de salas
     socket.on('join-event-audience', (eventId) => {
         socket.join(`audience_${eventId}`);
         const eventRoomsMap = activeSpeakerRooms.get(eventId);
@@ -229,10 +232,8 @@ io.on('connection', (socket) => {
         if (event) socket.emit('event-info', { name: event.name, allRooms: event.rooms });
     });
 
-    // 3. Unirse a la sala aislada final para escuchar la traducción
     socket.on('join-isolated-room', (data) => {
         if (!isSystemActive) return;
-
         const isolatedRoom = `${data.eventId}_${data.roomName}`;
         
         Array.from(socket.rooms).forEach(r => {
@@ -242,11 +243,9 @@ io.on('connection', (socket) => {
         });
         
         socket.join(isolatedRoom);
-        console.log(`[+] Audiencia ${socket.id} se unió a: ${isolatedRoom}`);
     });
 
     socket.on('disconnect', () => {
-        console.log(`[-] Dispositivo desconectado: ${socket.id}`);
         handleSpeakerStop();
         if (translationService) {
             translationService.stop();

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
-import { Shield, Power, Plus, Trash2, Key, Activity, Copy, CheckCircle2, X } from 'lucide-react';
+import { Shield, Power, Plus, Trash2, Key, Activity, Copy, CheckCircle2, X, Users } from 'lucide-react';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001', { autoConnect: false });
 
@@ -14,25 +14,19 @@ const MasterView = () => {
   
   const [newEventName, setNewEventName] = useState('');
   const [newRoomName, setNewRoomName] = useState('');
-  const [selectedEventPwd, setSelectedEventPwd] = useState(null);
-  const [copiedPwd, setCopiedPwd] = useState(null);
+  const [selectedEventId, setSelectedEventId] = useState(null);
+  const [copiedText, setCopiedText] = useState(null);
 
   useEffect(() => {
     if (!isAuthenticated) return;
-    
     socket.connect();
-
     socket.emit('master-get-data', (data) => {
       setIsSystemActive(data.isSystemActive);
       setEvents(data.events);
     });
-
     socket.on('system-status', (status) => setIsSystemActive(status));
     socket.on('master-data-updated', (updatedEvents) => setEvents(updatedEvents));
-
-    return () => {
-      socket.disconnect();
-    };
+    return () => socket.disconnect();
   }, [isAuthenticated]);
 
   const handleLogin = (e) => {
@@ -68,37 +62,36 @@ const MasterView = () => {
     });
   };
 
-  const handleDeleteEvent = (pwd) => {
+  const handleDeleteEvent = (id) => {
     if (window.confirm("¿Eliminar este evento y todas sus salas?")) {
-      socket.emit('master-delete-event', pwd, () => {});
+      socket.emit('master-delete-event', id, () => {});
     }
   };
 
-  const handleAddRoom = (e, pwd) => {
+  const handleAddRoom = (e, id) => {
     e.preventDefault();
     if (!newRoomName.trim()) return;
     socket.emit('master-add-room', { 
-        password: pwd, 
+        id: id, 
         room: newRoomName.toUpperCase().replace(/\s+/g, '-') 
     }, (response) => {
       if (response.success) {
         setNewRoomName('');
-        setSelectedEventPwd(null);
+        setSelectedEventId(null);
       }
     });
   };
 
-  // NUEVO: Función para eliminar la sala
-  const handleDeleteRoom = (pwd, room) => {
+  const handleDeleteRoom = (id, room) => {
     if (window.confirm(`¿Seguro que deseas eliminar la sala ${room}?`)) {
-      socket.emit('master-delete-room', { password: pwd, room }, () => {});
+      socket.emit('master-delete-room', { id, room }, () => {});
     }
   };
 
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
-    setCopiedPwd(text);
-    setTimeout(() => setCopiedPwd(null), 2000);
+    setCopiedText(text);
+    setTimeout(() => setCopiedText(null), 2000);
   };
 
   if (!isAuthenticated) {
@@ -110,9 +103,7 @@ const MasterView = () => {
           </div>
           <div>
             <h2 className="text-2xl font-bold text-white mb-2 tracking-widest uppercase">Master Admin</h2>
-            <p className="text-gray-400 text-sm leading-relaxed">
-              Nivel de autorización máximo requerido.
-            </p>
+            <p className="text-gray-400 text-sm leading-relaxed">Nivel de autorización máximo requerido.</p>
           </div>
           <form onSubmit={handleLogin} className="w-full flex flex-col gap-4 mt-2">
             <input
@@ -137,7 +128,6 @@ const MasterView = () => {
 
   return (
     <div className="flex flex-col h-screen w-full p-8 max-w-6xl mx-auto overflow-hidden bg-darker">
-      
       <header className="flex justify-between items-center mb-8 shrink-0 bg-dark p-6 rounded-2xl border border-gray-800 shadow-xl">
         <div className="flex items-center gap-4">
           <div className="bg-red-500/10 p-3 rounded-xl">
@@ -148,7 +138,6 @@ const MasterView = () => {
             <span className="text-xs text-gray-500 font-bold tracking-widest">Control Central de Plataforma</span>
           </div>
         </div>
-        
         <button 
           onClick={toggleSystem}
           className={`flex items-center gap-3 px-6 py-3 rounded-xl font-bold uppercase tracking-widest transition-all shadow-lg ${
@@ -163,8 +152,6 @@ const MasterView = () => {
       </header>
 
       <main className="flex-1 overflow-y-auto pr-2 flex flex-col gap-8">
-        
-        {/* SECCIÓN CREAR EVENTO */}
         <div className="bg-dark border border-gray-800 p-6 rounded-2xl shadow-lg shrink-0">
           <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
             <Activity className="w-5 h-5 text-primary" />
@@ -189,15 +176,13 @@ const MasterView = () => {
           </form>
         </div>
 
-        {/* LISTA DE EVENTOS ACTIVOS */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-8">
           {events.map((event) => (
             <div key={event.id} className="bg-dark border border-gray-800 rounded-2xl flex flex-col overflow-hidden shadow-xl">
-              
               <div className="p-5 border-b border-gray-800 bg-black/20 flex justify-between items-start">
                 <h3 className="text-xl font-bold text-white leading-tight pr-4">{event.name}</h3>
                 <button 
-                  onClick={() => handleDeleteEvent(event.password)}
+                  onClick={() => handleDeleteEvent(event.id)}
                   className="p-2 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-lg transition-colors shrink-0"
                   title="Eliminar Evento"
                 >
@@ -207,36 +192,42 @@ const MasterView = () => {
 
               <div className="p-5 flex-1 flex flex-col gap-5">
                 
-                <div className="bg-darker p-4 rounded-xl border border-gray-700/50">
-                  <span className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 block">Clave del Administrador:</span>
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 text-primary font-mono text-lg font-bold tracking-widest">
-                      <Key className="w-4 h-4 text-gray-500" />
-                      {event.password}
+                {/* Doble Identificación */}
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-darker p-4 rounded-xl border border-gray-700/50">
+                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-1"><Users className="w-3 h-3"/> CÓDIGO AUDIENCIA</span>
+                        <div className="flex items-center justify-between gap-2">
+                            <span className="text-white font-mono text-base font-bold tracking-widest">{event.id}</span>
+                            <button onClick={() => copyToClipboard(event.id)} className="text-gray-400 hover:text-white">
+                            {copiedText === event.id ? <CheckCircle2 className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                            </button>
+                        </div>
                     </div>
-                    <button 
-                      onClick={() => copyToClipboard(event.password)}
-                      className="text-gray-400 hover:text-white transition-colors"
-                      title="Copiar Clave"
-                    >
-                      {copiedPwd === event.password ? <CheckCircle2 className="w-5 h-5 text-green-500" /> : <Copy className="w-5 h-5" />}
-                    </button>
-                  </div>
+                    
+                    <div className="bg-primary/5 p-4 rounded-xl border border-primary/20">
+                        <span className="text-[10px] font-bold text-primary uppercase tracking-widest mb-2 flex items-center gap-1"><Key className="w-3 h-3"/> CLAVE ORADOR (SECRETA)</span>
+                        <div className="flex items-center justify-between gap-2">
+                            <span className="text-primary font-mono text-base font-bold tracking-widest">{event.password}</span>
+                            <button onClick={() => copyToClipboard(event.password)} className="text-primary hover:text-white">
+                            {copiedText === event.password ? <CheckCircle2 className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center justify-between mb-3 mt-2">
                     <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Salas Asignadas ({event.rooms.length}):</span>
                     <button 
-                      onClick={() => setSelectedEventPwd(selectedEventPwd === event.password ? null : event.password)}
+                      onClick={() => setSelectedEventId(selectedEventId === event.id ? null : event.id)}
                       className="text-xs font-bold text-primary hover:text-blue-400 transition-colors uppercase"
                     >
                       + Añadir Sala
                     </button>
                   </div>
 
-                  {selectedEventPwd === event.password && (
-                    <form onSubmit={(e) => handleAddRoom(e, event.password)} className="mb-3 flex gap-2">
+                  {selectedEventId === event.id && (
+                    <form onSubmit={(e) => handleAddRoom(e, event.id)} className="mb-3 flex gap-2">
                       <input 
                         type="text"
                         value={newRoomName}
@@ -254,7 +245,7 @@ const MasterView = () => {
                       <span key={room} className="flex items-center gap-2 px-3 py-1 bg-gray-800 text-gray-300 text-xs font-bold uppercase tracking-wider rounded-md border border-gray-700">
                         {room}
                         <button 
-                          onClick={() => handleDeleteRoom(event.password, room)}
+                          onClick={() => handleDeleteRoom(event.id, room)}
                           className="text-gray-500 hover:text-red-500 transition-colors"
                           title="Eliminar Sala"
                         >

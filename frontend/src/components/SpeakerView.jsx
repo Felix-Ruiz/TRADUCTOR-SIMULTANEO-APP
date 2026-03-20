@@ -40,8 +40,8 @@ const SpeakerView = () => {
   const processorRef = useRef(null);
   const streamRef = useRef(null);
 
-  // ACTUALIZADO: El enlace de la audiencia ahora incluye el ID del evento de forma invisible
-  const audienceUrl = `${window.location.origin}/?event=${eventInfo?.password || ''}&room=${roomName}`;
+  // SEGURIDAD MÁXIMA: El QR ahora inyecta el ID PÚBLICO de la audiencia (eventInfo.id), NUNCA la clave secreta.
+  const audienceUrl = `${window.location.origin}/?event=${eventInfo?.id || ''}&room=${roomName}`;
 
   const attemptLogin = (pwd) => {
     socket.connect();
@@ -129,13 +129,13 @@ const SpeakerView = () => {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
       
-      // ACTUALIZADO: Le indicamos al servidor que aísle esta sala dentro de este evento
+      // Enviamos el ID Público para que se aísle correctamente
       socket.emit('start-translation', { 
         fromLanguage: inputLanguage, 
         toLanguages: ['es', 'en', 'pt', 'fr', 'de'],
         voiceGender: voiceGender,
         roomName: roomName,
-        eventId: eventInfo.password 
+        eventId: eventInfo.id 
       });
       
       const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -236,7 +236,7 @@ const SpeakerView = () => {
           <div>
             <h2 className="text-2xl font-bold text-white mb-2 tracking-tight">Acceso a Oradores</h2>
             <p className="text-gray-400 text-sm leading-relaxed">
-              Ingresa la clave generada por el administrador para tu evento específico.
+              Ingresa la Clave Secreta de Orador generada por el administrador Master.
             </p>
           </div>
           <form onSubmit={handleLogin} className="w-full flex flex-col gap-4 mt-2">
@@ -244,7 +244,7 @@ const SpeakerView = () => {
               type="password"
               value={passwordInput}
               onChange={(e) => setPasswordInput(e.target.value)}
-              placeholder="Clave del Evento"
+              placeholder="Clave Secreta de Orador"
               className="w-full bg-darker border border-gray-700 text-white text-lg rounded-xl p-4 focus:ring-2 focus:ring-primary focus:outline-none text-center tracking-widest transition-all"
             />
             {loginError && <p className="text-red-500 text-xs font-semibold animate-pulse">{loginError}</p>}
