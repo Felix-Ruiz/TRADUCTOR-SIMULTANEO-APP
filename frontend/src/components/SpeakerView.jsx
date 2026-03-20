@@ -51,10 +51,10 @@ const SpeakerView = () => {
       streamRef.current = stream;
       
       socket.connect();
-      // Agregamos 'es' y 10 idiomas nuevos a la lista de traducciones simultáneas
+      // Petición ultra-rápida: Solo los 5 idiomas exactos solicitados
       socket.emit('start-translation', { 
         fromLanguage: inputLanguage, 
-        toLanguages: ['es', 'en', 'pt', 'fr', 'de', 'it', 'zh-Hans', 'ja', 'ko', 'ru', 'ar', 'hi', 'nl', 'tr', 'pl', 'sv', 'da', 'fi', 'el', 'he', 'id', 'nb', 'th', 'vi', 'cs', 'hu'] 
+        toLanguages: ['es', 'en', 'pt', 'fr', 'de'] 
       });
       
       const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -62,7 +62,8 @@ const SpeakerView = () => {
       audioContextRef.current = audioContext;
 
       const source = audioContext.createMediaStreamSource(stream);
-      const processor = audioContext.createScriptProcessor(4096, 1, 1);
+      
+      const processor = audioContext.createScriptProcessor(2048, 1, 1);
       processorRef.current = processor;
 
       processor.onaudioprocess = (e) => {
@@ -166,31 +167,9 @@ const SpeakerView = () => {
               >
                 <option value="es-CO">Español</option>
                 <option value="en-US">Inglés</option>
-                <option value="pt-BR">Portugués</option>
-                <option value="fr-FR">Francés</option>
                 <option value="de-DE">Alemán</option>
-                <option value="it-IT">Italiano</option>
-                <option value="zh-CN">Chino</option>
-                <option value="ja-JP">Japonés</option>
-                <option value="ko-KR">Coreano</option>
-                <option value="ru-RU">Ruso</option>
-                <option value="ar-EG">Árabe</option>
-                <option value="hi-IN">Hindi</option>
-                <option value="nl-NL">Holandés</option>
-                <option value="tr-TR">Turco</option>
-                <option value="pl-PL">Polaco</option>
-                <option value="sv-SE">Sueco</option>
-                {/* 10 Nuevos Idiomas de Entrada */}
-                <option value="da-DK">Danés</option>
-                <option value="fi-FI">Finés</option>
-                <option value="el-GR">Griego</option>
-                <option value="he-IL">Hebreo</option>
-                <option value="id-ID">Indonesio</option>
-                <option value="nb-NO">Noruego</option>
-                <option value="th-TH">Tailandés</option>
-                <option value="vi-VN">Vietnamita</option>
-                <option value="cs-CZ">Checo</option>
-                <option value="hu-HU">Húngaro</option>
+                <option value="fr-FR">Francés</option>
+                <option value="pt-BR">Portugués</option>
               </select>
               <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-primary">
                 <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
@@ -216,31 +195,9 @@ const SpeakerView = () => {
               >
                 <option value="es">Español</option>
                 <option value="en">Inglés</option>
-                <option value="pt">Portugués</option>
-                <option value="fr">Francés</option>
                 <option value="de">Alemán</option>
-                <option value="it">Italiano</option>
-                <option value="zh-Hans">Chino</option>
-                <option value="ja">Japonés</option>
-                <option value="ko">Coreano</option>
-                <option value="ru">Ruso</option>
-                <option value="ar">Árabe</option>
-                <option value="hi">Hindi</option>
-                <option value="nl">Holandés</option>
-                <option value="tr">Turco</option>
-                <option value="pl">Polaco</option>
-                <option value="sv">Sueco</option>
-                {/* 10 Nuevos Idiomas de Salida */}
-                <option value="da">Danés</option>
-                <option value="fi">Finés</option>
-                <option value="el">Griego</option>
-                <option value="he">Hebreo</option>
-                <option value="id">Indonesio</option>
-                <option value="nb">Noruego</option>
-                <option value="th">Tailandés</option>
-                <option value="vi">Vietnamita</option>
-                <option value="cs">Checo</option>
-                <option value="hu">Húngaro</option>
+                <option value="fr">Francés</option>
+                <option value="pt">Portugués</option>
               </select>
               <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
                 <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">

@@ -10,7 +10,6 @@ const AudienceView = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [isAudioEnabled, setIsAudioEnabled] = useState(false);
 
-  // Memorias para la voz (sin repeticiones infinitas ni delay)
   const synthRef = useRef(window.speechSynthesis);
   const lastSpokenTextRef = useRef('');
 
@@ -21,7 +20,6 @@ const AudienceView = () => {
     socket.on('translation-result', (data) => {
       let currentText = '';
 
-      // 1. Mostrar la traducción de Azure en pantalla a máxima velocidad
       if (data.translations && data.translations[language]) {
         currentText = data.translations[language];
         setTranslation(currentText);
@@ -30,7 +28,6 @@ const AudienceView = () => {
         setTranslation(currentText);
       }
 
-      // 2. Lógica de voz (Solo habla si el usuario la activó explícitamente)
       if (isAudioEnabled && data.type === 'final' && currentText && currentText !== lastSpokenTextRef.current) {
         speak(currentText, language);
         lastSpokenTextRef.current = currentText;
@@ -47,13 +44,12 @@ const AudienceView = () => {
 
   const speak = (text, langCode) => {
     if (!synthRef.current) return;
-    synthRef.current.cancel(); // Corta cualquier audio colgado para reducir delay
+    synthRef.current.cancel(); 
     
     const utterance = new SpeechSynthesisUtterance(text);
+    // Mapeo exclusivo para los 5 idiomas solicitados
     const langMap = {
-      'es': 'es-ES', 'en': 'en-US', 'pt': 'pt-BR', 'fr': 'fr-FR',
-      'de': 'de-DE', 'it': 'it-IT', 'ja': 'ja-JP', 'ko': 'ko-KR',
-      'zh-Hans': 'zh-CN', 'ru': 'ru-RU'
+      'es': 'es-ES', 'en': 'en-US', 'de': 'de-DE', 'fr': 'fr-FR', 'pt': 'pt-BR'
     };
     
     utterance.lang = langMap[langCode] || langCode;
@@ -82,7 +78,6 @@ const AudienceView = () => {
           <h1 className="text-xl font-bold text-white">Audiencia en Vivo</h1>
         </div>
         <div className="flex items-center gap-4">
-          {/* Botón de Audio Opcional */}
           <button 
             onClick={toggleAudio}
             className={`p-2 rounded-full transition-colors ${isAudioEnabled ? 'bg-accent/20 text-accent' : 'bg-gray-800 text-gray-500 hover:bg-gray-700'}`}
@@ -112,30 +107,9 @@ const AudienceView = () => {
           >
             <option value="es">Español</option>
             <option value="en">English (Inglés)</option>
-            <option value="pt">Português (Portugués)</option>
-            <option value="fr">Français (Francés)</option>
             <option value="de">Deutsch (Alemán)</option>
-            <option value="it">Italiano (Italiano)</option>
-            <option value="zh-Hans">中文 (Chino Simplificado)</option>
-            <option value="ja">日本語 (Japonés)</option>
-            <option value="ko">한국어 (Coreano)</option>
-            <option value="ru">Русский (Ruso)</option>
-            <option value="ar">العربية (Árabe)</option>
-            <option value="hi">हिन्दी (Hindi)</option>
-            <option value="nl">Nederlands (Holandés)</option>
-            <option value="tr">Türkçe (Turco)</option>
-            <option value="pl">Polski (Polaco)</option>
-            <option value="sv">Svenska (Sueco)</option>
-            <option value="da">Dansk (Danés)</option>
-            <option value="fi">Suomi (Finés)</option>
-            <option value="el">Ελληνικά (Griego)</option>
-            <option value="he">עברית (Hebreo)</option>
-            <option value="id">Bahasa Indonesia (Indonesio)</option>
-            <option value="nb">Norsk (Noruego)</option>
-            <option value="th">ไทย (Tailandés)</option>
-            <option value="vi">Tiếng Việt (Vietnamita)</option>
-            <option value="cs">Čeština (Checo)</option>
-            <option value="hu">Magyar (Húngaro)</option>
+            <option value="fr">Français (Francés)</option>
+            <option value="pt">Português (Portugués)</option>
           </select>
           <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-400">
             <svg className="fill-current h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
@@ -144,7 +118,6 @@ const AudienceView = () => {
           </div>
         </div>
 
-        {/* Mensaje de advertencia elegante cuando el audio está encendido */}
         {isAudioEnabled && (
           <div className="mt-4 flex items-start gap-2 bg-yellow-500/10 border border-yellow-500/20 p-3 rounded-lg">
             <AlertCircle className="w-4 h-4 text-yellow-500 flex-shrink-0 mt-0.5" />
