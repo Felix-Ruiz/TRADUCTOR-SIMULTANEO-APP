@@ -10,7 +10,6 @@ const AudienceView = () => {
   const urlLang = queryParams.get('lang');
   const urlRoom = queryParams.get('room');
   
-  // ACTUALIZADO: Leemos el código del evento desde la URL (si escanearon QR) o desde la memoria del celular
   const urlEventParam = queryParams.get('event');
   const savedEventId = sessionStorage.getItem('audienceEventId');
   const initialEventId = urlEventParam || savedEventId || '';
@@ -29,7 +28,6 @@ const AudienceView = () => {
 
   const [isSystemActive, setIsSystemActive] = useState(true);
   
-  // ACTUALIZADO: Si hay un ID inicial, activamos la pantalla de carga para validar sin parpadeos
   const [isVerifying, setIsVerifying] = useState(!!initialEventId);
 
   const audioPlayerRef = useRef(null);
@@ -99,7 +97,6 @@ const AudienceView = () => {
         setUrlEvent(eventId);
         setEventName(response.name);
         setEventError('');
-        // ACTUALIZADO: Guardamos el código exitoso en la memoria del navegador
         sessionStorage.setItem('audienceEventId', eventId);
         socket.emit('join-event-audience', eventId);
       } else {
@@ -107,7 +104,6 @@ const AudienceView = () => {
         if (eventId === urlEvent) {
             setUrlEvent(''); 
         }
-        // ACTUALIZADO: Si el código ya no sirve, limpiamos la memoria
         sessionStorage.removeItem('audienceEventId');
       }
       setIsVerifying(false); 
@@ -236,9 +232,6 @@ const AudienceView = () => {
     }
   };
 
-  // ==========================================
-  // PANTALLA DE CARGA ELEGANTE (ANTI-FLICKER)
-  // ==========================================
   if (isVerifying) {
     return (
       <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-darker">
@@ -306,10 +299,34 @@ const AudienceView = () => {
     );
   }
 
+  // ==================================================
+  // VISTA MODO PROYECTOR (TV) - AHORA CON SELECTOR DE SALA
+  // ==================================================
   if (isTvMode) {
     return (
       <div className="flex flex-col justify-end h-screen w-full bg-black p-8 md:p-16 lg:pb-24 overflow-hidden relative">
-        <div className="absolute top-6 right-8 z-10 opacity-30 hover:opacity-100 transition-opacity duration-300">
+        <div className="absolute top-6 right-8 z-10 opacity-30 hover:opacity-100 transition-opacity duration-300 flex items-center gap-4">
+          
+          <div className="relative">
+            <select 
+              value={roomName}
+              onChange={(e) => {
+                setRoomName(e.target.value);
+                setTranslation('');
+              }}
+              className="bg-gray-900 border border-gray-800 text-gray-500 text-xs font-bold uppercase tracking-wider rounded-lg px-3 py-1.5 focus:ring-1 focus:ring-gray-600 focus:outline-none appearance-none cursor-pointer"
+            >
+              {availableRooms.map((room) => (
+                <option key={room} value={room}>{room}</option>
+              ))}
+            </select>
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-600">
+              <svg className="fill-current h-3 w-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+              </svg>
+            </div>
+          </div>
+
           <div className="relative">
             <select 
               value={language} 
@@ -344,6 +361,9 @@ const AudienceView = () => {
     );
   }
 
+  // ==================================================
+  // MODAL DE SELECCIÓN DE SALA Y MODO (MÓVIL)
+  // ==================================================
   if (!userMode) {
     return (
       <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-darker">
