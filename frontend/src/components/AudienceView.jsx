@@ -10,8 +10,10 @@ const AudienceView = () => {
   const urlLang = queryParams.get('lang');
   const urlRoom = queryParams.get('room');
 
-  // NUEVO: Estado interactivo para el nombre de la sala
   const [roomName, setRoomName] = useState(urlRoom || 'PRINCIPAL');
+  
+  // NUEVO: Estado para almacenar las salas que el servidor reporte como "activas"
+  const [availableRooms, setAvailableRooms] = useState(urlRoom ? [urlRoom] : ['PRINCIPAL']);
 
   const [language, setLanguage] = useState(urlLang || 'es'); 
   const [translation, setTranslation] = useState('');
@@ -56,6 +58,22 @@ const AudienceView = () => {
     });
     
     socket.on('disconnect', () => setIsConnected(false));
+
+    // NUEVO: Escucha las salas que se van abriendo o cerrando en el backend
+    socket.on('active-rooms', (rooms) => {
+      // Combinamos las salas del backend con la del QR (por si escanean antes de que inicies)
+      const mergedRooms = Array.from(new Set([...rooms, urlRoom].filter(Boolean)));
+      if (mergedRooms.length === 0) mergedRooms.push('PRINCIPAL');
+      setAvailableRooms(mergedRooms);
+      
+      // Si la sala en la que están desaparece, los pasamos a la primera disponible
+      setRoomName((prev) => {
+        if (!mergedRooms.includes(prev) && mergedRooms.length > 0) {
+          return mergedRooms[0];
+        }
+        return prev;
+      });
+    });
     
     socket.on('translation-result', (data) => {
       if (isTvMode || userMode === 'text') {
@@ -83,16 +101,16 @@ const AudienceView = () => {
     return () => {
       socket.off('connect');
       socket.off('disconnect');
+      socket.off('active-rooms');
       socket.off('translation-result');
       socket.off('neural-audio');
     };
-  }, [language, userMode, isTvMode]); // Quitamos roomName de las dependencias globales para manejarlo aparte
+  }, [language, userMode, isTvMode, urlRoom]); 
 
-  // ACTUALIZADO: Efecto que se dispara solo cuando el usuario cambia el nombre de la sala
   useEffect(() => {
     if (isConnected && roomName) {
       socket.emit('join-room', roomName);
-      setTranslation(''); // Limpiamos la pantalla para no leer restos de la sala anterior
+      setTranslation(''); 
       audioQueue.current = [];
     }
   }, [roomName, isConnected]);
@@ -172,18 +190,27 @@ const AudienceView = () => {
             Asegúrate de estar en la sala correcta y elige cómo deseas seguir la conferencia.
           </p>
           
-          {/* NUEVO: Campo de texto para verificar o cambiar la sala manualmente */}
           <div className="w-full mb-6">
             <label className="flex items-center gap-2 text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wider justify-center">
-              Código de Sala
+              Seleccionar Sala
             </label>
-            <input 
-              type="text"
-              value={roomName}
-              onChange={(e) => setRoomName(e.target.value.toUpperCase().replace(/\s+/g, '-'))}
-              placeholder="Ej: PRINCIPAL"
-              className="w-full bg-darker border border-gray-700 text-white text-center text-lg font-bold tracking-widest rounded-xl p-3 focus:ring-2 focus:ring-primary focus:outline-none transition-all shadow-inner"
-            />
+            {/* NUEVO: Reemplazo del Input por un Select dinámico que mantiene tu estilo oscuro */}
+            <div className="relative">
+              <select 
+                value={roomName}
+                onChange={(e) => setRoomName(e.target.value)}
+                className="w-full bg-darker border border-gray-700 text-white text-center text-lg font-bold tracking-widest rounded-xl p-3 focus:ring-2 focus:ring-primary focus:outline-none transition-all shadow-inner appearance-none cursor-pointer"
+              >
+                {availableRooms.map((room) => (
+                  <option key={room} value={room}>{room}</option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-500">
+                <svg className="fill-current h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                  <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                </svg>
+              </div>
+            </div>
           </div>
 
           <div className="flex flex-col gap-4 w-full">

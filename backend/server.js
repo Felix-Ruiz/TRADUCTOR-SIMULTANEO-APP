@@ -26,12 +26,22 @@ app.get('/api/status', (req, res) => {
     });
 });
 
+// NUEVO: Inventario de salas activas (donde hay un orador transmitiendo)
+const activeSpeakerRooms = new Map();
+
+const broadcastActiveRooms = () => {
+    const rooms = Array.from(activeSpeakerRooms.keys());
+    io.emit('active-rooms', rooms);
+};
+
 io.on('connection', (socket) => {
     console.log(`[+] Nuevo dispositivo conectado: ${socket.id}`);
 
+    // Apenas se conecta un usuario, le enviamos las salas disponibles
+    socket.emit('active-rooms', Array.from(activeSpeakerRooms.keys()));
+
     let translationService = null;
 
-    // ACTUALIZADO: Antes de unirse a una sala, sale de las anteriores para no mezclar audios
     socket.on('join-room', (room) => {
         Array.from(socket.rooms).forEach(r => {
             if (r !== socket.id) socket.leave(r);
@@ -41,14 +51,21 @@ io.on('connection', (socket) => {
     });
 
     socket.on('start-translation', (config) => {
-        socket.join(config.roomName);
+        const room = config.roomName || 'PRINCIPAL';
+        socket.join(room);
+        
+        // Registramos al orador en la sala y actualizamos a todos los celulares
+        socket.speakerRoom = room;
+        const count = activeSpeakerRooms.get(room) || 0;
+        activeSpeakerRooms.set(room, count + 1);
+        broadcastActiveRooms();
         
         translationService = new TranslationService(
             socket, 
             config.fromLanguage, 
             config.toLanguages, 
             config.voiceGender,
-            config.roomName
+            room
         );
         translationService.start();
     });
@@ -59,7 +76,22 @@ io.on('connection', (socket) => {
         }
     });
 
+    // Función para limpiar la sala si el orador se detiene
+    const handleSpeakerStop = () => {
+        if (socket.speakerRoom) {
+            const count = activeSpeakerRooms.get(socket.speakerRoom) || 0;
+            if (count <= 1) {
+                activeSpeakerRooms.delete(socket.speakerRoom);
+            } else {
+                activeSpeakerRooms.set(socket.speakerRoom, count - 1);
+            }
+            socket.speakerRoom = null;
+            broadcastActiveRooms();
+        }
+    };
+
     socket.on('stop-translation', () => {
+        handleSpeakerStop();
         if (translationService) {
             translationService.stop();
             translationService = null;
@@ -68,6 +100,7 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
         console.log(`[-] Dispositivo desconectado: ${socket.id}`);
+        handleSpeakerStop();
         if (translationService) {
             translationService.stop();
             translationService = null;
