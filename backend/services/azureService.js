@@ -36,14 +36,11 @@ class TranslationService {
 
         this.translationConfig = sdk.SpeechTranslationConfig.fromSubscription(speechKey, speechRegion);
         this.translationConfig.speechRecognitionLanguage = fromLanguage;
-        this.translationConfig.setProfanity(sdk.ProfanityOption.Masked);
         
         // ==========================================
-        // OPTIMIZACIÓN EXTREMA DE LATENCIA (HACK DE SEGMENTACIÓN)
+        // FILTRO DE LENGUAJE (MANTENIDO)
         // ==========================================
-        // Obliga al motor a fragmentar el discurso apenas el orador haga una micropausa de 400ms (un respiro)
-        this.translationConfig.setProperty(sdk.PropertyId.Speech_SegmentationSilenceTimeoutMs, "400");
-        this.translationConfig.setProperty(sdk.PropertyId.SpeechServiceConnection_EndSilenceTimeoutMs, "400");
+        this.translationConfig.setProfanity(sdk.ProfanityOption.Masked);
         
         toLanguages.forEach(lang => {
             this.translationConfig.addTargetLanguage(lang);
@@ -112,24 +109,17 @@ class TranslationService {
         const speechConfig = sdk.SpeechConfig.fromSubscription(speechKey, speechRegion);
         
         const selectedMap = this.voiceGender === 'male' ? maleVoiceMap : femaleVoiceMap;
-        const voiceName = selectedMap[lang] || (this.voiceGender === 'male' ? 'en-US-GuyNeural' : 'en-US-JennyNeural');
-        
-        speechConfig.speechSynthesisVoiceName = voiceName;
+        speechConfig.speechSynthesisVoiceName = selectedMap[lang] || (this.voiceGender === 'male' ? 'en-US-GuyNeural' : 'en-US-JennyNeural');
+
         speechConfig.speechSynthesisOutputFormat = sdk.SpeechSynthesisOutputFormat.Audio16Khz32KBitRateMonoMp3;
 
         const synthesizer = new sdk.SpeechSynthesizer(speechConfig, null);
 
-        // Mantenemos el aumento de velocidad al 15% para que alcance al orador
-        const ssml = `
-            <speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="${lang}">
-                <voice name="${voiceName}">
-                    <prosody rate="+15%">${text}</prosody>
-                </voice>
-            </speak>
-        `;
-
-        synthesizer.speakSsmlAsync(
-            ssml,
+        // ==========================================
+        // LOCUCIÓN NATURAL SIN ACELERAR
+        // ==========================================
+        synthesizer.speakTextAsync(
+            text,
             result => {
                 if (result.reason === sdk.ResultReason.SynthesizingAudioCompleted) {
                     const payload = { language: lang, audioBuffer: result.audioData };
@@ -148,7 +138,7 @@ class TranslationService {
     }
 
     start() {
-        console.log("[Azure] Iniciando motor de traducción con segmentación agresiva (400ms)...");
+        console.log("[Azure] Iniciando motor de traducción con cadencia natural...");
         if(this.recognizer) this.recognizer.startContinuousRecognitionAsync();
     }
 
