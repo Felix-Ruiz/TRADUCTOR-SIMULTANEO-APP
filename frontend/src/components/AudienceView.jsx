@@ -14,7 +14,6 @@ const AudienceView = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [isAudioEnabled, setIsAudioEnabled] = useState(false);
 
-  // NUEVO: Motor de audio web de alta fidelidad para recibir la voz de Azure
   const audioContextRef = useRef(null);
 
   useEffect(() => {
@@ -33,9 +32,7 @@ const AudienceView = () => {
       }
     });
 
-    // NUEVO: Escuchar el paquete de audio neuronal de Azure desde el servidor
     socket.on('neural-audio', async (data) => {
-      // data = { language: 'en', audioBuffer: <ArrayBuffer> }
       if (!isTvMode && isAudioEnabled && data.language === language && data.audioBuffer) {
         try {
           if (!audioContextRef.current) {
@@ -45,14 +42,19 @@ const AudienceView = () => {
             await audioContextRef.current.resume();
           }
           
-          // Decodificar y reproducir el audio premium al instante
-          const audioBuffer = await audioContextRef.current.decodeAudioData(data.audioBuffer);
+          // SOLUCIÓN 2: Limpieza de Buffer. Si Socket.io lo corrompió, lo reconstruimos a un ArrayBuffer puro.
+          let arrayBuffer = data.audioBuffer;
+          if (!(arrayBuffer instanceof ArrayBuffer)) {
+             arrayBuffer = new Uint8Array(data.audioBuffer).buffer;
+          }
+          
+          const audioBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
           const source = audioContextRef.current.createBufferSource();
           source.buffer = audioBuffer;
           source.connect(audioContextRef.current.destination);
           source.start(0);
         } catch (error) {
-          console.error("Error reproduciendo voz neuronal:", error);
+          console.error("Error decodificando el MP3 de Azure:", error);
         }
       }
     });
@@ -70,7 +72,6 @@ const AudienceView = () => {
 
   const toggleAudio = () => {
     if (!isAudioEnabled) {
-      // Desbloquear el motor de audio en el primer clic (Políticas de seguridad de Apple/Google)
       if (!audioContextRef.current) {
         audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
       }
@@ -81,13 +82,9 @@ const AudienceView = () => {
     setIsAudioEnabled(!isAudioEnabled);
   };
 
-  // ==================================================
-  // VISTA MODO PROYECTOR (TV / PANTALLAS GIGANTES)
-  // ==================================================
   if (isTvMode) {
     return (
       <div className="flex flex-col justify-end h-screen w-full bg-black p-8 md:p-16 lg:pb-24 overflow-hidden relative">
-        
         <div className="absolute top-6 right-8 z-10 opacity-30 hover:opacity-100 transition-opacity duration-300">
           <div className="relative">
             <select 
@@ -123,9 +120,6 @@ const AudienceView = () => {
     );
   }
 
-  // ==================================================
-  // VISTA ESTÁNDAR (CELULARES DE LA AUDIENCIA)
-  // ==================================================
   return (
     <div className="flex flex-col h-screen w-full p-6 max-w-md mx-auto bg-darker">
       
