@@ -22,46 +22,126 @@ const io = new Server(server, {
 // ==========================================
 // MEMORIA CENTRAL DEL SISTEMA (MASTER ADMIN)
 // ==========================================
-let isSystemActive = true; // El Kill Switch (True = Encendido, False = Apagado)
+let isSystemActive = true; // El Kill Switch Global
 
-// Base de datos en memoria para los Eventos. 
-// Estructura: { "ACOFI-2026": { name: "Congreso ACOFI", password: "123", rooms: ["PRINCIPAL", "TALLER-A"] } }
+// Base de datos en memoria para los Eventos. La clave primaria es la contraseña.
 const eventsDB = new Map();
 
-// Creamos un evento por defecto para que no se rompa lo que ya tienes
-eventsDB.set("DEFAULT", {
-    name: "Evento Principal",
+// Migramos tu configuración actual a un "Evento por Defecto" para no romper el entorno
+eventsDB.set(process.env.VITE_ADMIN_PASSWORD || "admin123", {
+    id: "evt_default",
+    name: "Evento Principal (Por Defecto)",
     password: process.env.VITE_ADMIN_PASSWORD || "admin123",
     rooms: ["PRINCIPAL"]
 });
 
-// Inventario de salas donde hay oradores transmitiendo
+// Contraseña exclusiva del Panel de Dios
+const MASTER_PASSWORD = process.env.MASTER_PASSWORD || "superadmin123";
+
+// Inventario de salas activas (oradores transmitiendo)
 const activeSpeakerRooms = new Map();
 
 const broadcastActiveRooms = () => {
-    // Solo mostramos las salas que realmente tienen un orador activo
     const rooms = Array.from(activeSpeakerRooms.keys());
     io.emit('active-rooms', rooms);
 };
 
-// ==========================================
-// CONEXIONES DE SOCKETS
-// ==========================================
+app.get('/api/status', (req, res) => {
+    res.status(200).json({ status: 'online', message: 'Servidor activo.' });
+});
+
 io.on('connection', (socket) => {
     console.log(`[+] Nuevo dispositivo conectado: ${socket.id}`);
 
-    // Apenas se conecta, le decimos si el sistema está encendido o apagado
+    // Apenas se conecta, verificamos el estado del Kill Switch
     socket.emit('system-status', isSystemActive);
     
-    // Si el sistema está apagado, no le mandamos nada más
     if (isSystemActive) {
         socket.emit('active-rooms', Array.from(activeSpeakerRooms.keys()));
     }
 
     let translationService = null;
 
+    // ==========================================
+    // RUTAS PRIVADAS DEL MASTER ADMIN
+    // ==========================================
+    socket.on('master-login', (pwd, callback) => {
+        if (pwd === MASTER_PASSWORD) {
+            callback({ success: true });
+        } else {
+            callback({ success: false });
+        }
+    });
+
+    socket.on('master-get-data', (callback) => {
+        callback({ 
+            isSystemActive, 
+            events: Array.from(eventsDB.values()) 
+        });
+    });
+
+    socket.on('master-toggle-system', (status) => {
+        isSystemActive = status;
+        console.log(`[MASTER] Estado del sistema: ${isSystemActive ? 'ENCENDIDO' : 'APAGADO'}`);
+        io.emit('system-status', isSystemActive);
+
+        if (!isSystemActive) {
+            // Expulsamos a todos los oradores y limpiamos las salas
+            activeSpeakerRooms.clear();
+            broadcastActiveRooms();
+        }
+    });
+
+    socket.on('master-create-event', (data, callback) => {
+        // Si no mandan clave, generamos una aleatoria segura (Ej: X7A9PQ)
+        const password = data.password || Math.random().toString(36).slice(-6).toUpperCase();
+        const newEvent = {
+            id: Date.now().toString(),
+            name: data.name,
+            password: password,
+            rooms: ["PRINCIPAL"] // Siempre inician con una sala principal
+        };
+        eventsDB.set(password, newEvent);
+        callback({ success: true, event: newEvent });
+        io.emit('master-data-updated', Array.from(eventsDB.values()));
+    });
+
+    socket.on('master-delete-event', (password, callback) => {
+        eventsDB.delete(password);
+        callback({ success: true });
+        io.emit('master-data-updated', Array.from(eventsDB.values()));
+    });
+
+    socket.on('master-add-room', (data, callback) => {
+        const event = eventsDB.get(data.password);
+        if (event) {
+            if (!event.rooms.includes(data.room)) {
+                event.rooms.push(data.room);
+            }
+            callback({ success: true });
+            io.emit('master-data-updated', Array.from(eventsDB.values()));
+        } else {
+            callback({ success: false });
+        }
+    });
+
+    // ==========================================
+    // RUTAS DEL SPEAKER ADMIN (ORADOR)
+    // ==========================================
+    socket.on('speaker-login', (password, callback) => {
+        const event = eventsDB.get(password);
+        if (event) {
+            callback({ success: true, event });
+        } else {
+            callback({ success: false, message: "Contraseña incorrecta o evento no encontrado." });
+        }
+    });
+
+    // ==========================================
+    // RUTAS PÚBLICAS Y DE TRADUCCIÓN
+    // ==========================================
     socket.on('join-room', (room) => {
-        if (!isSystemActive) return; // Bloqueo por Kill Switch
+        if (!isSystemActive) return;
 
         Array.from(socket.rooms).forEach(r => {
             if (r !== socket.id) socket.leave(r);
@@ -124,24 +204,6 @@ io.on('connection', (socket) => {
         if (translationService) {
             translationService.stop();
             translationService = null;
-        }
-    });
-
-    // ==========================================
-    // RUTAS PRIVADAS DEL MASTER ADMIN
-    // ==========================================
-    socket.on('master-toggle-system', (status) => {
-        // En un entorno real, aquí validaríamos que quien envía esto es el Master Admin
-        isSystemActive = status;
-        console.log(`[MASTER] Estado del sistema cambiado a: ${isSystemActive ? 'ENCENDIDO' : 'APAGADO'}`);
-        
-        // Disparamos la alerta roja a todos los celulares
-        io.emit('system-status', isSystemActive);
-
-        if (!isSystemActive) {
-            // Si apagan el sistema, cortamos todas las transmisiones activas
-            activeSpeakerRooms.clear();
-            broadcastActiveRooms();
         }
     });
 });

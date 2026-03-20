@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
-import { Mic, Square, Radio, Globe, Download, Lock } from 'lucide-react';
+import { Mic, Square, Radio, Globe, Download, Lock, AlertTriangle } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL, { autoConnect: false });
@@ -14,9 +14,13 @@ const langNames = {
 };
 
 const SpeakerView = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(sessionStorage.getItem('isAdminAuth') === 'true');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
   const [loginError, setLoginError] = useState('');
+  
+  // NUEVO: Guardamos la información del evento que nos da el servidor
+  const [eventInfo, setEventInfo] = useState(null);
+  const [isSystemActive, setIsSystemActive] = useState(true);
 
   const [isRecording, setIsRecording] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
@@ -26,8 +30,8 @@ const SpeakerView = () => {
   const [inputLanguage, setInputLanguage] = useState('es-CO'); 
   const [voiceGender, setVoiceGender] = useState('female');
   
-  // NUEVO: Estado para el nombre de la sala dinámica
-  const [roomName, setRoomName] = useState('PRINCIPAL');
+  // NUEVO: La sala ahora dependerá de las opciones del evento
+  const [roomName, setRoomName] = useState('');
   
   const [panelCount, setPanelCount] = useState(1); 
   const [panelLanguages, setPanelLanguages] = useState(['en', 'de', 'fr']); 
@@ -38,22 +42,42 @@ const SpeakerView = () => {
   const processorRef = useRef(null);
   const streamRef = useRef(null);
 
-  // ACTUALIZADO: El enlace del QR ahora incluye a qué sala deben unirse
   const audienceUrl = `${window.location.origin}/?room=${roomName}`;
+
+  // ==========================================
+  // AUTENTICACIÓN SEGURA CONTRA EL SERVIDOR
+  // ==========================================
+  const attemptLogin = (pwd) => {
+    socket.connect();
+    socket.emit('speaker-login', pwd, (response) => {
+      if (response.success) {
+        setIsAuthenticated(true);
+        setEventInfo(response.event);
+        setRoomName(response.event.rooms[0] || 'PRINCIPAL'); // Selecciona la primera sala por defecto
+        sessionStorage.setItem('speakerPwd', pwd);
+        setLoginError('');
+      } else {
+        setLoginError(response.message || 'Contraseña de evento incorrecta.');
+        setPasswordInput('');
+        sessionStorage.removeItem('speakerPwd');
+        socket.disconnect();
+      }
+    });
+  };
 
   const handleLogin = (e) => {
     e.preventDefault();
-    const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || 'admin123';
-    
-    if (passwordInput === ADMIN_PASSWORD) {
-      setIsAuthenticated(true);
-      sessionStorage.setItem('isAdminAuth', 'true');
-      setLoginError('');
-    } else {
-      setLoginError('Contraseña incorrecta. Acceso denegado.');
-      setPasswordInput('');
-    }
+    if (!passwordInput.trim()) return;
+    attemptLogin(passwordInput);
   };
+
+  // Recuperar sesión si recargan la página
+  useEffect(() => {
+    const savedPwd = sessionStorage.getItem('speakerPwd');
+    if (savedPwd) {
+      attemptLogin(savedPwd);
+    }
+  }, []);
 
   useEffect(() => {
     if (!isAuthenticated) return; 
@@ -62,12 +86,16 @@ const SpeakerView = () => {
     
     socket.on('disconnect', () => {
       setIsConnected(false);
-      setIsRecording(false);
-      if (processorRef.current) processorRef.current.disconnect();
-      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-        audioContextRef.current.close().catch(() => {});
+      stopRecordingLocally();
+    });
+
+    // Escuchar el Kill Switch del Master
+    socket.on('system-status', (status) => {
+      setIsSystemActive(status);
+      if (!status && isRecording) {
+        stopRecordingLocally();
+        alert("El Administrador de la Plataforma ha finalizado la transmisión.");
       }
-      if (streamRef.current) streamRef.current.getTracks().forEach(track => track.stop());
     });
     
     socket.on('translation-result', (data) => {
@@ -75,7 +103,6 @@ const SpeakerView = () => {
       if (data.translations) {
         setAllTranslations(data.translations); 
       }
-      
       if (data.type === 'final') {
         setFullTranscription(prev => prev + data.original + " ");
       }
@@ -84,23 +111,30 @@ const SpeakerView = () => {
     return () => {
       socket.off('connect');
       socket.off('disconnect');
+      socket.off('system-status');
       socket.off('translation-result');
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, isRecording]);
+
+  const stopRecordingLocally = () => {
+    setIsRecording(false);
+    if (processorRef.current) processorRef.current.disconnect();
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+      audioContextRef.current.close().catch(() => {});
+    }
+    if (streamRef.current) streamRef.current.getTracks().forEach(track => track.stop());
+  };
 
   const startRecording = async () => {
     try {
-      if (!roomName.trim()) {
-        alert("Por favor ingresa un nombre para la sala antes de iniciar.");
+      if (!roomName) {
+        alert("Por favor selecciona una sala.");
         return;
       }
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
       
-      socket.connect();
-      
-      // ACTUALIZADO: Le decimos al backend qué sala vamos a inaugurar
       socket.emit('start-translation', { 
         fromLanguage: inputLanguage, 
         toLanguages: ['es', 'en', 'pt', 'fr', 'de'],
@@ -126,7 +160,6 @@ const SpeakerView = () => {
                 let s = Math.max(-1, Math.min(1, channelData[i]));
                 pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
               }
-              
               this.port.postMessage(pcm16.buffer);
             }
             return true; 
@@ -143,7 +176,7 @@ const SpeakerView = () => {
       processorRef.current = workletNode;
 
       workletNode.port.onmessage = (event) => {
-        if (socket.connected) {
+        if (socket.connected && isSystemActive) {
           socket.emit('audio-stream', event.data);
         }
       };
@@ -162,15 +195,8 @@ const SpeakerView = () => {
   };
 
   const stopRecording = () => {
-    if (processorRef.current) processorRef.current.disconnect();
-    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-      audioContextRef.current.close().catch(() => {});
-    }
-    if (streamRef.current) streamRef.current.getTracks().forEach(track => track.stop());
-    
+    stopRecordingLocally();
     socket.emit('stop-translation');
-    socket.disconnect();
-    setIsRecording(false);
   };
 
   const downloadTranscription = () => {
@@ -187,7 +213,7 @@ const SpeakerView = () => {
     const fecha = new Date().toLocaleDateString();
     const activeLangs = panelLanguages.slice(0, panelCount).map(code => langNames[code]).join(', ');
     
-    const summaryText = `--- RESUMEN DE LA SESIÓN ---\nSala: ${roomName}\nFecha: ${fecha}\nIdioma Original del Orador: ${inputLanguage}\nIdiomas Monitoreados: ${activeLangs}\n\n--- REGISTRO COMPLETO ---\n${fullTranscription}`;
+    const summaryText = `--- RESUMEN DE LA SESIÓN ---\nEvento: ${eventInfo?.name || 'Desconocido'}\nSala: ${roomName}\nFecha: ${fecha}\nIdioma Original del Orador: ${inputLanguage}\nIdiomas Monitoreados: ${activeLangs}\n\n--- REGISTRO COMPLETO ---\n${fullTranscription}`;
     
     const element = document.createElement("a");
     const file = new Blob([summaryText], {type: 'text/plain'});
@@ -206,15 +232,15 @@ const SpeakerView = () => {
 
   if (!isAuthenticated) {
     return (
-      <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-darker">
-        <div className="bg-dark border border-gray-800 p-8 rounded-3xl shadow-2xl max-w-md w-full flex flex-col items-center gap-6 text-center">
+      <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-darker relative overflow-hidden">
+        <div className="bg-dark border border-gray-800 p-8 rounded-3xl shadow-2xl max-w-md w-full flex flex-col items-center gap-6 text-center z-10">
           <div className="bg-primary/10 p-5 rounded-full">
             <Lock className="w-10 h-10 text-primary" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-white mb-2">Acceso Restringido</h2>
+            <h2 className="text-2xl font-bold text-white mb-2 tracking-tight">Acceso a Oradores</h2>
             <p className="text-gray-400 text-sm leading-relaxed">
-              Ingresa la clave de administrador para gestionar el módulo de traducción simultánea.
+              Ingresa la clave generada por el administrador para tu evento específico.
             </p>
           </div>
           <form onSubmit={handleLogin} className="w-full flex flex-col gap-4 mt-2">
@@ -222,7 +248,7 @@ const SpeakerView = () => {
               type="password"
               value={passwordInput}
               onChange={(e) => setPasswordInput(e.target.value)}
-              placeholder="Contraseña"
+              placeholder="Clave del Evento"
               className="w-full bg-darker border border-gray-700 text-white text-lg rounded-xl p-4 focus:ring-2 focus:ring-primary focus:outline-none text-center tracking-widest transition-all"
             />
             {loginError && <p className="text-red-500 text-xs font-semibold animate-pulse">{loginError}</p>}
@@ -230,9 +256,26 @@ const SpeakerView = () => {
               type="submit"
               className="w-full bg-primary hover:bg-blue-600 text-white px-6 py-4 rounded-xl font-bold transition-all shadow-lg hover:shadow-blue-500/25 mt-2"
             >
-              Ingresar al Panel
+              Conectar al Sistema
             </button>
           </form>
+        </div>
+      </div>
+    );
+  }
+
+  // ==========================================
+  // PANTALLA DE BLOQUEO SI EL MASTER APAGA
+  // ==========================================
+  if (!isSystemActive) {
+    return (
+      <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-black">
+        <div className="w-full max-w-md flex flex-col items-center">
+          <AlertTriangle className="w-16 h-16 text-yellow-500 mb-6 animate-pulse" />
+          <h2 className="text-2xl font-bold text-white mb-2 text-center">Transmisión Pausada</h2>
+          <p className="text-gray-400 text-center leading-relaxed">
+            El sistema global ha sido detenido por el Administrador Master. Espera instrucciones para reanudar el evento.
+          </p>
         </div>
       </div>
     );
@@ -245,7 +288,14 @@ const SpeakerView = () => {
         <div className="flex flex-col gap-4">
           <div className="flex items-center gap-3">
             <Globe className="w-8 h-8 text-primary" />
-            <h1 className="text-2xl font-bold tracking-tight">Traducción Simultánea</h1>
+            <div className="flex flex-col">
+              <h1 className="text-2xl font-bold tracking-tight text-white leading-tight">
+                {eventInfo?.name || "Traducción Simultánea"}
+              </h1>
+              <span className="text-xs text-gray-500 font-bold tracking-widest uppercase">
+                Panel de Orador Activo
+              </span>
+            </div>
           </div>
           <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full font-medium text-sm w-max ${isRecording ? 'bg-red-500/10 text-red-500' : 'bg-gray-800 text-gray-400'}`}>
             <Radio className={`w-4 h-4 ${isRecording ? 'animate-pulse' : ''}`} />
@@ -313,17 +363,26 @@ const SpeakerView = () => {
               </div>
             </div>
 
-            {/* NUEVO: Campo de texto para nombrar la sala dinámica */}
+            {/* NUEVO: El Orador ya no tipea la sala, escoge de las que el Master le asignó */}
             <div className="flex items-center gap-3">
-              <span className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Sala:</span>
-              <input 
-                type="text"
-                value={roomName}
-                onChange={(e) => setRoomName(e.target.value.toUpperCase().replace(/\s+/g, '-'))}
-                disabled={isRecording}
-                placeholder="Ej: AUDITORIO"
-                className="bg-darker border border-gray-700 text-white text-sm font-bold uppercase tracking-wider rounded-lg px-3 py-1.5 focus:ring-1 focus:ring-primary focus:outline-none w-36 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-              />
+              <span className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Sala Asignada:</span>
+              <div className="relative">
+                <select 
+                  value={roomName}
+                  onChange={(e) => setRoomName(e.target.value)}
+                  disabled={isRecording}
+                  className="bg-darker border border-gray-700 text-white text-sm font-bold uppercase tracking-wider rounded-lg px-3 py-1.5 focus:ring-1 focus:ring-primary focus:outline-none appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed min-w-[120px]"
+                >
+                  {eventInfo?.rooms.map(room => (
+                    <option key={room} value={room}>{room}</option>
+                  ))}
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
+                  <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                  </svg>
+                </div>
+              </div>
             </div>
           </div>
           
