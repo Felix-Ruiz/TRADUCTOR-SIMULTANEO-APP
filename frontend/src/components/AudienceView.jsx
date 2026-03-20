@@ -9,9 +9,9 @@ const AudienceView = () => {
   const [translation, setTranslation] = useState('');
   const [isConnected, setIsConnected] = useState(false);
   const [isAudioEnabled, setIsAudioEnabled] = useState(false);
-  
+
+  // Referencias para control estricto de la voz (sin repeticiones ni delay)
   const synthRef = useRef(window.speechSynthesis);
-  // MEMORIA CRUCIAL: Guarda la última frase leída para no repetirla
   const lastSpokenTextRef = useRef('');
 
   useEffect(() => {
@@ -19,23 +19,22 @@ const AudienceView = () => {
     socket.on('disconnect', () => setIsConnected(false));
     
     socket.on('translation-result', (data) => {
-      let textToRead = "";
+      let currentText = '';
 
+      // 1. Mostrar el texto en pantalla
       if (data.translations && data.translations[language]) {
-        textToRead = data.translations[language];
-        setTranslation(textToRead);
+        currentText = data.translations[language];
+        setTranslation(currentText);
       } else if (data.original) {
-        textToRead = data.original;
-        setTranslation(textToRead);
+        currentText = data.original;
+        setTranslation(currentText);
       }
 
-      // SOLO HABLAR SI:
-      // 1. El audio está activo
-      // 2. Es un fragmento final (frase terminada)
-      // 3. El texto es DIFERENTE al último que se leyó
-      if (isAudioEnabled && data.type === 'final' && textToRead && textToRead !== lastSpokenTextRef.current) {
-        speak(textToRead, language);
-        lastSpokenTextRef.current = textToRead; // Actualizamos la memoria
+      // 2. Lógica de voz estricta
+      // Solo habla si: el audio está activo + es frase final + hay texto + no es la misma frase anterior
+      if (isAudioEnabled && data.type === 'final' && currentText && currentText !== lastSpokenTextRef.current) {
+        speak(currentText, language);
+        lastSpokenTextRef.current = currentText; // Guardamos en memoria para no repetirla
       }
     });
 
@@ -48,7 +47,9 @@ const AudienceView = () => {
   }, [language, isAudioEnabled]);
 
   const speak = (text, langCode) => {
-    // Cancelamos cualquier voz previa para que no se amontonen
+    if (!synthRef.current) return;
+    
+    // El secreto para no tener delay: cortar inmediatamente cualquier proceso anterior
     synthRef.current.cancel();
     
     const utterance = new SpeechSynthesisUtterance(text);
@@ -60,20 +61,20 @@ const AudienceView = () => {
     };
     
     utterance.lang = langMap[langCode] || langCode;
-    utterance.rate = 1.1; // Un poco más rápido para mantener el ritmo del orador
-    utterance.pitch = 1.0;
+    utterance.rate = 1.05; // Velocidad ligeramente ágil para el "En Vivo"
     
     synthRef.current.speak(utterance);
   };
 
   const toggleAudio = () => {
     if (!isAudioEnabled) {
-      // Desbloqueo de audio para navegadores móviles
-      const v = new SpeechSynthesisUtterance("");
-      synthRef.current.speak(v);
+      // Reproducir silencio corto para desbloquear las políticas de audio de iOS/Chrome Mobile
+      const unlockVoice = new SpeechSynthesisUtterance("");
+      synthRef.current.speak(unlockVoice);
     } else {
+      // Al apagar, silenciamos de golpe y limpiamos memoria
       synthRef.current.cancel();
-      lastSpokenTextRef.current = ''; // Limpiamos la memoria al apagar
+      lastSpokenTextRef.current = ''; 
     }
     setIsAudioEnabled(!isAudioEnabled);
   };
@@ -86,14 +87,15 @@ const AudienceView = () => {
           <Headphones className="w-7 h-7 text-accent" />
           <h1 className="text-xl font-bold text-white">Audiencia en Vivo</h1>
         </div>
+        {/* Añadimos el botón de audio junto al indicador de conexión para mantener estética */}
         <div className="flex items-center gap-4">
           <button 
             onClick={toggleAudio}
-            className={`p-2 rounded-full transition-all ${isAudioEnabled ? 'bg-accent text-white shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 'bg-gray-800 text-gray-500'}`}
+            className={`p-2 rounded-full transition-colors ${isAudioEnabled ? 'bg-accent/20 text-accent' : 'bg-gray-800 text-gray-500 hover:bg-gray-700'}`}
           >
-            {isAudioEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
+            {isAudioEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
           </button>
-          <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-accent animate-pulse' : 'bg-red-500'}`} />
+          <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-accent animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-red-500'}`} />
         </div>
       </header>
 
@@ -108,7 +110,8 @@ const AudienceView = () => {
             onChange={(e) => {
               setLanguage(e.target.value);
               setTranslation('');
-              lastSpokenTextRef.current = ''; // Resetear memoria al cambiar idioma
+              // Purgar memoria y cortar audio al instante si cambia de idioma
+              lastSpokenTextRef.current = ''; 
               if (synthRef.current) synthRef.current.cancel();
             }}
             className="w-full bg-dark border border-gray-700 text-white text-lg rounded-xl p-4 focus:ring-2 focus:ring-accent focus:outline-none appearance-none cursor-pointer"
@@ -129,6 +132,7 @@ const AudienceView = () => {
             <option value="tr">Türkçe (Turco)</option>
             <option value="pl">Polski (Polaco)</option>
             <option value="sv">Svenska (Sueco)</option>
+            {/* 10 Nuevos Idiomas para la Audiencia */}
             <option value="da">Dansk (Danés)</option>
             <option value="fi">Suomi (Finés)</option>
             <option value="el">Ελληνικά (Griego)</option>
@@ -146,11 +150,6 @@ const AudienceView = () => {
             </svg>
           </div>
         </div>
-        {isAudioEnabled && (
-          <p className="mt-4 text-xs text-accent font-bold text-center tracking-widest uppercase animate-pulse">
-            🔊 Voz Activa - Audio en Tiempo Real
-          </p>
-        )}
       </div>
 
       <main className="flex-1 flex flex-col justify-center pb-12">
