@@ -39,7 +39,6 @@ const AudienceView = () => {
   const [isVerifying, setIsVerifying] = useState(!!initialEventId);
   const [hasJoinedEvent, setHasJoinedEvent] = useState(false);
   
-  // NUEVO: Estado para el Escáner QR
   const [isScanning, setIsScanning] = useState(false);
 
   const [dialogConfig, setDialogConfig] = useState({ isOpen: false, title: '', message: '', type: 'confirm', onConfirm: null, confirmStyle: '' });
@@ -150,11 +149,9 @@ const AudienceView = () => {
     verifyEvent(eventInput.trim());
   };
 
-  // NUEVO: Función robusta para procesar el escaneo del QR
   const handleQRScan = (data) => {
     let scannedText = '';
     
-    // Extraer el texto dependiendo de la versión de la librería
     if (typeof data === 'string') {
         scannedText = data;
     } else if (Array.isArray(data) && data.length > 0) {
@@ -164,16 +161,15 @@ const AudienceView = () => {
     }
 
     if (scannedText) {
-        setIsScanning(false); // Cierra la cámara
+        setIsScanning(false); 
         let extractedCode = scannedText;
         
-        // Si escanearon una URL completa, extraemos solo el ID
         try {
             const url = new URL(scannedText);
             const eventParam = url.searchParams.get('event');
             if (eventParam) extractedCode = eventParam;
         } catch (e) {
-            // Si no es URL, asume que es el código directo
+            
         }
         
         const finalCode = extractedCode.toUpperCase().trim();
@@ -363,7 +359,6 @@ const AudienceView = () => {
     );
   }
 
-  // NUEVO: MODAL DE ESCÁNER DE CÁMARA
   if (isScanning) {
     return (
         <div className="fixed inset-0 z-50 flex flex-col bg-black">
@@ -462,7 +457,6 @@ const AudienceView = () => {
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                     <Key className="w-5 h-5 text-gray-500" />
                 </div>
-                {/* NUEVO: Input rediseñado con botón QR integrado */}
                 <input 
                     type="text"
                     value={eventInput}
@@ -597,9 +591,39 @@ const AudienceView = () => {
     );
   }
 
+  // ==========================================
+  // VISTA CORREGIDA: SELECCIÓN DE SALA Y MODO
+  // ==========================================
   if (!userMode) {
     return (
       <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-darker relative">
+        
+        {/* MODAL INYECTADO AQUÍ */}
+        {dialogConfig.isOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity">
+            <div className="bg-darker border border-gray-700 p-6 rounded-3xl shadow-[0_0_40px_rgba(0,0,0,0.5)] max-w-sm w-full flex flex-col gap-2 transform transition-all scale-100">
+              <div className="flex items-center gap-3 mb-2">
+                 <AlertCircle className={`w-7 h-7 ${dialogConfig.type === 'alert' ? 'text-yellow-500' : 'text-red-500'}`} />
+                 <h3 className="text-xl font-bold text-white tracking-wide">{dialogConfig.title}</h3>
+              </div>
+              <p className="text-gray-400 text-sm leading-relaxed mb-4">{dialogConfig.message}</p>
+              <div className="flex justify-end gap-3 mt-2">
+                {dialogConfig.type === 'confirm' && (
+                  <button onClick={closeDialog} className="px-5 py-2.5 rounded-xl text-gray-400 hover:bg-gray-800 hover:text-white transition-colors text-sm font-bold tracking-wide">
+                    Cancelar
+                  </button>
+                )}
+                <button 
+                  onClick={() => { if(dialogConfig.onConfirm) dialogConfig.onConfirm(); closeDialog(); }} 
+                  className={`px-5 py-2.5 rounded-xl text-white text-sm font-bold tracking-wide transition-all shadow-lg ${dialogConfig.confirmStyle}`}
+                >
+                  Confirmar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <button 
           onClick={handleExitEvent}
           className="absolute top-6 right-6 text-gray-500 hover:text-red-500 transition-colors flex items-center gap-2 text-xs font-bold uppercase tracking-widest"
