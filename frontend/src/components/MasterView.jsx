@@ -248,7 +248,6 @@ const MasterView = () => {
 
       <main className="flex-1 overflow-y-auto pr-2 flex flex-col gap-8">
         
-        {/* PANEL DE CREACIÓN SAAS MARCA BLANCA */}
         <div className={`bg-dark border p-6 rounded-2xl shadow-lg shrink-0 transition-all ${!isSystemActive ? 'border-gray-800 opacity-50 grayscale' : 'border-gray-800'}`}>
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
@@ -339,14 +338,13 @@ const MasterView = () => {
 
               <div className="p-5 flex-1 flex flex-col gap-5">
                 
-                {/* WIDGET ANALÍTICO EN TIEMPO REAL */}
                 <div className="bg-gradient-to-br from-gray-900 to-black p-4 rounded-xl border border-gray-800 flex flex-col sm:flex-row gap-4 items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="bg-primary/10 p-2.5 rounded-lg border border-primary/20">
                             <BarChart3 className="w-6 h-6 text-primary" />
                         </div>
                         <div>
-                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block">Audiencia Activa</span>
+                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block">Audiencia Activa Total</span>
                             <span className="text-2xl font-bold text-white leading-none">{event.stats?.total || 0} <span className="text-sm font-medium text-gray-500">oyentes</span></span>
                         </div>
                     </div>
@@ -418,10 +416,17 @@ const MasterView = () => {
                     {event.rooms.map(room => (
                       <span key={room} className="flex items-center gap-2 px-3 py-1 bg-gray-800 text-gray-300 text-xs font-bold uppercase tracking-wider rounded-md border border-gray-700">
                         {room}
+                        
+                        {/* WIDGET: Contador de usuarios activos por sala */}
+                        <span className="bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded text-[10px] flex items-center gap-1">
+                            <Users className="w-3 h-3" />
+                            {event.stats?.roomCounts?.[room] || 0}
+                        </span>
+
                         {isSystemActive && event.isActive && (
                             <button 
                             onClick={() => handleDeleteRoom(event.id, room)}
-                            className="text-gray-500 hover:text-red-500 transition-colors"
+                            className="text-gray-500 hover:text-red-500 transition-colors ml-1"
                             title="Eliminar Sala"
                             >
                             <X className="w-3 h-3" />

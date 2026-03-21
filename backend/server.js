@@ -31,14 +31,17 @@ process.on('unhandledRejection', (reason, promise) => {
 
 let isSystemActive = false; 
 
-// Base de datos de Eventos (Ahora con Marca Blanca)
 const eventsDB = new Map();
-// Base de datos de Analíticas (Tracking en tiempo real)
 const statsDB = new Map(); 
 
+// Modificado para incluir el conteo específico por sala (roomCounts)
 const initEventStats = (eventId) => {
     if (!statsDB.has(eventId)) {
-        statsDB.set(eventId, { total: 0, langs: { es: 0, en: 0, de: 0, fr: 0, pt: 0 } });
+        statsDB.set(eventId, { 
+            total: 0, 
+            langs: { es: 0, en: 0, de: 0, fr: 0, pt: 0 },
+            roomCounts: {} 
+        });
     }
 };
 
@@ -48,8 +51,8 @@ eventsDB.set("DEFAULT", {
     password: process.env.VITE_ADMIN_PASSWORD || "admin123",
     rooms: ["PRINCIPAL"],
     isActive: true,
-    logoUrl: "", // Campo para logo personalizado
-    sponsorText: "" // Campo para banner publicitario
+    logoUrl: "", 
+    sponsorText: "" 
 });
 initEventStats("DEFAULT");
 
@@ -62,12 +65,11 @@ const broadcastActiveRoomsToEvent = (eventId) => {
     io.to(`audience_${eventId}`).emit('active-rooms', rooms);
 };
 
-// Función para emitir datos completos al Master
 const emitMasterData = () => {
     const eventsArray = Array.from(eventsDB.values()).map(event => {
         return {
             ...event,
-            stats: statsDB.get(event.id) || { total: 0, langs: { es: 0, en: 0, de: 0, fr: 0, pt: 0 } }
+            stats: statsDB.get(event.id) || { total: 0, langs: { es: 0, en: 0, de: 0, fr: 0, pt: 0 }, roomCounts: {} }
         };
     });
     io.emit('master-data-updated', eventsArray);
@@ -130,7 +132,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // NUEVO: Crear evento con Marca Blanca
     socket.on('master-create-event', (data, callback) => {
         const publicId = Math.random().toString(36).slice(-6).toUpperCase();
         const secretPassword = Math.random().toString(36).slice(-6).toUpperCase();
@@ -174,6 +175,13 @@ io.on('connection', (socket) => {
         const event = eventsDB.get(data.id);
         if (event) {
             event.rooms = event.rooms.filter(r => r !== data.room);
+            
+            // Limpiar la sala de las analíticas
+            const stats = statsDB.get(data.id);
+            if (stats && stats.roomCounts && stats.roomCounts[data.room]) {
+                delete stats.roomCounts[data.room];
+            }
+
             callback({ success: true });
             emitMasterData();
         } else {
@@ -265,20 +273,17 @@ io.on('connection', (socket) => {
     socket.on('check-event', (eventId, callback) => {
         const event = eventsDB.get(eventId);
         if (event) {
-            // Mandamos los datos comerciales a la audiencia
             callback({ success: true, name: event.name, logoUrl: event.logoUrl, sponsorText: event.sponsorText });
         } else {
             callback({ success: false });
         }
     });
 
-    // NUEVO: Trackeo de entrada de la audiencia
     socket.on('join-event-audience', (data) => {
         const { eventId, language } = data;
         socket.join(`audience_${eventId}`);
         
-        // Guardar datos en el socket para rastrearlo
-        socket.audienceData = { eventId, language: language || 'es' };
+        socket.audienceData = { eventId, language: language || 'es', roomName: null };
         
         const stats = statsDB.get(eventId);
         if (stats) {
@@ -286,7 +291,7 @@ io.on('connection', (socket) => {
             if (stats.langs[socket.audienceData.language] !== undefined) {
                 stats.langs[socket.audienceData.language] += 1;
             }
-            emitMasterData(); // Actualizar dashboard en vivo
+            emitMasterData(); 
         }
 
         const eventRoomsMap = activeSpeakerRooms.get(eventId);
@@ -300,7 +305,6 @@ io.on('connection', (socket) => {
         });
     });
 
-    // NUEVO: Trackeo de cambio de idioma
     socket.on('audience-change-lang', (newLang) => {
         if (socket.audienceData) {
             const { eventId, language: oldLang } = socket.audienceData;
@@ -314,6 +318,7 @@ io.on('connection', (socket) => {
         }
     });
 
+    // Modificado: Ahora registra cuando la audiencia entra a una sala específica
     socket.on('join-isolated-room', (data) => {
         if (!isSystemActive) return;
         const event = eventsDB.get(data.eventId);
@@ -324,24 +329,46 @@ io.on('connection', (socket) => {
             if (r !== socket.id && r !== `audience_${data.eventId}`) socket.leave(r);
         });
         socket.join(isolatedRoom);
+
+        // Actualizar analíticas de la sala
+        if (socket.audienceData && socket.audienceData.eventId === data.eventId) {
+            const stats = statsDB.get(data.eventId);
+            if (stats) {
+                const oldRoom = socket.audienceData.roomName;
+                if (oldRoom && stats.roomCounts[oldRoom] > 0) {
+                    stats.roomCounts[oldRoom] -= 1;
+                }
+                
+                if (data.roomName !== 'NONE') {
+                    if (stats.roomCounts[data.roomName] === undefined) {
+                        stats.roomCounts[data.roomName] = 0;
+                    }
+                    stats.roomCounts[data.roomName] += 1;
+                }
+                
+                socket.audienceData.roomName = data.roomName;
+                emitMasterData();
+            }
+        }
     });
 
     socket.on('disconnect', () => {
         handleSpeakerStop();
         
-        // Limpiar recursos de Azure
         if (translationService) {
             try { translationService.stop(); } catch(e) {}
             translationService = null;
         }
 
-        // NUEVO: Restar analíticas cuando la audiencia se va
         if (socket.audienceData) {
-            const { eventId, language } = socket.audienceData;
+            const { eventId, language, roomName } = socket.audienceData;
             const stats = statsDB.get(eventId);
             if (stats) {
                 if (stats.total > 0) stats.total -= 1;
                 if (stats.langs[language] > 0) stats.langs[language] -= 1;
+                if (roomName && stats.roomCounts[roomName] > 0) {
+                    stats.roomCounts[roomName] -= 1;
+                }
                 emitMasterData();
             }
         }
