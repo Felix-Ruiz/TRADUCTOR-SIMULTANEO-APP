@@ -37,7 +37,6 @@ const AudienceView = () => {
   
   const [isVerifying, setIsVerifying] = useState(!!initialEventId);
 
-  // NUEVO: Semáforo anti-condición de carrera
   const [hasJoinedEvent, setHasJoinedEvent] = useState(false);
 
   const [dialogConfig, setDialogConfig] = useState({ isOpen: false, title: '', message: '', type: 'confirm', onConfirm: null, confirmStyle: '' });
@@ -127,9 +126,8 @@ const AudienceView = () => {
         setEventError('');
         sessionStorage.setItem('audienceEventId', eventId);
         
-        // El celular avisa que entró al evento general
         socket.emit('join-event-audience', { eventId: eventId, language: language });
-        setHasJoinedEvent(true); // PONE EL SEMÁFORO EN VERDE
+        setHasJoinedEvent(true); 
       } else {
         setEventError('Código de evento inválido o evento finalizado.');
         if (eventId === urlEvent) {
@@ -155,6 +153,9 @@ const AudienceView = () => {
       "¿Deseas salir de este evento y volver al menú principal de acceso?",
       "confirm",
       () => {
+        // CORRECCIÓN FASE 2: Le avisamos explícitamente al servidor que elimine al usuario de los contadores
+        socket.emit('leave-event-audience'); 
+        
         sessionStorage.removeItem('audienceEventId');
         setUrlEvent('');
         setRoomName('');
@@ -164,7 +165,7 @@ const AudienceView = () => {
         setPartialText('');
         setEventLogo('');
         setEventSponsor('');
-        setHasJoinedEvent(false); // PONE EL SEMÁFORO EN ROJO
+        setHasJoinedEvent(false); 
         audioQueue.current = [];
         isPlaying.current = false;
         if (audioPlayerRef.current) {
@@ -172,7 +173,6 @@ const AudienceView = () => {
           audioPlayerRef.current.src = "";
         }
         releaseWakeLock();
-        socket.emit('join-isolated-room', { eventId: 'NONE', roomName: 'NONE' });
       }
     );
   };
@@ -275,7 +275,6 @@ const AudienceView = () => {
     };
   }, [language, userMode, isTvMode, urlEvent, isSystemActive, isEventActive]); 
 
-  // NUEVO: Ahora respeta el semáforo (hasJoinedEvent)
   useEffect(() => {
     if (isConnected && urlEvent && roomName && isSystemActive && isEventActive && hasJoinedEvent) {
       socket.emit('join-isolated-room', { eventId: urlEvent, roomName: roomName });

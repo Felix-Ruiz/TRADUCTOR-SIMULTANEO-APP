@@ -34,7 +34,6 @@ let isSystemActive = false;
 const eventsDB = new Map();
 const statsDB = new Map(); 
 
-// Modificado para incluir el conteo específico por sala (roomCounts)
 const initEventStats = (eventId) => {
     if (!statsDB.has(eventId)) {
         statsDB.set(eventId, { 
@@ -175,13 +174,10 @@ io.on('connection', (socket) => {
         const event = eventsDB.get(data.id);
         if (event) {
             event.rooms = event.rooms.filter(r => r !== data.room);
-            
-            // Limpiar la sala de las analíticas
             const stats = statsDB.get(data.id);
             if (stats && stats.roomCounts && stats.roomCounts[data.room]) {
                 delete stats.roomCounts[data.room];
             }
-
             callback({ success: true });
             emitMasterData();
         } else {
@@ -318,7 +314,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Modificado: Ahora registra cuando la audiencia entra a una sala específica
     socket.on('join-isolated-room', (data) => {
         if (!isSystemActive) return;
         const event = eventsDB.get(data.eventId);
@@ -330,7 +325,6 @@ io.on('connection', (socket) => {
         });
         socket.join(isolatedRoom);
 
-        // Actualizar analíticas de la sala
         if (socket.audienceData && socket.audienceData.eventId === data.eventId) {
             const stats = statsDB.get(data.eventId);
             if (stats) {
@@ -352,16 +346,12 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('disconnect', () => {
-        handleSpeakerStop();
-        
-        if (translationService) {
-            try { translationService.stop(); } catch(e) {}
-            translationService = null;
-        }
-
-        if (socket.audienceData) {
-            const { eventId, language, roomName } = socket.audienceData;
+    // ==========================================
+    // SISTEMA DE LIMPIEZA Y DESCONEXIÓN (CORREGIDO)
+    // ==========================================
+    const removeAudienceFromStats = (socketInstance) => {
+        if (socketInstance.audienceData) {
+            const { eventId, language, roomName } = socketInstance.audienceData;
             const stats = statsDB.get(eventId);
             if (stats) {
                 if (stats.total > 0) stats.total -= 1;
@@ -371,7 +361,27 @@ io.on('connection', (socket) => {
                 }
                 emitMasterData();
             }
+            // ¡Crucial! Anular la data para que no reste doble
+            socketInstance.audienceData = null; 
         }
+    };
+
+    // NUEVO: Escucha cuando el usuario oprime el botón "Salir" voluntariamente
+    socket.on('leave-event-audience', () => {
+        removeAudienceFromStats(socket);
+        Array.from(socket.rooms).forEach(r => {
+            if (r !== socket.id) socket.leave(r);
+        });
+    });
+
+    // Escucha cuando el usuario cierra la pestaña a la fuerza o se queda sin internet
+    socket.on('disconnect', () => {
+        handleSpeakerStop();
+        if (translationService) {
+            try { translationService.stop(); } catch(e) {}
+            translationService = null;
+        }
+        removeAudienceFromStats(socket);
     });
 });
 
