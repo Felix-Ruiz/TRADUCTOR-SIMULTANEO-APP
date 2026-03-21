@@ -19,15 +19,16 @@ const AudienceView = () => {
   const [eventError, setEventError] = useState('');
   const [eventName, setEventName] = useState('Traducción en Vivo');
 
+  // NUEVO: Estados para Marca Blanca
+  const [eventLogo, setEventLogo] = useState('');
+  const [eventSponsor, setEventSponsor] = useState('');
+
   const [roomName, setRoomName] = useState(urlRoom || '');
   const [availableRooms, setAvailableRooms] = useState([]);
   const [language, setLanguage] = useState(urlLang || 'es'); 
   
-  // ==========================================
-  // NUEVO SISTEMA DE SUBTÍTULOS (TELEPROMPTER)
-  // ==========================================
-  const [finalTexts, setFinalTexts] = useState([]); // Array para almacenar líneas terminadas
-  const [partialText, setPartialText] = useState(''); // String para la línea que se está formando
+  const [finalTexts, setFinalTexts] = useState([]); 
+  const [partialText, setPartialText] = useState(''); 
   
   const [isConnected, setIsConnected] = useState(false);
   const [userMode, setUserMode] = useState(null);
@@ -119,9 +120,13 @@ const AudienceView = () => {
       if (response.success) {
         setUrlEvent(eventId);
         setEventName(response.name);
+        setEventLogo(response.logoUrl || '');
+        setEventSponsor(response.sponsorText || '');
         setEventError('');
         sessionStorage.setItem('audienceEventId', eventId);
-        socket.emit('join-event-audience', eventId);
+        
+        // CORRECCIÓN FASE 1: Enviamos el ID y el idioma inicial para las analíticas
+        socket.emit('join-event-audience', { eventId: eventId, language: language });
       } else {
         setEventError('Código de evento inválido o evento finalizado.');
         if (eventId === urlEvent) {
@@ -153,6 +158,8 @@ const AudienceView = () => {
         setUserMode(null);
         setFinalTexts([]);
         setPartialText('');
+        setEventLogo('');
+        setEventSponsor('');
         audioQueue.current = [];
         isPlaying.current = false;
         if (audioPlayerRef.current) {
@@ -203,6 +210,8 @@ const AudienceView = () => {
         setEventName(data.name);
         setAvailableRooms(data.allRooms);
         setIsEventActive(data.isActive); 
+        setEventLogo(data.logoUrl || '');
+        setEventSponsor(data.sponsorText || '');
         setRoomName(prev => {
             if (!prev || !data.allRooms.includes(prev)) return data.allRooms[0] || '';
             return prev;
@@ -211,9 +220,6 @@ const AudienceView = () => {
 
     socket.on('active-rooms', (rooms) => {});
     
-    // ==========================================
-    // LÓGICA DE STACK DE SUBTÍTULOS
-    // ==========================================
     socket.on('translation-result', (data) => {
       if (!isSystemActive || !isEventActive) return; 
       
@@ -226,14 +232,11 @@ const AudienceView = () => {
         }
 
         if (data.type === 'partial') {
-          // Mientras habla, actualiza solo la línea inferior
           setPartialText(currentText);
         } else if (data.type === 'final') {
-          // Cuando termina la frase, la estampa arriba y limpia la línea inferior
           if (currentText.trim() !== '') {
             setFinalTexts(prev => {
               const newTexts = [...prev, currentText];
-              // Limita el historial a las últimas 4 líneas (o 5 para TV) para que empuje hacia arriba
               const limit = isTvMode ? 5 : 4; 
               return newTexts.slice(-limit);
             });
@@ -409,9 +412,6 @@ const AudienceView = () => {
     );
   }
 
-  // ==================================================
-  // VISTA MODO PROYECTOR (TV)
-  // ==================================================
   if (isTvMode) {
     return (
       <div className="flex flex-col h-screen w-full bg-black p-8 md:p-16 lg:pb-16 overflow-hidden relative">
@@ -466,6 +466,8 @@ const AudienceView = () => {
                 setLanguage(e.target.value);
                 setFinalTexts([]);
                 setPartialText('');
+                // AVISAR A ANALÍTICAS
+                socket.emit('audience-change-lang', e.target.value);
               }}
               className="bg-black/50 border border-gray-700 text-gray-300 text-xs font-bold uppercase tracking-wider rounded-lg px-3 py-2 focus:ring-1 focus:ring-primary focus:outline-none appearance-none cursor-pointer"
             >
@@ -491,8 +493,7 @@ const AudienceView = () => {
           </button>
         </div>
 
-        {/* CONTENEDOR DE SUBTÍTULOS ESTILO TELEPROMPTER (TV) */}
-        <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col justify-end gap-6 overflow-hidden">
+        <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col justify-end gap-6 overflow-hidden relative z-0">
           {finalTexts.map((text, idx) => (
             <p key={idx} className="text-4xl md:text-5xl lg:text-6xl font-medium text-white/50 text-left leading-normal tracking-wide drop-shadow-2xl transition-all duration-300">
               {text}
@@ -504,14 +505,19 @@ const AudienceView = () => {
           <div ref={messagesEndRef} />
         </div>
         
+        {/* LOGO MODO TV (ESQUINA INFERIOR IZQUIERDA) */}
+        {(eventLogo || eventSponsor) && (
+            <div className="absolute bottom-8 left-8 z-10 flex items-center gap-4 opacity-70">
+                {eventLogo && <img src={eventLogo} alt="Sponsor Logo" className="h-12 w-auto object-contain" onError={(e) => { e.target.style.display = 'none'; }} />}
+                {eventSponsor && <span className="text-white/70 text-sm font-semibold tracking-wider">{eventSponsor}</span>}
+            </div>
+        )}
+
         <div className={`fixed bottom-4 right-4 w-2 h-2 rounded-full opacity-30 ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
       </div>
     );
   }
 
-  // ==================================================
-  // MODAL DE SELECCIÓN DE SALA Y MODO (MÓVIL)
-  // ==================================================
   if (!userMode) {
     return (
       <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-darker relative">
@@ -524,7 +530,8 @@ const AudienceView = () => {
         </button>
 
         <div className="w-full max-w-sm flex flex-col items-center mt-6">
-          <img src="/logo.png" alt="Logo" className="h-14 w-auto object-contain mb-6 drop-shadow-lg" onError={(e) => { e.target.style.display = 'none'; }} />
+          {/* LOGO DINÁMICO */}
+          <img src={eventLogo || "/logo.png"} alt="Event Logo" className="h-16 w-auto object-contain mb-6 drop-shadow-lg" onError={(e) => { e.target.src = '/logo.png'; }} />
           
           <h2 className="text-2xl font-bold text-white mb-2 text-center tracking-tight">{eventName}</h2>
           <p className="text-gray-400 text-sm text-center mb-8 leading-relaxed">
@@ -582,6 +589,14 @@ const AudienceView = () => {
               </div>
             </button>
           </div>
+          
+          {/* BANNER DE PATROCINADOR */}
+          {eventSponsor && (
+             <div className="mt-8 text-xs font-semibold text-gray-500 tracking-wider uppercase">
+                 {eventSponsor}
+             </div>
+          )}
+
         </div>
       </div>
     );
@@ -619,7 +634,8 @@ const AudienceView = () => {
 
       <header className="flex justify-between items-center mb-6 pb-4 border-b border-gray-800 shrink-0">
         <div className="flex items-center gap-3">
-          <img src="/logo.png" alt="Logo" className="h-8 w-auto object-contain" onError={(e) => { e.target.style.display = 'none'; }} />
+          {/* LOGO DINÁMICO EN EL HEADER */}
+          <img src={eventLogo || "/logo.png"} alt="Event Logo" className="h-8 w-auto object-contain" onError={(e) => { e.target.src = '/logo.png'; }} />
           <div className="flex flex-col">
             <h1 className="text-base font-bold text-white leading-tight truncate max-w-[150px]">{eventName}</h1>
             <span className="text-xs text-primary font-bold tracking-widest">{roomName}</span>
@@ -653,6 +669,8 @@ const AudienceView = () => {
               setFinalTexts([]);
               setPartialText('');
               audioQueue.current = []; 
+              // AVISAR A ANALÍTICAS DEL CAMBIO
+              socket.emit('audience-change-lang', e.target.value);
             }}
             className="w-full bg-dark border border-gray-700 text-white text-lg rounded-xl p-4 focus:ring-2 focus:ring-accent focus:outline-none appearance-none cursor-pointer"
           >
@@ -673,7 +691,6 @@ const AudienceView = () => {
       <main className="flex-1 flex flex-col justify-end pb-6 overflow-hidden">
         {userMode === 'text' ? (
           
-          /* CONTENEDOR DE SUBTÍTULOS ESTILO TELEPROMPTER (CELULAR) */
           <div className="flex flex-col gap-4 justify-end h-full w-full overflow-hidden">
             {finalTexts.map((text, idx) => (
               <p key={idx} className="text-2xl md:text-3xl font-normal leading-relaxed text-white/50 text-left tracking-wide transition-all duration-300">
@@ -705,7 +722,7 @@ const AudienceView = () => {
         )}
       </main>
 
-      <footer className="shrink-0 pb-4 pt-2 border-t border-gray-800/50">
+      <footer className="shrink-0 pb-4 pt-2 border-t border-gray-800/50 flex flex-col items-center">
         <button
           onClick={switchMode}
           className="w-full group relative flex items-center justify-center gap-3 bg-dark border border-gray-700 hover:border-gray-500 p-4 rounded-xl transition-all shadow-lg overflow-hidden"
@@ -724,6 +741,13 @@ const AudienceView = () => {
             </>
           )}
         </button>
+
+        {/* SPONSOR TEXT EN EL FOOTER DEL CELULAR */}
+        {eventSponsor && (
+            <div className="mt-4 text-[10px] font-bold text-gray-600 tracking-widest uppercase text-center w-full">
+                {eventSponsor}
+            </div>
+        )}
       </footer>
 
     </div>
