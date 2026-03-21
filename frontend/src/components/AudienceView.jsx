@@ -19,7 +19,6 @@ const AudienceView = () => {
   const [eventError, setEventError] = useState('');
   const [eventName, setEventName] = useState('Traducción en Vivo');
 
-  // NUEVO: Estados para Marca Blanca
   const [eventLogo, setEventLogo] = useState('');
   const [eventSponsor, setEventSponsor] = useState('');
 
@@ -37,6 +36,9 @@ const AudienceView = () => {
   const [isEventActive, setIsEventActive] = useState(true); 
   
   const [isVerifying, setIsVerifying] = useState(!!initialEventId);
+
+  // NUEVO: Semáforo anti-condición de carrera
+  const [hasJoinedEvent, setHasJoinedEvent] = useState(false);
 
   const [dialogConfig, setDialogConfig] = useState({ isOpen: false, title: '', message: '', type: 'confirm', onConfirm: null, confirmStyle: '' });
 
@@ -125,14 +127,16 @@ const AudienceView = () => {
         setEventError('');
         sessionStorage.setItem('audienceEventId', eventId);
         
-        // CORRECCIÓN FASE 1: Enviamos el ID y el idioma inicial para las analíticas
+        // El celular avisa que entró al evento general
         socket.emit('join-event-audience', { eventId: eventId, language: language });
+        setHasJoinedEvent(true); // PONE EL SEMÁFORO EN VERDE
       } else {
         setEventError('Código de evento inválido o evento finalizado.');
         if (eventId === urlEvent) {
             setUrlEvent(''); 
         }
         sessionStorage.removeItem('audienceEventId');
+        setHasJoinedEvent(false);
       }
       setIsVerifying(false); 
     });
@@ -160,6 +164,7 @@ const AudienceView = () => {
         setPartialText('');
         setEventLogo('');
         setEventSponsor('');
+        setHasJoinedEvent(false); // PONE EL SEMÁFORO EN ROJO
         audioQueue.current = [];
         isPlaying.current = false;
         if (audioPlayerRef.current) {
@@ -270,14 +275,15 @@ const AudienceView = () => {
     };
   }, [language, userMode, isTvMode, urlEvent, isSystemActive, isEventActive]); 
 
+  // NUEVO: Ahora respeta el semáforo (hasJoinedEvent)
   useEffect(() => {
-    if (isConnected && urlEvent && roomName && isSystemActive && isEventActive) {
+    if (isConnected && urlEvent && roomName && isSystemActive && isEventActive && hasJoinedEvent) {
       socket.emit('join-isolated-room', { eventId: urlEvent, roomName: roomName });
       setFinalTexts([]); 
       setPartialText('');
       audioQueue.current = [];
     }
-  }, [roomName, isConnected, isSystemActive, isEventActive, urlEvent]);
+  }, [roomName, isConnected, isSystemActive, isEventActive, urlEvent, hasJoinedEvent]);
 
   const unlockAudioAndStart = async () => {
     try {
@@ -466,7 +472,6 @@ const AudienceView = () => {
                 setLanguage(e.target.value);
                 setFinalTexts([]);
                 setPartialText('');
-                // AVISAR A ANALÍTICAS
                 socket.emit('audience-change-lang', e.target.value);
               }}
               className="bg-black/50 border border-gray-700 text-gray-300 text-xs font-bold uppercase tracking-wider rounded-lg px-3 py-2 focus:ring-1 focus:ring-primary focus:outline-none appearance-none cursor-pointer"
@@ -505,7 +510,6 @@ const AudienceView = () => {
           <div ref={messagesEndRef} />
         </div>
         
-        {/* LOGO MODO TV (ESQUINA INFERIOR IZQUIERDA) */}
         {(eventLogo || eventSponsor) && (
             <div className="absolute bottom-8 left-8 z-10 flex items-center gap-4 opacity-70">
                 {eventLogo && <img src={eventLogo} alt="Sponsor Logo" className="h-12 w-auto object-contain" onError={(e) => { e.target.style.display = 'none'; }} />}
@@ -530,7 +534,6 @@ const AudienceView = () => {
         </button>
 
         <div className="w-full max-w-sm flex flex-col items-center mt-6">
-          {/* LOGO DINÁMICO */}
           <img src={eventLogo || "/logo.png"} alt="Event Logo" className="h-16 w-auto object-contain mb-6 drop-shadow-lg" onError={(e) => { e.target.src = '/logo.png'; }} />
           
           <h2 className="text-2xl font-bold text-white mb-2 text-center tracking-tight">{eventName}</h2>
@@ -590,9 +593,8 @@ const AudienceView = () => {
             </button>
           </div>
           
-          {/* BANNER DE PATROCINADOR */}
           {eventSponsor && (
-             <div className="mt-8 text-xs font-semibold text-gray-500 tracking-wider uppercase">
+             <div className="mt-8 text-xs font-semibold text-gray-500 tracking-wider uppercase text-center w-full">
                  {eventSponsor}
              </div>
           )}
@@ -634,7 +636,6 @@ const AudienceView = () => {
 
       <header className="flex justify-between items-center mb-6 pb-4 border-b border-gray-800 shrink-0">
         <div className="flex items-center gap-3">
-          {/* LOGO DINÁMICO EN EL HEADER */}
           <img src={eventLogo || "/logo.png"} alt="Event Logo" className="h-8 w-auto object-contain" onError={(e) => { e.target.src = '/logo.png'; }} />
           <div className="flex flex-col">
             <h1 className="text-base font-bold text-white leading-tight truncate max-w-[150px]">{eventName}</h1>
@@ -669,7 +670,6 @@ const AudienceView = () => {
               setFinalTexts([]);
               setPartialText('');
               audioQueue.current = []; 
-              // AVISAR A ANALÍTICAS DEL CAMBIO
               socket.emit('audience-change-lang', e.target.value);
             }}
             className="w-full bg-dark border border-gray-700 text-white text-lg rounded-xl p-4 focus:ring-2 focus:ring-accent focus:outline-none appearance-none cursor-pointer"
@@ -742,7 +742,6 @@ const AudienceView = () => {
           )}
         </button>
 
-        {/* SPONSOR TEXT EN EL FOOTER DEL CELULAR */}
         {eventSponsor && (
             <div className="mt-4 text-[10px] font-bold text-gray-600 tracking-widest uppercase text-center w-full">
                 {eventSponsor}
