@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
-import { Headphones, Globe2, AlertCircle, MessageSquare, Radio, PowerOff, Key, LogOut } from 'lucide-react';
+import { Headphones, Globe2, AlertCircle, MessageSquare, Radio, PowerOff, Key, LogOut, QrCode, X } from 'lucide-react';
+import { Scanner } from '@yudiel/react-qr-scanner';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001');
 
@@ -36,8 +37,10 @@ const AudienceView = () => {
   const [isEventActive, setIsEventActive] = useState(true); 
   
   const [isVerifying, setIsVerifying] = useState(!!initialEventId);
-
   const [hasJoinedEvent, setHasJoinedEvent] = useState(false);
+  
+  // NUEVO: Estado para el Escáner QR
+  const [isScanning, setIsScanning] = useState(false);
 
   const [dialogConfig, setDialogConfig] = useState({ isOpen: false, title: '', message: '', type: 'confirm', onConfirm: null, confirmStyle: '' });
 
@@ -147,15 +150,46 @@ const AudienceView = () => {
     verifyEvent(eventInput.trim());
   };
 
+  // NUEVO: Función robusta para procesar el escaneo del QR
+  const handleQRScan = (data) => {
+    let scannedText = '';
+    
+    // Extraer el texto dependiendo de la versión de la librería
+    if (typeof data === 'string') {
+        scannedText = data;
+    } else if (Array.isArray(data) && data.length > 0) {
+        scannedText = data[0].rawValue || data[0].text || '';
+    } else if (data && data.text) {
+        scannedText = data.text;
+    }
+
+    if (scannedText) {
+        setIsScanning(false); // Cierra la cámara
+        let extractedCode = scannedText;
+        
+        // Si escanearon una URL completa, extraemos solo el ID
+        try {
+            const url = new URL(scannedText);
+            const eventParam = url.searchParams.get('event');
+            if (eventParam) extractedCode = eventParam;
+        } catch (e) {
+            // Si no es URL, asume que es el código directo
+        }
+        
+        const finalCode = extractedCode.toUpperCase().trim();
+        setEventInput(finalCode);
+        setIsVerifying(true);
+        verifyEvent(finalCode);
+    }
+  };
+
   const handleExitEvent = () => {
     openDialog(
       "Salir del Evento",
       "¿Deseas salir de este evento y volver al menú principal de acceso?",
       "confirm",
       () => {
-        // CORRECCIÓN FASE 2: Le avisamos explícitamente al servidor que elimine al usuario de los contadores
         socket.emit('leave-event-audience'); 
-        
         sessionStorage.removeItem('audienceEventId');
         setUrlEvent('');
         setRoomName('');
@@ -329,6 +363,39 @@ const AudienceView = () => {
     );
   }
 
+  // NUEVO: MODAL DE ESCÁNER DE CÁMARA
+  if (isScanning) {
+    return (
+        <div className="fixed inset-0 z-50 flex flex-col bg-black">
+            <div className="flex justify-between items-center p-6 bg-darker border-b border-gray-800 shrink-0">
+                <h3 className="text-white font-bold tracking-widest uppercase flex items-center gap-3">
+                    <QrCode className="w-5 h-5 text-primary" />
+                    Escanear Acceso
+                </h3>
+                <button 
+                    onClick={() => setIsScanning(false)} 
+                    className="text-gray-400 hover:text-white bg-gray-800 p-2 rounded-full transition-colors"
+                >
+                    <X className="w-5 h-5" />
+                </button>
+            </div>
+            <div className="flex-1 relative flex flex-col items-center justify-center bg-black p-6">
+                <p className="text-gray-400 text-sm text-center mb-8 max-w-xs">
+                    Apunta la cámara al código QR del evento para ingresar automáticamente.
+                </p>
+                <div className="w-full max-w-sm rounded-3xl overflow-hidden shadow-[0_0_50px_rgba(16,185,129,0.15)] border border-primary/30 relative bg-darker">
+                    <Scanner
+                        onScan={(result) => handleQRScan(result)}
+                        onError={(error) => console.log("[Scanner] Error/Esperando cámara:", error)}
+                        constraints={{ facingMode: 'environment' }}
+                        components={{ audio: false, onOff: true }}
+                    />
+                </div>
+            </div>
+        </div>
+    );
+  }
+
   if (!isSystemActive || (urlEvent && !isEventActive)) {
     return (
       <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-black relative overflow-hidden">
@@ -387,21 +454,30 @@ const AudienceView = () => {
           
           <h2 className="text-2xl font-bold text-white mb-2 text-center tracking-tight">Traducción en Vivo</h2>
           <p className="text-gray-400 text-sm text-center mb-8 leading-relaxed">
-            Ingresa el código del evento para acceder a las salas de traducción.
+            Ingresa el código manual o escanea el QR del evento para acceder.
           </p>
           
           <form onSubmit={handleEventSubmit} className="w-full flex flex-col gap-4">
-            <div className="relative">
+            <div className="relative flex items-center">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                     <Key className="w-5 h-5 text-gray-500" />
                 </div>
+                {/* NUEVO: Input rediseñado con botón QR integrado */}
                 <input 
                     type="text"
                     value={eventInput}
                     onChange={(e) => setEventInput(e.target.value.toUpperCase().trim())}
-                    placeholder="Código de Evento"
-                    className="w-full bg-dark border border-gray-700 text-white text-center text-lg font-bold tracking-widest rounded-xl py-4 px-10 focus:ring-2 focus:ring-primary focus:outline-none transition-all shadow-inner"
+                    placeholder="Código"
+                    className="w-full bg-dark border border-gray-700 text-white text-center text-lg font-bold tracking-widest rounded-xl py-4 pl-10 pr-16 focus:ring-2 focus:ring-primary focus:outline-none transition-all shadow-inner"
                 />
+                <button
+                    type="button"
+                    onClick={() => setIsScanning(true)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 bg-gray-800 border border-gray-700 rounded-lg text-primary hover:bg-primary hover:text-white hover:border-primary transition-all shadow-lg"
+                    title="Escanear QR"
+                >
+                    <QrCode className="w-5 h-5" />
+                </button>
             </div>
             {eventError && <p className="text-red-500 text-xs font-semibold text-center animate-pulse">{eventError}</p>}
             <button 
