@@ -230,6 +230,11 @@ io.on('connection', (socket) => {
             socket, config.fromLanguage, config.toLanguages, config.voiceGender, isolatedRoom 
         );
         translationService.start();
+
+        // NUEVO: Al conectar, enviarle al orador cuánta audiencia hay YA en la sala
+        const stats = statsDB.get(eventId);
+        const audienceCount = stats?.roomCounts?.[roomName] || 0;
+        socket.emit('room-audience-count', audienceCount);
     });
 
     socket.on('audio-stream', (data) => {
@@ -331,6 +336,8 @@ io.on('connection', (socket) => {
                 const oldRoom = socket.audienceData.roomName;
                 if (oldRoom && stats.roomCounts[oldRoom] > 0) {
                     stats.roomCounts[oldRoom] -= 1;
+                    // NUEVO: Avisar a la sala que alguien salió
+                    io.to(`${data.eventId}_${oldRoom}`).emit('room-audience-count', stats.roomCounts[oldRoom]);
                 }
                 
                 if (data.roomName !== 'NONE') {
@@ -338,6 +345,8 @@ io.on('connection', (socket) => {
                         stats.roomCounts[data.roomName] = 0;
                     }
                     stats.roomCounts[data.roomName] += 1;
+                    // NUEVO: Avisar a la sala que alguien entró
+                    io.to(`${data.eventId}_${data.roomName}`).emit('room-audience-count', stats.roomCounts[data.roomName]);
                 }
                 
                 socket.audienceData.roomName = data.roomName;
@@ -346,9 +355,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // ==========================================
-    // SISTEMA DE LIMPIEZA Y DESCONEXIÓN (CORREGIDO)
-    // ==========================================
     const removeAudienceFromStats = (socketInstance) => {
         if (socketInstance.audienceData) {
             const { eventId, language, roomName } = socketInstance.audienceData;
@@ -358,15 +364,15 @@ io.on('connection', (socket) => {
                 if (stats.langs[language] > 0) stats.langs[language] -= 1;
                 if (roomName && stats.roomCounts[roomName] > 0) {
                     stats.roomCounts[roomName] -= 1;
+                    // NUEVO: Avisar a la sala que alguien se desconectó
+                    io.to(`${eventId}_${roomName}`).emit('room-audience-count', stats.roomCounts[roomName]);
                 }
                 emitMasterData();
             }
-            // ¡Crucial! Anular la data para que no reste doble
             socketInstance.audienceData = null; 
         }
     };
 
-    // NUEVO: Escucha cuando el usuario oprime el botón "Salir" voluntariamente
     socket.on('leave-event-audience', () => {
         removeAudienceFromStats(socket);
         Array.from(socket.rooms).forEach(r => {
@@ -374,7 +380,6 @@ io.on('connection', (socket) => {
         });
     });
 
-    // Escucha cuando el usuario cierra la pestaña a la fuerza o se queda sin internet
     socket.on('disconnect', () => {
         handleSpeakerStop();
         if (translationService) {
