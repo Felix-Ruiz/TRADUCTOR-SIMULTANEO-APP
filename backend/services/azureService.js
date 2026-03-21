@@ -36,10 +36,6 @@ class TranslationService {
 
         this.translationConfig = sdk.SpeechTranslationConfig.fromSubscription(speechKey, speechRegion);
         this.translationConfig.speechRecognitionLanguage = fromLanguage;
-        
-        // ==========================================
-        // FILTRO DE LENGUAJE (MANTENIDO)
-        // ==========================================
         this.translationConfig.setProfanity(sdk.ProfanityOption.Masked);
         
         toLanguages.forEach(lang => {
@@ -54,39 +50,47 @@ class TranslationService {
 
     setupEvents() {
         this.recognizer.recognizing = (s, e) => {
-            if (e.result.reason === sdk.ResultReason.TranslatingSpeech) {
-                const translations = this.extractTranslations(e.result.translations, e.result.text);
-                const payload = { type: 'partial', original: e.result.text, translations };
-                
-                this.socket.emit('translation-result', payload); 
-                this.socket.broadcast.to(this.roomName).emit('translation-result', payload);
+            try {
+                if (e.result.reason === sdk.ResultReason.TranslatingSpeech) {
+                    const translations = this.extractTranslations(e.result.translations, e.result.text);
+                    const payload = { type: 'partial', original: e.result.text, translations };
+                    
+                    this.socket.emit('translation-result', payload); 
+                    this.socket.broadcast.to(this.roomName).emit('translation-result', payload);
+                }
+            } catch(error) {
+                console.error("[Azure] Error en evento recognizing:", error);
             }
         };
 
         this.recognizer.recognized = (s, e) => {
-            if (e.result.reason === sdk.ResultReason.TranslatedSpeech) {
-                const translations = this.extractTranslations(e.result.translations, e.result.text);
-                const payload = { type: 'final', original: e.result.text, translations };
-                
-                this.socket.emit('translation-result', payload);
-                this.socket.broadcast.to(this.roomName).emit('translation-result', payload);
+            try {
+                if (e.result.reason === sdk.ResultReason.TranslatedSpeech) {
+                    const translations = this.extractTranslations(e.result.translations, e.result.text);
+                    const payload = { type: 'final', original: e.result.text, translations };
+                    
+                    this.socket.emit('translation-result', payload);
+                    this.socket.broadcast.to(this.roomName).emit('translation-result', payload);
 
-                this.targetLanguages.forEach(lang => {
-                    const textToSpeak = translations[lang];
-                    if (textToSpeak && textToSpeak.trim() !== '') {
-                        this.synthesizeAudio(textToSpeak, lang);
-                    }
-                });
+                    this.targetLanguages.forEach(lang => {
+                        const textToSpeak = translations[lang];
+                        if (textToSpeak && textToSpeak.trim() !== '') {
+                            this.synthesizeAudio(textToSpeak, lang);
+                        }
+                    });
+                }
+            } catch(error) {
+                console.error("[Azure] Error en evento recognized:", error);
             }
         };
 
         this.recognizer.canceled = (s, e) => {
-            console.log(`[Azure] Reconocimiento cancelado: ${e.reason}`);
+            console.warn(`[Azure] Reconocimiento cancelado: ${e.reason}`);
         };
 
         this.recognizer.sessionStopped = (s, e) => {
-            console.log(`[Azure] Sesión detenida.`);
-            this.recognizer.stopContinuousRecognitionAsync();
+            console.log(`[Azure] Sesión detenida por el servidor.`);
+            this.stop();
         };
     }
 
@@ -103,53 +107,81 @@ class TranslationService {
     }
 
     synthesizeAudio(text, lang) {
-        const speechKey = process.env.AZURE_SPEECH_KEY;
-        const speechRegion = process.env.AZURE_SPEECH_REGION;
+        try {
+            const speechKey = process.env.AZURE_SPEECH_KEY;
+            const speechRegion = process.env.AZURE_SPEECH_REGION;
 
-        const speechConfig = sdk.SpeechConfig.fromSubscription(speechKey, speechRegion);
-        
-        const selectedMap = this.voiceGender === 'male' ? maleVoiceMap : femaleVoiceMap;
-        speechConfig.speechSynthesisVoiceName = selectedMap[lang] || (this.voiceGender === 'male' ? 'en-US-GuyNeural' : 'en-US-JennyNeural');
+            const speechConfig = sdk.SpeechConfig.fromSubscription(speechKey, speechRegion);
+            
+            const selectedMap = this.voiceGender === 'male' ? maleVoiceMap : femaleVoiceMap;
+            speechConfig.speechSynthesisVoiceName = selectedMap[lang] || (this.voiceGender === 'male' ? 'en-US-GuyNeural' : 'en-US-JennyNeural');
+            speechConfig.speechSynthesisOutputFormat = sdk.SpeechSynthesisOutputFormat.Audio16Khz32KBitRateMonoMp3;
 
-        speechConfig.speechSynthesisOutputFormat = sdk.SpeechSynthesisOutputFormat.Audio16Khz32KBitRateMonoMp3;
+            const synthesizer = new sdk.SpeechSynthesizer(speechConfig, null);
 
-        const synthesizer = new sdk.SpeechSynthesizer(speechConfig, null);
-
-        // ==========================================
-        // LOCUCIÓN NATURAL SIN ACELERAR
-        // ==========================================
-        synthesizer.speakTextAsync(
-            text,
-            result => {
-                if (result.reason === sdk.ResultReason.SynthesizingAudioCompleted) {
-                    const payload = { language: lang, audioBuffer: result.audioData };
-                    this.socket.emit('neural-audio', payload);
-                    this.socket.broadcast.to(this.roomName).emit('neural-audio', payload);
-                } else {
-                    console.error(`[Azure TTS] Error en síntesis: ${result.errorDetails}`);
+            synthesizer.speakTextAsync(
+                text,
+                result => {
+                    if (result.reason === sdk.ResultReason.SynthesizingAudioCompleted) {
+                        const payload = { language: lang, audioBuffer: result.audioData };
+                        this.socket.emit('neural-audio', payload);
+                        this.socket.broadcast.to(this.roomName).emit('neural-audio', payload);
+                    } else {
+                        console.error(`[Azure TTS] Error en síntesis parcial: ${result.errorDetails}`);
+                    }
+                    synthesizer.close(); 
+                },
+                error => {
+                    console.error(`[Azure TTS] Fallo crítico al sintetizar ${lang}: ${error}`);
+                    synthesizer.close();
                 }
-                synthesizer.close(); 
-            },
-            error => {
-                console.error(`[Azure TTS] Fallo al sintetizar ${lang}: ${error}`);
-                synthesizer.close();
-            }
-        );
+            );
+        } catch(e) {
+            console.error(`[Azure] Error global de síntesis en idioma ${lang}:`, e);
+        }
     }
 
     start() {
-        console.log("[Azure] Iniciando motor de traducción con cadencia natural...");
-        if(this.recognizer) this.recognizer.startContinuousRecognitionAsync();
+        console.log("[Azure] Iniciando motor de traducción...");
+        if(this.recognizer) {
+            try {
+                this.recognizer.startContinuousRecognitionAsync();
+            } catch(e) {
+                console.error("[Azure] Fallo al iniciar el reconocedor:", e);
+            }
+        }
     }
 
     stop() {
-        console.log("[Azure] Deteniendo motor de traducción...");
-        if(this.recognizer) this.recognizer.stopContinuousRecognitionAsync();
-        if(this.pushStream) this.pushStream.close();
+        console.log("[Azure] Deteniendo motor y liberando memoria RAM...");
+        try {
+            if (this.recognizer) {
+                this.recognizer.stopContinuousRecognitionAsync(
+                    () => {
+                        this.recognizer.close();
+                        this.recognizer = null;
+                    },
+                    (err) => {
+                        console.error("[Azure] Error al detener reconocedor:", err);
+                        this.recognizer = null;
+                    }
+                );
+            }
+            if (this.pushStream) {
+                this.pushStream.close();
+                this.pushStream = null;
+            }
+        } catch (e) {
+            console.error("[Azure] Excepción al liberar recursos:", e);
+        }
     }
 
     writeAudio(data) {
-        if(this.pushStream) this.pushStream.write(data);
+        try {
+            if (this.pushStream) this.pushStream.write(data);
+        } catch (e) {
+            // Ignoramos silenciosamente errores de escritura si el stream ya fue cerrado por latencia
+        }
     }
 }
 

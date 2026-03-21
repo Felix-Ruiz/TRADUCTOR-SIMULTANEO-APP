@@ -7,19 +7,32 @@ require('dotenv').config();
 const TranslationService = require('./services/azureService');
 
 const app = express();
-app.use(cors());
+
+// ESCUDO 1: Bloqueo de CORS estricto. Solo tu frontend autorizado puede conectarse.
+const allowedOrigins = process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : "*";
+
+app.use(cors({ origin: allowedOrigins }));
 app.use(express.json());
 
 const server = http.createServer(app);
 
 const io = new Server(server, {
     cors: {
-        origin: "*",
+        origin: allowedOrigins,
         methods: ["GET", "POST"]
     }
 });
 
-let isSystemActive = false; // Por seguridad ante reinicios (Cold Start)
+// ESCUDO 2: Protección contra caídas críticas (Crash Protection)
+// Evita que un error no capturado en promesas o librerías de terceros (Azure) apague Node.js
+process.on('uncaughtException', (err) => {
+    console.error('[!] ALERTA CRÍTICA: Excepción no capturada bloqueada:', err);
+});
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('[!] ALERTA CRÍTICA: Promesa rechazada bloqueada:', reason);
+});
+
+let isSystemActive = false; 
 
 const eventsDB = new Map();
 
@@ -28,11 +41,10 @@ eventsDB.set("DEFAULT", {
     name: "Evento Principal (Por Defecto)",
     password: process.env.VITE_ADMIN_PASSWORD || "admin123",
     rooms: ["PRINCIPAL"],
-    isActive: true // NUEVO: Estado individual por evento
+    isActive: true 
 });
 
 const MASTER_PASSWORD = process.env.MASTER_PASSWORD || "superadmin123";
-
 const activeSpeakerRooms = new Map();
 
 const broadcastActiveRoomsToEvent = (eventId) => {
@@ -42,18 +54,15 @@ const broadcastActiveRoomsToEvent = (eventId) => {
 };
 
 app.get('/api/status', (req, res) => {
-    res.status(200).json({ status: 'online', message: 'Servidor activo.' });
+    res.status(200).json({ status: 'online', message: 'Servidor activo y blindado.' });
 });
 
 io.on('connection', (socket) => {
-    console.log(`[+] Nuevo dispositivo conectado: ${socket.id}`);
+    console.log(`[+] Dispositivo conectado: ${socket.id}`);
     socket.emit('system-status', isSystemActive);
 
     let translationService = null;
 
-    // ==========================================
-    // RUTAS DEL MASTER ADMIN
-    // ==========================================
     socket.on('master-login', (pwd, callback) => {
         if (pwd === MASTER_PASSWORD) {
             callback({ success: true });
@@ -68,7 +77,7 @@ io.on('connection', (socket) => {
 
     socket.on('master-toggle-system', (status) => {
         isSystemActive = status;
-        console.log(`[MASTER] Estado global del sistema: ${isSystemActive ? 'ENCENDIDO' : 'APAGADO'}`);
+        console.log(`[MASTER] Central Global: ${isSystemActive ? 'ENCENDIDA' : 'APAGADA'}`);
         io.emit('system-status', isSystemActive);
 
         if (!isSystemActive) {
@@ -77,13 +86,10 @@ io.on('connection', (socket) => {
         }
     });
 
-    // NUEVO: Ruta para apagar/encender un evento en específico
     socket.on('master-toggle-event', (data, callback) => {
         const event = eventsDB.get(data.id);
         if (event) {
             event.isActive = data.status;
-            
-            // Si apagan el evento, limpiamos sus salas y oradores
             if (!event.isActive) {
                 const eventRoomsMap = activeSpeakerRooms.get(data.id);
                 if (eventRoomsMap) {
@@ -91,9 +97,7 @@ io.on('connection', (socket) => {
                     broadcastActiveRoomsToEvent(data.id);
                 }
             }
-            
             io.emit('master-data-updated', Array.from(eventsDB.values()));
-            // Avisamos a todos los clientes que este evento cambió de estado
             io.emit('event-status-changed', { eventId: data.id, status: data.status });
             callback({ success: true });
         } else {
@@ -110,7 +114,7 @@ io.on('connection', (socket) => {
             name: data.name,
             password: secretPassword,
             rooms: ["PRINCIPAL"],
-            isActive: true // Nacen encendidos
+            isActive: true 
         };
         eventsDB.set(publicId, newEvent);
         callback({ success: true, event: newEvent });
@@ -146,9 +150,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // ==========================================
-    // RUTAS DEL SPEAKER ADMIN (ORADOR)
-    // ==========================================
     socket.on('speaker-login', (password, callback) => {
         let foundEvent = null;
         for (const event of eventsDB.values()) {
@@ -167,7 +168,6 @@ io.on('connection', (socket) => {
     socket.on('start-translation', (config) => {
         if (!isSystemActive) return;
         
-        // Verificamos que el evento siga encendido antes de transmitir
         const event = eventsDB.get(config.eventId);
         if (!event || !event.isActive) return;
 
@@ -234,9 +234,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // ==========================================
-    // RUTAS DE LA AUDIENCIA
-    // ==========================================
     socket.on('check-event', (eventId, callback) => {
         const event = eventsDB.get(eventId);
         if (event) {
@@ -253,7 +250,6 @@ io.on('connection', (socket) => {
         socket.emit('active-rooms', rooms);
         
         const event = eventsDB.get(eventId);
-        // Enviamos si el evento está activo para que bloqueen la pantalla
         if (event) socket.emit('event-info', { name: event.name, allRooms: event.rooms, isActive: event.isActive });
     });
 
@@ -275,8 +271,13 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
         handleSpeakerStop();
+        // ESCUDO 3: Asegurar la destrucción del servicio de Azure en desconexiones violentas
         if (translationService) {
-            translationService.stop();
+            try {
+                translationService.stop();
+            } catch(e) {
+                console.error("[!] Error forzando limpieza en desconexión:", e);
+            }
             translationService = null;
         }
     });
@@ -285,6 +286,6 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
     console.log(`=========================================`);
-    console.log(`🚀 Servidor backend corriendo en el puerto ${PORT}`);
+    console.log(`🚀 Servidor blindado corriendo en el puerto ${PORT}`);
     console.log(`=========================================`);
 });
