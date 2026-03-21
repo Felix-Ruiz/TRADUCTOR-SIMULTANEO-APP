@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
-import { Shield, Power, Plus, Trash2, Key, Activity, Copy, CheckCircle2, X, Users, AlertCircle } from 'lucide-react';
+import { Shield, Power, Plus, Trash2, Key, Activity, Copy, CheckCircle2, X, Users, AlertCircle, BarChart3, Image as ImageIcon, Briefcase } from 'lucide-react';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001', { autoConnect: false });
 
@@ -14,14 +14,17 @@ const MasterView = () => {
   const [events, setEvents] = useState([]);
   
   const [newEventName, setNewEventName] = useState('');
+  const [newLogoUrl, setNewLogoUrl] = useState('');
+  const [newSponsorText, setNewSponsorText] = useState('');
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
+
   const [newRoomName, setNewRoomName] = useState('');
   const [selectedEventId, setSelectedEventId] = useState(null);
   const [copiedText, setCopiedText] = useState(null);
 
-  // NUEVO: Estado global para el Cuadro de Diálogo Customizado
   const [dialogConfig, setDialogConfig] = useState({ isOpen: false, title: '', message: '', type: 'confirm', onConfirm: null, confirmStyle: '' });
 
-  const openDialog = (title, message, type, onConfirm = null, confirmStyle = 'bg-primary hover:bg-blue-600 shadow-blue-500/25') => {
+  const openDialog = (title, message, type = 'confirm', onConfirm = null, confirmStyle = 'bg-primary hover:bg-blue-600 shadow-blue-500/25') => {
     setDialogConfig({ isOpen: true, title, message, type, onConfirm, confirmStyle });
   };
   const closeDialog = () => setDialogConfig(prev => ({ ...prev, isOpen: false }));
@@ -94,8 +97,17 @@ const MasterView = () => {
   const handleCreateEvent = (e) => {
     e.preventDefault();
     if (!newEventName.trim()) return;
-    socket.emit('master-create-event', { name: newEventName }, (response) => {
-      if (response.success) setNewEventName('');
+    socket.emit('master-create-event', { 
+        name: newEventName,
+        logoUrl: newLogoUrl,
+        sponsorText: newSponsorText
+    }, (response) => {
+      if (response.success) {
+          setNewEventName('');
+          setNewLogoUrl('');
+          setNewSponsorText('');
+          setIsAdvancedOpen(false);
+      }
     });
   };
 
@@ -186,7 +198,6 @@ const MasterView = () => {
   return (
     <div className="flex flex-col h-screen w-full p-8 max-w-6xl mx-auto overflow-hidden bg-darker relative">
       
-      {/* CUADRO DE DIÁLOGO (MODAL) */}
       {dialogConfig.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity">
           <div className="bg-darker border border-gray-700 p-6 rounded-3xl shadow-[0_0_40px_rgba(0,0,0,0.5)] max-w-sm w-full flex flex-col gap-2 transform transition-all scale-100">
@@ -219,7 +230,7 @@ const MasterView = () => {
           </div>
           <div className="flex flex-col">
             <h1 className="text-2xl font-bold tracking-tight text-white uppercase">Panel Master</h1>
-            <span className="text-xs text-gray-500 font-bold tracking-widest">Control Central de Plataforma</span>
+            <span className="text-xs text-gray-500 font-bold tracking-widest">SaaS & Analytics Dashboard</span>
           </div>
         </div>
         <button 
@@ -236,28 +247,51 @@ const MasterView = () => {
       </header>
 
       <main className="flex-1 overflow-y-auto pr-2 flex flex-col gap-8">
+        
+        {/* PANEL DE CREACIÓN SAAS MARCA BLANCA */}
         <div className={`bg-dark border p-6 rounded-2xl shadow-lg shrink-0 transition-all ${!isSystemActive ? 'border-gray-800 opacity-50 grayscale' : 'border-gray-800'}`}>
-          <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-            <Activity className="w-5 h-5 text-primary" />
-            Generar Nuevo Evento
-          </h2>
-          <form onSubmit={handleCreateEvent} className="flex flex-col sm:flex-row gap-4">
-            <input 
-              type="text"
-              value={newEventName}
-              onChange={(e) => setNewEventName(e.target.value)}
-              placeholder="Nombre del Evento (Ej: Congreso ACOFI 2026)"
-              disabled={!isSystemActive}
-              className="flex-1 bg-darker border border-gray-700 text-white text-base rounded-xl p-4 focus:ring-2 focus:ring-primary focus:outline-none transition-all disabled:cursor-not-allowed"
-            />
-            <button 
-              type="submit"
-              disabled={!newEventName.trim() || !isSystemActive}
-              className="bg-primary hover:bg-blue-600 text-white px-8 py-4 rounded-xl font-bold transition-all shadow-lg hover:shadow-blue-500/25 disabled:opacity-50 flex items-center justify-center gap-2 disabled:cursor-not-allowed"
-            >
-              <Plus className="w-5 h-5" />
-              Crear Instancia
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <Activity className="w-5 h-5 text-primary" />
+              Desplegar Nueva Instancia
+            </h2>
+            <button onClick={() => setIsAdvancedOpen(!isAdvancedOpen)} disabled={!isSystemActive} className="text-xs font-bold text-primary hover:text-blue-400 tracking-wider uppercase disabled:opacity-50">
+                {isAdvancedOpen ? '- Ocultar Opciones SaaS' : '+ Opciones SaaS (Marca Blanca)'}
             </button>
+          </div>
+          
+          <form onSubmit={handleCreateEvent} className="flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row gap-4">
+                <input 
+                type="text"
+                value={newEventName}
+                onChange={(e) => setNewEventName(e.target.value)}
+                placeholder="Nombre del Evento (Ej: Congreso ACOFI 2026)"
+                disabled={!isSystemActive}
+                className="flex-1 bg-darker border border-gray-700 text-white text-base rounded-xl p-4 focus:ring-2 focus:ring-primary focus:outline-none transition-all disabled:cursor-not-allowed"
+                />
+                <button 
+                type="submit"
+                disabled={!newEventName.trim() || !isSystemActive}
+                className="bg-primary hover:bg-blue-600 text-white px-8 py-4 rounded-xl font-bold transition-all shadow-lg hover:shadow-blue-500/25 disabled:opacity-50 flex items-center justify-center gap-2 disabled:cursor-not-allowed"
+                >
+                <Plus className="w-5 h-5" />
+                Crear Instancia
+                </button>
+            </div>
+
+            {isAdvancedOpen && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2 p-4 bg-black/30 rounded-xl border border-gray-800">
+                    <div>
+                        <label className="flex items-center gap-2 text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider"><ImageIcon className="w-3 h-3"/> URL Logo Personalizado</label>
+                        <input type="text" value={newLogoUrl} onChange={(e) => setNewLogoUrl(e.target.value)} placeholder="https://ejemplo.com/logo-empresa.png" disabled={!isSystemActive} className="w-full bg-darker border border-gray-700 text-gray-300 text-sm rounded-lg p-3 focus:ring-1 focus:ring-primary focus:outline-none transition-all" />
+                    </div>
+                    <div>
+                        <label className="flex items-center gap-2 text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider"><Briefcase className="w-3 h-3"/> Texto de Patrocinador</label>
+                        <input type="text" value={newSponsorText} onChange={(e) => setNewSponsorText(e.target.value)} placeholder="Patrocinado por Microsoft Azure" disabled={!isSystemActive} className="w-full bg-darker border border-gray-700 text-gray-300 text-sm rounded-lg p-3 focus:ring-1 focus:ring-primary focus:outline-none transition-all" />
+                    </div>
+                </div>
+            )}
           </form>
         </div>
 
@@ -296,7 +330,7 @@ const MasterView = () => {
                     <button 
                         onClick={() => handleDeleteEvent(event.id)}
                         className="p-2 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-lg transition-colors"
-                        title="Eliminar Evento Definitivamente"
+                        title="Eliminar Instancia Definitivamente"
                     >
                         <Trash2 className="w-4 h-4" />
                     </button>
@@ -304,6 +338,34 @@ const MasterView = () => {
               </div>
 
               <div className="p-5 flex-1 flex flex-col gap-5">
+                
+                {/* WIDGET ANALÍTICO EN TIEMPO REAL */}
+                <div className="bg-gradient-to-br from-gray-900 to-black p-4 rounded-xl border border-gray-800 flex flex-col sm:flex-row gap-4 items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="bg-primary/10 p-2.5 rounded-lg border border-primary/20">
+                            <BarChart3 className="w-6 h-6 text-primary" />
+                        </div>
+                        <div>
+                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block">Audiencia Activa</span>
+                            <span className="text-2xl font-bold text-white leading-none">{event.stats?.total || 0} <span className="text-sm font-medium text-gray-500">oyentes</span></span>
+                        </div>
+                    </div>
+                    
+                    <div className="flex gap-2 flex-wrap justify-end">
+                        {['en', 'pt', 'es', 'de', 'fr'].map(lang => {
+                            if (event.stats && event.stats.langs[lang] > 0) {
+                                return (
+                                    <div key={lang} className="bg-gray-800/50 border border-gray-700 px-2.5 py-1 rounded-md flex items-center gap-1.5">
+                                        <span className="text-[10px] font-bold text-gray-400 uppercase">{lang}</span>
+                                        <span className="text-xs font-bold text-white">{event.stats.langs[lang]}</span>
+                                    </div>
+                                )
+                            }
+                            return null;
+                        })}
+                    </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                     <div className="bg-darker p-4 rounded-xl border border-gray-700/50">
                         <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-1"><Users className="w-3 h-3"/> CÓDIGO AUDIENCIA</span>
@@ -375,7 +437,7 @@ const MasterView = () => {
           {events.length === 0 && (
             <div className="col-span-full py-12 flex flex-col items-center justify-center text-gray-500 border-2 border-dashed border-gray-800 rounded-2xl">
               <Shield className="w-12 h-12 mb-4 opacity-20" />
-              <p className="text-lg font-medium">No hay eventos activos en la plataforma.</p>
+              <p className="text-lg font-medium">No hay instancias activas en el servidor.</p>
             </div>
           )}
         </div>
