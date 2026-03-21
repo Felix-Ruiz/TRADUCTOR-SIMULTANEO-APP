@@ -22,7 +22,13 @@ const AudienceView = () => {
   const [roomName, setRoomName] = useState(urlRoom || '');
   const [availableRooms, setAvailableRooms] = useState([]);
   const [language, setLanguage] = useState(urlLang || 'es'); 
-  const [translation, setTranslation] = useState('');
+  
+  // ==========================================
+  // NUEVO SISTEMA DE SUBTÍTULOS (TELEPROMPTER)
+  // ==========================================
+  const [finalTexts, setFinalTexts] = useState([]); // Array para almacenar líneas terminadas
+  const [partialText, setPartialText] = useState(''); // String para la línea que se está formando
+  
   const [isConnected, setIsConnected] = useState(false);
   const [userMode, setUserMode] = useState(null);
 
@@ -31,7 +37,6 @@ const AudienceView = () => {
   
   const [isVerifying, setIsVerifying] = useState(!!initialEventId);
 
-  // Estado global para el Cuadro de Diálogo Customizado
   const [dialogConfig, setDialogConfig] = useState({ isOpen: false, title: '', message: '', type: 'confirm', onConfirm: null, confirmStyle: '' });
 
   const openDialog = (title, message, type = 'confirm', onConfirm = null, confirmStyle = 'bg-red-600 hover:bg-red-700 shadow-red-500/25') => {
@@ -42,8 +47,17 @@ const AudienceView = () => {
   const audioPlayerRef = useRef(null);
   const audioQueue = useRef([]);
   const isPlaying = useRef(false);
+  const messagesEndRef = useRef(null);
 
   const wakeLockRef = useRef(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [finalTexts, partialText]);
 
   const requestWakeLock = async () => {
     try {
@@ -137,7 +151,8 @@ const AudienceView = () => {
         setRoomName('');
         setEventInput('');
         setUserMode(null);
-        setTranslation('');
+        setFinalTexts([]);
+        setPartialText('');
         audioQueue.current = [];
         isPlaying.current = false;
         if (audioPlayerRef.current) {
@@ -157,7 +172,8 @@ const AudienceView = () => {
       }
       audioQueue.current = [];
       isPlaying.current = false;
-      setTranslation('');
+      setFinalTexts([]);
+      setPartialText('');
       releaseWakeLock();
   };
 
@@ -195,16 +211,34 @@ const AudienceView = () => {
 
     socket.on('active-rooms', (rooms) => {});
     
+    // ==========================================
+    // LÓGICA DE STACK DE SUBTÍTULOS
+    // ==========================================
     socket.on('translation-result', (data) => {
       if (!isSystemActive || !isEventActive) return; 
+      
       if (isTvMode || userMode === 'text') {
         let currentText = '';
         if (data.translations && data.translations[language]) {
           currentText = data.translations[language];
-          setTranslation(currentText);
         } else if (data.original) {
           currentText = data.original;
-          setTranslation(currentText);
+        }
+
+        if (data.type === 'partial') {
+          // Mientras habla, actualiza solo la línea inferior
+          setPartialText(currentText);
+        } else if (data.type === 'final') {
+          // Cuando termina la frase, la estampa arriba y limpia la línea inferior
+          if (currentText.trim() !== '') {
+            setFinalTexts(prev => {
+              const newTexts = [...prev, currentText];
+              // Limita el historial a las últimas 4 líneas (o 5 para TV) para que empuje hacia arriba
+              const limit = isTvMode ? 5 : 4; 
+              return newTexts.slice(-limit);
+            });
+          }
+          setPartialText('');
         }
       }
     });
@@ -236,7 +270,8 @@ const AudienceView = () => {
   useEffect(() => {
     if (isConnected && urlEvent && roomName && isSystemActive && isEventActive) {
       socket.emit('join-isolated-room', { eventId: urlEvent, roomName: roomName });
-      setTranslation(''); 
+      setFinalTexts([]); 
+      setPartialText('');
       audioQueue.current = [];
     }
   }, [roomName, isConnected, isSystemActive, isEventActive, urlEvent]);
@@ -375,11 +410,11 @@ const AudienceView = () => {
   }
 
   // ==================================================
-  // VISTA MODO PROYECTOR (TV) - EFECTO FANTASMA APLICADO
+  // VISTA MODO PROYECTOR (TV)
   // ==================================================
   if (isTvMode) {
     return (
-      <div className="flex flex-col justify-end h-screen w-full bg-black p-8 md:p-16 lg:pb-24 overflow-hidden relative">
+      <div className="flex flex-col h-screen w-full bg-black p-8 md:p-16 lg:pb-16 overflow-hidden relative">
         
         {dialogConfig.isOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity">
@@ -406,16 +441,11 @@ const AudienceView = () => {
           </div>
         )}
 
-        {/* PANEL DE CONTROL TRANSPARENTE CON HOVER (Efecto Fantasma) */}
         <div className="absolute top-6 right-8 z-10 flex items-center gap-4 bg-dark/80 p-3 rounded-2xl backdrop-blur-md border border-gray-800 shadow-xl transition-all duration-500 opacity-10 hover:opacity-100 hover:bg-dark">
-          
           <div className="relative">
             <select 
               value={roomName}
-              onChange={(e) => {
-                setRoomName(e.target.value);
-                setTranslation('');
-              }}
+              onChange={(e) => setRoomName(e.target.value)}
               className="bg-black/50 border border-gray-700 text-gray-300 text-xs font-bold uppercase tracking-wider rounded-lg px-3 py-2 focus:ring-1 focus:ring-primary focus:outline-none appearance-none cursor-pointer"
             >
               {availableRooms.map((room) => (
@@ -434,7 +464,8 @@ const AudienceView = () => {
               value={language} 
               onChange={(e) => {
                 setLanguage(e.target.value);
-                setTranslation('');
+                setFinalTexts([]);
+                setPartialText('');
               }}
               className="bg-black/50 border border-gray-700 text-gray-300 text-xs font-bold uppercase tracking-wider rounded-lg px-3 py-2 focus:ring-1 focus:ring-primary focus:outline-none appearance-none cursor-pointer"
             >
@@ -460,10 +491,17 @@ const AudienceView = () => {
           </button>
         </div>
 
-        <div className="w-full max-w-6xl mx-auto">
-          <p className="text-4xl md:text-5xl lg:text-6xl font-medium text-white text-left leading-normal tracking-wide drop-shadow-2xl">
-            {translation || "..."}
+        {/* CONTENEDOR DE SUBTÍTULOS ESTILO TELEPROMPTER (TV) */}
+        <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col justify-end gap-6 overflow-hidden">
+          {finalTexts.map((text, idx) => (
+            <p key={idx} className="text-4xl md:text-5xl lg:text-6xl font-medium text-white/50 text-left leading-normal tracking-wide drop-shadow-2xl transition-all duration-300">
+              {text}
+            </p>
+          ))}
+          <p className="text-4xl md:text-5xl lg:text-6xl font-medium text-white text-left leading-normal tracking-wide drop-shadow-2xl min-h-[5rem] transition-all duration-200">
+            {partialText || (finalTexts.length === 0 ? "..." : "")}
           </p>
+          <div ref={messagesEndRef} />
         </div>
         
         <div className={`fixed bottom-4 right-4 w-2 h-2 rounded-full opacity-30 ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
@@ -612,7 +650,8 @@ const AudienceView = () => {
             value={language} 
             onChange={(e) => {
               setLanguage(e.target.value);
-              setTranslation('');
+              setFinalTexts([]);
+              setPartialText('');
               audioQueue.current = []; 
             }}
             className="w-full bg-dark border border-gray-700 text-white text-lg rounded-xl p-4 focus:ring-2 focus:ring-accent focus:outline-none appearance-none cursor-pointer"
@@ -633,9 +672,20 @@ const AudienceView = () => {
 
       <main className="flex-1 flex flex-col justify-end pb-6 overflow-hidden">
         {userMode === 'text' ? (
-          <p className="text-2xl md:text-3xl font-normal leading-relaxed text-white min-h-[5rem] text-left tracking-wide">
-            {translation || "Esperando al orador..."}
-          </p>
+          
+          /* CONTENEDOR DE SUBTÍTULOS ESTILO TELEPROMPTER (CELULAR) */
+          <div className="flex flex-col gap-4 justify-end h-full w-full overflow-hidden">
+            {finalTexts.map((text, idx) => (
+              <p key={idx} className="text-2xl md:text-3xl font-normal leading-relaxed text-white/50 text-left tracking-wide transition-all duration-300">
+                {text}
+              </p>
+            ))}
+            <p className="text-2xl md:text-3xl font-medium leading-relaxed text-white min-h-[3rem] text-left tracking-wide transition-all duration-200">
+              {partialText || (finalTexts.length === 0 ? "Esperando al orador..." : "")}
+            </p>
+            <div ref={messagesEndRef} />
+          </div>
+
         ) : (
           <div className="flex flex-col items-center justify-center h-full mb-4 opacity-70">
             <div className="relative flex items-center justify-center w-32 h-32 mb-6">
