@@ -74,7 +74,8 @@ const EventAdminView = () => {
         setLoginError('');
         setIsFetchingData(false);
       } else {
-        setLoginError('Clave de administrador de evento incorrecta.');
+        // FIX: Leer el mensaje dinámico del servidor (bloqueo antibots)
+        setLoginError(response.message || 'Clave de administrador de evento incorrecta.');
         setPasswordInput('');
         setIsFetchingData(false);
         socket.disconnect();

@@ -75,6 +75,7 @@ const SpeakerView = () => {
         sessionStorage.setItem('speakerPwd', pwd);
         setLoginError('');
       } else {
+        // FIX: Leer el mensaje dinámico del servidor (bloqueo antibots)
         setLoginError(response.message || 'Contraseña de sala incorrecta.');
         setPasswordInput('');
         sessionStorage.removeItem('speakerPwd');

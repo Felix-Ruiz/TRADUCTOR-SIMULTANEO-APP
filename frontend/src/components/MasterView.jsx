@@ -52,7 +52,8 @@ const MasterView = () => {
         sessionStorage.setItem('isMasterAuth', 'true');
         setLoginError('');
       } else {
-        setLoginError('Credenciales maestras incorrectas.');
+        // FIX: Leer el mensaje dinámico del servidor (bloqueo antibots)
+        setLoginError(response.message || 'Credenciales maestras incorrectas.');
         setPasswordInput('');
         setIsFetchingData(false);
         socket.disconnect();

@@ -143,7 +143,8 @@ const AudienceView = () => {
         });
         setHasJoinedEvent(true); 
       } else {
-        setEventError('Código de sala inválido o evento finalizado.');
+        // FIX: Mostrar el mensaje de bloqueo de seguridad real si existe
+        setEventError(response.message || 'Código de sala inválido o evento finalizado.');
         if (code === audienceCode) {
             setAudienceCode(''); 
         }
