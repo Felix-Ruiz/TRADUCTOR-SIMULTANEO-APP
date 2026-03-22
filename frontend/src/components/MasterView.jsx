@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
-import { Shield, Power, Plus, Trash2, Key, Activity, Copy, CheckCircle2, X, Users, AlertCircle, BarChart3, Image as ImageIcon, Briefcase, UserCog } from 'lucide-react';
+import { Shield, Power, Plus, Trash2, Key, Activity, Copy, CheckCircle2, X, Users, AlertCircle, BarChart3, Image as ImageIcon, Briefcase, UserCog, ExternalLink, MonitorPlay } from 'lucide-react';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001', { autoConnect: false });
 
@@ -367,15 +367,22 @@ const MasterView = () => {
                     </div>
                 </div>
 
-                <div className="bg-purple-500/5 p-4 rounded-xl border border-purple-500/20">
-                    <span className="text-[10px] font-bold text-purple-500 uppercase tracking-widest mb-2 flex items-center gap-1"><UserCog className="w-3 h-3"/> CLAVE ADMIN CLIENTE</span>
-                    <div className="flex items-center justify-between gap-2">
-                        <span className="text-purple-500 font-mono text-base font-bold tracking-widest">{event.adminPassword}</span>
-                        <button onClick={() => copyToClipboard(event.adminPassword)} className="text-purple-500 hover:text-white">
-                        {copiedText === event.adminPassword ? <CheckCircle2 className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                        </button>
+                <div className="bg-purple-500/5 p-4 rounded-xl border border-purple-500/20 flex flex-col sm:flex-row justify-between items-center gap-4">
+                    <div>
+                        <span className="text-[10px] font-bold text-purple-500 uppercase tracking-widest mb-1 flex items-center gap-1"><UserCog className="w-3 h-3"/> CLAVE ADMIN CLIENTE</span>
+                        <div className="flex items-center gap-2">
+                            <span className="text-purple-500 font-mono text-base font-bold tracking-widest">{event.adminPassword}</span>
+                            <button onClick={() => copyToClipboard(event.adminPassword)} className="text-purple-500 hover:text-white transition-colors">
+                            {copiedText === event.adminPassword ? <CheckCircle2 className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                            </button>
+                        </div>
                     </div>
-                    <p className="text-[10px] text-gray-500 mt-1 uppercase">Entregar esta clave al cliente para que cree y gestione sus salas.</p>
+                    <button 
+                        onClick={() => copyToClipboard(`${window.location.origin}/event-admin`)}
+                        className="w-full sm:w-auto bg-purple-500/10 hover:bg-purple-500 border border-purple-500/30 hover:border-purple-500 text-purple-500 hover:text-white px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-2"
+                    >
+                        <ExternalLink className="w-3 h-3" /> Link Panel Cliente
+                    </button>
                 </div>
 
                 <div>
@@ -409,7 +416,7 @@ const MasterView = () => {
                         <div key={roomObj.name} className="flex flex-col bg-darker p-3 rounded-lg border border-gray-700 relative group transition-all">
                             <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-2 pr-6 truncate">{roomObj.name}</h3>
                             
-                            <div className="grid grid-cols-2 gap-2 mb-2">
+                            <div className="grid grid-cols-2 gap-2 mb-3">
                                 <div className="bg-primary/10 border border-primary/20 rounded p-1.5 flex flex-col justify-center">
                                     <span className="text-[9px] text-primary font-bold uppercase tracking-widest mb-1">Clave Orador</span>
                                     <div className="flex items-center justify-between">
@@ -430,10 +437,32 @@ const MasterView = () => {
                                 </div>
                             </div>
 
-                            <span className="bg-green-500/10 border border-green-500/20 text-green-400 px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1.5 w-max">
-                                <Users className="w-3 h-3" />
-                                {safeStats.roomCounts?.[roomObj.name] || 0}
-                            </span>
+                            {/* NUEVO: Enlaces directos a la sala (Audiencia y TV) */}
+                            <div className="flex flex-wrap items-center gap-1.5 mb-3">
+                                <button 
+                                    onClick={() => copyToClipboard(`${window.location.origin}/?code=${roomObj.audienceCode}`)} 
+                                    className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white border border-gray-700 px-1 py-1.5 rounded text-[9px] font-bold uppercase tracking-wider transition-colors flex justify-center items-center gap-1"
+                                >
+                                    {copiedText === `${window.location.origin}/?code=${roomObj.audienceCode}` ? <CheckCircle2 className="w-3 h-3 text-green-500" /> : <ExternalLink className="w-3 h-3" />} 
+                                    Link Audiencia
+                                </button>
+                                <button 
+                                    onClick={() => window.open(`${window.location.origin}/?code=${roomObj.audienceCode}&tv=true&lang=es`, '_blank')} 
+                                    className="flex-1 bg-gray-800 hover:bg-primary/20 text-gray-300 hover:text-primary border border-gray-700 hover:border-primary/50 px-1 py-1.5 rounded text-[9px] font-bold uppercase tracking-wider transition-colors flex justify-center items-center gap-1"
+                                >
+                                    <MonitorPlay className="w-3 h-3" /> 
+                                    TV (ES)
+                                </button>
+                            </div>
+
+                            <div className="flex items-center justify-between mt-auto pt-1 border-t border-gray-800/50">
+                                {/* MEJORA: Contador de usuarios más explícito */}
+                                <span className="bg-green-500/10 border border-green-500/20 text-green-400 px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1.5 w-max">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
+                                    <Users className="w-3 h-3" />
+                                    {safeStats.roomCounts?.[roomObj.name] || 0} en línea
+                                </span>
+                            </div>
 
                             {isSystemActive && event.isActive && (
                                 <button 

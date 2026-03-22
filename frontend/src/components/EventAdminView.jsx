@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
-import { Power, Plus, Trash2, Key, Copy, CheckCircle2, X, Users, AlertCircle, BarChart3, UserCog, LogOut, Activity } from 'lucide-react';
+import { Power, Plus, Trash2, Key, Copy, CheckCircle2, X, Users, AlertCircle, BarChart3, UserCog, LogOut, Activity, ExternalLink, MonitorPlay } from 'lucide-react';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001', { autoConnect: false });
 
@@ -139,7 +139,7 @@ const EventAdminView = () => {
     );
   };
 
-  const copyToClipboard = (text) => {
+  const copyToClipboard = (text, type = 'text') => {
     navigator.clipboard.writeText(text);
     setCopiedText(text);
     setTimeout(() => setCopiedText(null), 2000);
@@ -328,7 +328,7 @@ const EventAdminView = () => {
                 <div key={roomObj.name} className="flex flex-col bg-darker p-5 rounded-xl border border-gray-700 relative group transition-all hover:border-gray-500 shadow-md">
                     <h3 className="text-base font-bold text-white uppercase tracking-wider mb-4 pr-8 truncate" title={roomObj.name}>{roomObj.name}</h3>
                     
-                    <div className="grid grid-cols-2 gap-3 mb-5">
+                    <div className="grid grid-cols-2 gap-3 mb-4">
                         <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 flex flex-col justify-center shadow-inner">
                             <span className="text-[10px] text-primary font-bold uppercase tracking-widest flex items-center gap-1 mb-1.5"><Key className="w-3 h-3"/> Clave Orador</span>
                             <div className="flex items-center justify-between">
@@ -350,11 +350,30 @@ const EventAdminView = () => {
                         </div>
                     </div>
 
-                    <div className="flex items-center justify-between mt-auto">
+                    {/* NUEVO: Enlaces directos a la sala (Audiencia y TV) */}
+                    <div className="flex flex-wrap items-center gap-2 mb-4">
+                        <button 
+                            onClick={() => copyToClipboard(`${window.location.origin}/?code=${roomObj.audienceCode}`)} 
+                            className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white border border-gray-700 px-2 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors flex justify-center items-center gap-1.5"
+                        >
+                            {copiedText === `${window.location.origin}/?code=${roomObj.audienceCode}` ? <CheckCircle2 className="w-3 h-3 text-green-500" /> : <ExternalLink className="w-3 h-3" />} 
+                            Link Audiencia
+                        </button>
+                        <button 
+                            onClick={() => window.open(`${window.location.origin}/?code=${roomObj.audienceCode}&tv=true&lang=es`, '_blank')} 
+                            className="flex-1 bg-gray-800 hover:bg-primary/20 text-gray-300 hover:text-primary border border-gray-700 hover:border-primary/50 px-2 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors flex justify-center items-center gap-1.5"
+                        >
+                            <MonitorPlay className="w-3 h-3" /> 
+                            Proyectar TV (ES)
+                        </button>
+                    </div>
+
+                    <div className="flex items-center justify-between mt-auto pt-2 border-t border-gray-800/50">
+                        {/* MEJORA: Contador de usuarios más explícito */}
                         <span className="bg-green-500/10 border border-green-500/20 text-green-400 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 w-max">
-                            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
-                            <Users className="w-3.5 h-3.5" />
-                            {safeStats.roomCounts?.[roomObj.name] || 0} conectados
+                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                            <Users className="w-4 h-4" />
+                            {safeStats.roomCounts?.[roomObj.name] || 0} Usuarios en línea
                         </span>
                     </div>
 
