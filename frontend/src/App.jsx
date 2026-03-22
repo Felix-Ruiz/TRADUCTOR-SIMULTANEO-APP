@@ -2,8 +2,9 @@ import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import SpeakerView from './components/SpeakerView';
 import AudienceView from './components/AudienceView';
-// NUEVO: Importamos el panel de Dios
 import MasterView from './components/MasterView'; 
+// NUEVO: Importamos el panel del Cliente (Administrador de Evento)
+import EventAdminView from './components/EventAdminView';
 
 function App() {
   return (
@@ -12,8 +13,9 @@ function App() {
         <Routes>
           <Route path="/" element={<AudienceView />} />
           <Route path="/admin" element={<SpeakerView />} />
-          {/* NUEVO: Ruta ultrasecreta para ti */}
           <Route path="/master" element={<MasterView />} />
+          {/* NUEVO: Ruta privada para que tu cliente administre su evento */}
+          <Route path="/event-admin" element={<EventAdminView />} />
         </Routes>
       </div>
     </BrowserRouter>
