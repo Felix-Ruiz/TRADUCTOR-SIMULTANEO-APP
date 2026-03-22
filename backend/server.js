@@ -39,6 +39,44 @@ let isSystemActive = false;
 const eventsDB = new Map();
 const statsDB = new Map(); 
 
+// --- ESCUDO ANTI-BOTS (Rate Limiting en Memoria) ---
+const loginAttempts = new Map();
+const MAX_FAILED_ATTEMPTS = 5;
+const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutos
+
+const checkRateLimit = (ip) => {
+    const record = loginAttempts.get(ip);
+    if (!record) return { allowed: true };
+    
+    if (record.lockedUntil && Date.now() < record.lockedUntil) {
+        const remainingMinutes = Math.ceil((record.lockedUntil - Date.now()) / 60000);
+        return { allowed: false, message: `Demasiados intentos fallidos. Por seguridad, intenta de nuevo en ${remainingMinutes} minutos.` };
+    }
+    
+    if (record.lockedUntil && Date.now() >= record.lockedUntil) {
+        loginAttempts.delete(ip); // El castigo terminó
+        return { allowed: true };
+    }
+    
+    return { allowed: true };
+};
+
+const registerFailedAttempt = (ip) => {
+    if (!ip) return;
+    const record = loginAttempts.get(ip) || { attempts: 0, lockedUntil: null };
+    record.attempts += 1;
+    if (record.attempts >= MAX_FAILED_ATTEMPTS) {
+        record.lockedUntil = Date.now() + LOCKOUT_DURATION_MS;
+        console.warn(`[🛡️ SEGURIDAD] IP Bloqueada por fuerza bruta: ${ip}`);
+    }
+    loginAttempts.set(ip, record);
+};
+
+const resetAttempts = (ip) => {
+    if (ip) loginAttempts.delete(ip);
+};
+// ---------------------------------------------------
+
 // --- MONGODB SETUP (Bóveda de Persistencia) ---
 const eventSchema = new mongoose.Schema({
     id: String,
@@ -95,7 +133,7 @@ const connectDB = async () => {
             for (const [l, arr] of Object.entries(parsedAnalytics.uniqueByLang || {})) uniqueByLang[l] = new Set(arr);
 
             statsDB.set(s.eventId, {
-                total: 0, // Se resetea a 0 porque los WebSockets se desconectan al reiniciar
+                total: 0, 
                 langs: { es: 0, en: 0, de: 0, fr: 0, pt: 0 },
                 roomCounts: {},
                 analytics: {
@@ -218,17 +256,25 @@ app.get('/api/status', (req, res) => {
 });
 
 io.on('connection', (socket) => {
-    console.log(`[+] Dispositivo conectado: ${socket.id}`);
+    // Obtenemos la IP real del cliente (incluso si pasa por los balanceadores de Render/Vercel)
+    const clientIp = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address;
+    console.log(`[+] Dispositivo conectado: ${socket.id} (IP: ${clientIp})`);
+    
     socket.emit('system-status', isSystemActive);
 
     let translationService = null;
 
     // --- RUTAS MASTER ---
     socket.on('master-login', (pwd, callback) => {
+        const rateLimit = checkRateLimit(clientIp);
+        if (!rateLimit.allowed) return callback({ success: false, message: rateLimit.message });
+
         if (pwd === MASTER_PASSWORD) {
+            resetAttempts(clientIp);
             callback({ success: true });
         } else {
-            callback({ success: false });
+            registerFailedAttempt(clientIp);
+            callback({ success: false, message: "Contraseña incorrecta." });
         }
     });
 
@@ -332,6 +378,9 @@ io.on('connection', (socket) => {
 
     // --- RUTAS EVENT ADMIN ---
     socket.on('event-admin-login', (pwd, callback) => {
+        const rateLimit = checkRateLimit(clientIp);
+        if (!rateLimit.allowed) return callback({ success: false, message: rateLimit.message });
+
         let foundEvent = null;
         for (const event of eventsDB.values()) {
             if (event.adminPassword === pwd) {
@@ -340,6 +389,7 @@ io.on('connection', (socket) => {
             }
         }
         if (foundEvent) {
+            resetAttempts(clientIp);
             socket.join(`event_admin_${foundEvent.id}`);
             callback({ 
                 success: true, 
@@ -347,6 +397,7 @@ io.on('connection', (socket) => {
                 event: { ...foundEvent, stats: getSerializedStats(foundEvent.id) } 
             });
         } else {
+            registerFailedAttempt(clientIp);
             callback({ success: false, message: "Clave de administrador de evento incorrecta." });
         }
     });
@@ -404,6 +455,9 @@ io.on('connection', (socket) => {
 
     // --- RUTAS SPEAKER ---
     socket.on('speaker-login', (password, callback) => {
+        const rateLimit = checkRateLimit(clientIp);
+        if (!rateLimit.allowed) return callback({ success: false, message: rateLimit.message });
+
         let foundEvent = null;
         let foundRoom = null;
         for (const event of eventsDB.values()) {
@@ -415,6 +469,7 @@ io.on('connection', (socket) => {
             }
         }
         if (foundEvent && foundRoom) {
+            resetAttempts(clientIp);
             const isolatedRoom = `${foundEvent.id}_${foundRoom.name}`;
             socket.join(isolatedRoom);
             
@@ -424,6 +479,7 @@ io.on('connection', (socket) => {
 
             callback({ success: true, event: foundEvent, roomName: foundRoom.name, audienceCode: foundRoom.audienceCode });
         } else {
+            registerFailedAttempt(clientIp);
             callback({ success: false, message: "Clave de sala incorrecta o evento no encontrado." });
         }
     });
@@ -503,9 +559,15 @@ io.on('connection', (socket) => {
 
     // --- RUTAS AUDIENCIA DIRECTA ---
     socket.on('check-audience-code', (code, callback) => {
+        const rateLimit = checkRateLimit(clientIp);
+        if (!rateLimit.allowed) return callback({ success: false, message: rateLimit.message });
+
+        let found = false;
         for (const event of eventsDB.values()) {
             const room = (event.rooms || []).find(r => r.audienceCode === code);
             if (room) {
+                found = true;
+                resetAttempts(clientIp);
                 return callback({ 
                     success: true, 
                     eventId: event.id,
@@ -516,7 +578,11 @@ io.on('connection', (socket) => {
                 });
             }
         }
-        callback({ success: false });
+        
+        if (!found) {
+            registerFailedAttempt(clientIp);
+            callback({ success: false, message: "Código de audiencia inválido." });
+        }
     });
 
     socket.on('join-direct-room-audience', (data) => {
