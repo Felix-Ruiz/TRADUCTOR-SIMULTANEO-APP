@@ -35,3 +35,5 @@ Integración profunda con **Microsoft Azure Cognitive Services**:
 
 3. Si estan hablando dos personas al tiempo o mas, y necesitamos que el sistema identifique y en los subtitulos coloque identificadores de que cada parte de los subtitulos es de personas diferentes hablando ?
 
+4. lentitud de carga pwa
+5. mejorar los logos , iconos 
