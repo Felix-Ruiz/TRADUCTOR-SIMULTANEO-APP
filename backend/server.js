@@ -44,25 +44,8 @@ const initEventStats = (eventId) => {
     }
 };
 
-eventsDB.set("DEFAULT", {
-    id: "DEFAULT",
-    name: "Evento Principal (Por Defecto)",
-    adminPassword: process.env.VITE_EVENT_ADMIN_PASSWORD || "admin-evento-123",
-    rooms: [], // Inicia completamente limpio, sin salas creadas
-    isActive: true,
-    logoUrl: "", 
-    sponsorText: "" 
-});
-initEventStats("DEFAULT");
-
 const MASTER_PASSWORD = process.env.MASTER_PASSWORD || "superadmin123";
 const activeSpeakerRooms = new Map();
-
-const broadcastActiveRoomsToEvent = (eventId) => {
-    const eventRoomsMap = activeSpeakerRooms.get(eventId);
-    const rooms = eventRoomsMap ? Array.from(eventRoomsMap.keys()) : [];
-    io.to(`audience_${eventId}`).emit('active-rooms', rooms);
-};
 
 const emitMasterData = () => {
     const eventsArray = Array.from(eventsDB.values()).map(event => {
@@ -76,16 +59,6 @@ const emitMasterData = () => {
     io.emit('master-data-updated', eventsArray);
 };
 
-const broadcastEventInfoToAudience = (event) => {
-    io.to(`audience_${event.id}`).emit('event-info', { 
-        name: event.name, 
-        allRooms: event.rooms.map(r => r.name),
-        isActive: event.isActive, 
-        logoUrl: event.logoUrl, 
-        sponsorText: event.sponsorText 
-    });
-};
-
 app.get('/api/status', (req, res) => {
     res.status(200).json({ status: 'online', message: 'Servidor SaaS activo, blindado y analítico.' });
 });
@@ -96,6 +69,7 @@ io.on('connection', (socket) => {
 
     let translationService = null;
 
+    // --- RUTAS MASTER ---
     socket.on('master-login', (pwd, callback) => {
         if (pwd === MASTER_PASSWORD) {
             callback({ success: true });
@@ -117,7 +91,6 @@ io.on('connection', (socket) => {
         io.emit('system-status', isSystemActive);
         if (!isSystemActive) {
             activeSpeakerRooms.clear();
-            io.emit('active-rooms', []); 
         }
     });
 
@@ -127,10 +100,7 @@ io.on('connection', (socket) => {
             event.isActive = data.status;
             if (!event.isActive) {
                 const eventRoomsMap = activeSpeakerRooms.get(data.id);
-                if (eventRoomsMap) {
-                    eventRoomsMap.clear();
-                    broadcastActiveRoomsToEvent(data.id);
-                }
+                if (eventRoomsMap) eventRoomsMap.clear();
             }
             emitMasterData();
             io.emit('event-status-changed', { eventId: data.id, status: data.status });
@@ -141,20 +111,20 @@ io.on('connection', (socket) => {
     });
 
     socket.on('master-create-event', (data, callback) => {
-        const publicId = Math.random().toString(36).slice(-6).toUpperCase();
+        const internalId = Math.random().toString(36).slice(-8).toUpperCase(); // ID interno oculto
         const secretAdminPassword = Math.random().toString(36).slice(-8).toUpperCase(); 
         
         const newEvent = {
-            id: publicId,
+            id: internalId,
             name: data.name,
             adminPassword: secretAdminPassword, 
-            rooms: [], // Inicia sin salas
+            rooms: [], // Inicia SIN SALAS
             isActive: true,
             logoUrl: data.logoUrl || "",
             sponsorText: data.sponsorText || ""
         };
-        eventsDB.set(publicId, newEvent);
-        initEventStats(publicId);
+        eventsDB.set(internalId, newEvent);
+        initEventStats(internalId);
         
         callback({ success: true, event: newEvent });
         emitMasterData();
@@ -172,12 +142,13 @@ io.on('connection', (socket) => {
         const event = eventsDB.get(data.id);
         if (event) {
             if (!event.rooms.find(r => r.name === data.room)) {
+                // SE CREAN LAS DOS LLAVES POR SALA AQUI
                 const speakerPwd = Math.random().toString(36).slice(-6).toUpperCase();
-                event.rooms.push({ name: data.room, speakerPassword: speakerPwd });
+                const audienceCode = Math.random().toString(36).slice(-6).toUpperCase();
+                event.rooms.push({ name: data.room, speakerPassword: speakerPwd, audienceCode: audienceCode });
             }
             callback({ success: true });
             emitMasterData();
-            broadcastEventInfoToAudience(event);
         } else {
             callback({ success: false });
         }
@@ -193,12 +164,12 @@ io.on('connection', (socket) => {
             }
             callback({ success: true });
             emitMasterData();
-            broadcastEventInfoToAudience(event);
         } else {
             callback({ success: false });
         }
     });
 
+    // --- RUTAS EVENT ADMIN ---
     socket.on('event-admin-login', (pwd, callback) => {
         let foundEvent = null;
         for (const event of eventsDB.values()) {
@@ -212,10 +183,7 @@ io.on('connection', (socket) => {
             callback({ 
                 success: true, 
                 isSystemActive,
-                event: {
-                    ...foundEvent,
-                    stats: statsDB.get(foundEvent.id)
-                } 
+                event: { ...foundEvent, stats: statsDB.get(foundEvent.id) } 
             });
         } else {
             callback({ success: false, message: "Clave de administrador de evento incorrecta." });
@@ -228,10 +196,7 @@ io.on('connection', (socket) => {
             event.isActive = data.status;
             if (!event.isActive) {
                 const eventRoomsMap = activeSpeakerRooms.get(data.eventId);
-                if (eventRoomsMap) {
-                    eventRoomsMap.clear();
-                    broadcastActiveRoomsToEvent(data.eventId);
-                }
+                if (eventRoomsMap) eventRoomsMap.clear();
             }
             emitMasterData();
             io.emit('event-status-changed', { eventId: data.eventId, status: data.status });
@@ -246,11 +211,11 @@ io.on('connection', (socket) => {
         if (event && event.adminPassword === data.adminPassword) {
             if (!event.rooms.find(r => r.name === data.room)) {
                 const speakerPwd = Math.random().toString(36).slice(-6).toUpperCase();
-                event.rooms.push({ name: data.room, speakerPassword: speakerPwd });
+                const audienceCode = Math.random().toString(36).slice(-6).toUpperCase();
+                event.rooms.push({ name: data.room, speakerPassword: speakerPwd, audienceCode: audienceCode });
             }
             callback({ success: true });
             emitMasterData();
-            broadcastEventInfoToAudience(event);
         } else {
             callback({ success: false });
         }
@@ -266,12 +231,12 @@ io.on('connection', (socket) => {
             }
             callback({ success: true });
             emitMasterData();
-            broadcastEventInfoToAudience(event);
         } else {
             callback({ success: false });
         }
     });
 
+    // --- RUTAS SPEAKER ---
     socket.on('speaker-login', (password, callback) => {
         let foundEvent = null;
         let foundRoom = null;
@@ -284,7 +249,8 @@ io.on('connection', (socket) => {
             }
         }
         if (foundEvent) {
-            callback({ success: true, event: foundEvent, roomName: foundRoom.name });
+            // Le enviamos al orador su audienceCode para que lo muestre en su panel
+            callback({ success: true, event: foundEvent, roomName: foundRoom.name, audienceCode: foundRoom.audienceCode });
         } else {
             callback({ success: false, message: "Clave de sala incorrecta o evento no encontrado." });
         }
@@ -296,22 +262,16 @@ io.on('connection', (socket) => {
         if (!event || !event.isActive) return;
 
         const eventId = config.eventId;
-        const roomName = config.roomName || 'PRINCIPAL';
+        const roomName = config.roomName;
         const isolatedRoom = `${eventId}_${roomName}`;
         
         socket.join(isolatedRoom);
         socket.speakerEventId = eventId;
         socket.speakerRoom = roomName;
 
-        if (!activeSpeakerRooms.has(eventId)) {
-            activeSpeakerRooms.set(eventId, new Map());
-        }
-        
+        if (!activeSpeakerRooms.has(eventId)) activeSpeakerRooms.set(eventId, new Map());
         const eventRoomsMap = activeSpeakerRooms.get(eventId);
-        const count = eventRoomsMap.get(roomName) || 0;
-        eventRoomsMap.set(roomName, count + 1);
-        
-        broadcastActiveRoomsToEvent(eventId);
+        eventRoomsMap.set(roomName, (eventRoomsMap.get(roomName) || 0) + 1);
         
         translationService = new TranslationService(
             socket, config.fromLanguage, config.toLanguages, config.voiceGender, isolatedRoom 
@@ -319,8 +279,7 @@ io.on('connection', (socket) => {
         translationService.start();
 
         const stats = statsDB.get(eventId);
-        const audienceCount = stats?.roomCounts?.[roomName] || 0;
-        socket.emit('room-audience-count', audienceCount);
+        socket.emit('room-audience-count', stats?.roomCounts?.[roomName] || 0);
     });
 
     socket.on('audio-stream', (data) => {
@@ -334,12 +293,8 @@ io.on('connection', (socket) => {
             const eventRoomsMap = activeSpeakerRooms.get(eventId);
             if (eventRoomsMap) {
                 const count = eventRoomsMap.get(roomName) || 0;
-                if (count <= 1) {
-                    eventRoomsMap.delete(roomName);
-                } else {
-                    eventRoomsMap.set(roomName, count - 1);
-                }
-                broadcastActiveRoomsToEvent(eventId);
+                if (count <= 1) eventRoomsMap.delete(roomName);
+                else eventRoomsMap.set(roomName, count - 1);
             }
             socket.speakerEventId = null;
             socket.speakerRoom = null;
@@ -354,38 +309,48 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('check-event', (eventId, callback) => {
-        const event = eventsDB.get(eventId);
-        if (event) {
-            callback({ success: true, name: event.name, logoUrl: event.logoUrl, sponsorText: event.sponsorText });
-        } else {
-            callback({ success: false });
+    // --- NUEVAS RUTAS AUDIENCIA DIRECTA A SALA ---
+    socket.on('check-audience-code', (code, callback) => {
+        for (const event of eventsDB.values()) {
+            const room = event.rooms.find(r => r.audienceCode === code);
+            if (room) {
+                return callback({ 
+                    success: true, 
+                    eventId: event.id,
+                    eventName: event.name,
+                    roomName: room.name,
+                    logoUrl: event.logoUrl, 
+                    sponsorText: event.sponsorText 
+                });
+            }
         }
+        callback({ success: false });
     });
 
-    socket.on('join-event-audience', (data) => {
-        const { eventId, language } = data;
-        socket.join(`audience_${eventId}`);
+    socket.on('join-direct-room-audience', (data) => {
+        if (!isSystemActive) return;
+        const event = eventsDB.get(data.eventId);
+        if (!event || !event.isActive) return;
+
+        const { eventId, roomName, language } = data;
+        const isolatedRoom = `${eventId}_${roomName}`;
         
-        socket.audienceData = { eventId, language: language || 'es', roomName: null };
+        socket.join(isolatedRoom);
+        socket.audienceData = { eventId, roomName, language: language || 'es' };
         
         const stats = statsDB.get(eventId);
         if (stats) {
             stats.total += 1;
-            if (stats.langs[socket.audienceData.language] !== undefined) {
-                stats.langs[socket.audienceData.language] += 1;
-            }
+            if (stats.langs[language] !== undefined) stats.langs[language] += 1;
+            if (stats.roomCounts[roomName] === undefined) stats.roomCounts[roomName] = 0;
+            stats.roomCounts[roomName] += 1;
+            
+            io.to(isolatedRoom).emit('room-audience-count', stats.roomCounts[roomName]);
             emitMasterData(); 
         }
-
-        const eventRoomsMap = activeSpeakerRooms.get(eventId);
-        const rooms = eventRoomsMap ? Array.from(eventRoomsMap.keys()) : [];
-        socket.emit('active-rooms', rooms);
         
-        const event = eventsDB.get(eventId);
-        if (event) socket.emit('event-info', { 
-            name: event.name, allRooms: event.rooms.map(r => r.name), isActive: event.isActive, 
-            logoUrl: event.logoUrl, sponsorText: event.sponsorText 
+        socket.emit('event-info', { 
+            name: event.name, isActive: event.isActive, logoUrl: event.logoUrl, sponsorText: event.sponsorText 
         });
     });
 
@@ -402,40 +367,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('join-isolated-room', (data) => {
-        if (!isSystemActive) return;
-        const event = eventsDB.get(data.eventId);
-        if (!event || !event.isActive) return;
-
-        const isolatedRoom = `${data.eventId}_${data.roomName}`;
-        Array.from(socket.rooms).forEach(r => {
-            if (r !== socket.id && r !== `audience_${data.eventId}`) socket.leave(r);
-        });
-        socket.join(isolatedRoom);
-
-        if (socket.audienceData && socket.audienceData.eventId === data.eventId) {
-            const stats = statsDB.get(data.eventId);
-            if (stats) {
-                const oldRoom = socket.audienceData.roomName;
-                if (oldRoom && stats.roomCounts[oldRoom] > 0) {
-                    stats.roomCounts[oldRoom] -= 1;
-                    io.to(`${data.eventId}_${oldRoom}`).emit('room-audience-count', stats.roomCounts[oldRoom]);
-                }
-                
-                if (data.roomName !== 'NONE') {
-                    if (stats.roomCounts[data.roomName] === undefined) {
-                        stats.roomCounts[data.roomName] = 0;
-                    }
-                    stats.roomCounts[data.roomName] += 1;
-                    io.to(`${data.eventId}_${data.roomName}`).emit('room-audience-count', stats.roomCounts[data.roomName]);
-                }
-                
-                socket.audienceData.roomName = data.roomName;
-                emitMasterData();
-            }
-        }
-    });
-
     const removeAudienceFromStats = (socketInstance) => {
         if (socketInstance.audienceData) {
             const { eventId, language, roomName } = socketInstance.audienceData;
@@ -443,7 +374,7 @@ io.on('connection', (socket) => {
             if (stats) {
                 if (stats.total > 0) stats.total -= 1;
                 if (stats.langs[language] > 0) stats.langs[language] -= 1;
-                if (roomName && stats.roomCounts[roomName] > 0) {
+                if (stats.roomCounts[roomName] > 0) {
                     stats.roomCounts[roomName] -= 1;
                     io.to(`${eventId}_${roomName}`).emit('room-audience-count', stats.roomCounts[roomName]);
                 }

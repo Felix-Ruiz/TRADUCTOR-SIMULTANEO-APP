@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
-import { Mic, Square, Radio, Globe, Download, Lock, AlertTriangle, AlertCircle, Users, Monitor, MonitorPlay } from 'lucide-react';
+import { Mic, Square, Radio, Globe, Download, Lock, AlertTriangle, AlertCircle, Users, Monitor, MonitorPlay, Copy, CheckCircle2 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL, { autoConnect: false });
@@ -33,13 +33,14 @@ const SpeakerView = () => {
   const [voiceGender, setVoiceGender] = useState('female');
   
   const [roomName, setRoomName] = useState('');
+  const [audienceCode, setAudienceCode] = useState(''); // NUEVO: Guardar el codigo de la audiencia de esta sala
   
   const [panelCount, setPanelCount] = useState(1); 
   const [panelLanguages, setPanelLanguages] = useState(['en', 'de', 'fr']); 
   
   const [fullTranscription, setFullTranscription] = useState('');
-  
   const [audienceCount, setAudienceCount] = useState(0);
+  const [copiedText, setCopiedText] = useState(null);
 
   const audioContextRef = useRef(null);
   const processorRef = useRef(null);
@@ -52,7 +53,14 @@ const SpeakerView = () => {
   };
   const closeDialog = () => setDialogConfig(prev => ({ ...prev, isOpen: false }));
 
-  const audienceUrl = `${window.location.origin}/?event=${eventInfo?.id || ''}&room=${roomName}`;
+  // NUEVO: La URL ahora usa solo el código de acceso directo a la sala
+  const audienceUrl = `${window.location.origin}/?code=${audienceCode}`;
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text);
+    setCopiedText(text);
+    setTimeout(() => setCopiedText(null), 2000);
+  };
 
   const attemptLogin = (pwd) => {
     socket.connect();
@@ -61,7 +69,8 @@ const SpeakerView = () => {
         setIsAuthenticated(true);
         setEventInfo(response.event);
         setIsEventActive(response.event.isActive); 
-        setRoomName(response.roomName); // La sala es obligatoria dictada por el servidor
+        setRoomName(response.roomName); 
+        setAudienceCode(response.audienceCode); // Guardamos el código
         sessionStorage.setItem('speakerPwd', pwd);
         setLoginError('');
       } else {
@@ -359,7 +368,7 @@ const SpeakerView = () => {
                 {eventInfo?.name || "Traducción Simultánea"}
               </h1>
               <span className="text-xs text-gray-500 font-bold tracking-widest uppercase">
-                Panel de Orador Activo
+                Panel de Orador: {roomName}
               </span>
             </div>
           </div>
@@ -367,7 +376,7 @@ const SpeakerView = () => {
           <div className="flex items-center gap-3">
               <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full font-medium text-sm w-max ${isRecording ? 'bg-red-500/10 text-red-500' : 'bg-gray-800 text-gray-400'}`}>
                 <Radio className={`w-4 h-4 ${isRecording ? 'animate-pulse' : ''}`} />
-                {isRecording ? `Transmitiendo en: ${roomName}` : 'Sistema en espera'}
+                {isRecording ? `Transmitiendo en Vivo` : 'Sistema en espera'}
               </div>
               
               {isRecording && (
@@ -390,12 +399,13 @@ const SpeakerView = () => {
             <a href={audienceUrl} target="_blank" rel="noreferrer" className="text-sm text-primary hover:text-blue-400 font-bold transition-colors mb-2">
               Abrir enlace de sala ↗
             </a>
-            <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">
-                Cód. Evento: <span className="bg-gray-800 text-white px-2 py-0.5 rounded text-xs ml-1">{eventInfo?.id}</span>
-            </span>
-            <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">
-                Sala: <span className="bg-gray-800 text-white px-2 py-0.5 rounded text-xs ml-1">{roomName}</span>
-            </span>
+            <div className="flex items-center gap-2">
+                <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Cód:</span>
+                <span className="bg-gray-800 text-white px-2 py-0.5 rounded text-xs font-mono tracking-widest">{audienceCode}</span>
+                <button onClick={() => copyToClipboard(audienceCode)} className="text-gray-400 hover:text-white transition-colors" title="Copiar código">
+                    {copiedText === audienceCode ? <CheckCircle2 className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
+                </button>
+            </div>
           </div>
         </div>
       </header>
@@ -460,20 +470,19 @@ const SpeakerView = () => {
           </p>
         </div>
 
-        {/* NUEVO: PANEL DE ENLACES TV PARA PROYECTAR */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-dark border border-gray-800 rounded-2xl p-5 shadow-xl shrink-0 mt-2">
             <div className="flex flex-col mb-4 sm:mb-0">
                 <h3 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2 mb-1">
                     <Monitor className="w-4 h-4 text-primary" />
                     Pantallas de Subtítulos (Modo TV)
                 </h3>
-                <p className="text-xs text-gray-500">Haz clic para abrir los subtítulos de esta sala en pantalla completa para proyectarlos.</p>
+                <p className="text-xs text-gray-500">Abre los subtítulos en pantalla completa para proyectarlos. Entran directo a esta sala.</p>
             </div>
             <div className="flex flex-wrap gap-2">
                 {['es', 'en', 'pt', 'fr', 'de'].map(lang => (
                     <button 
                         key={lang}
-                        onClick={() => window.open(`${window.location.origin}/?event=${eventInfo?.id}&room=${roomName}&tv=true&lang=${lang}`, '_blank')}
+                        onClick={() => window.open(`${window.location.origin}/?code=${audienceCode}&tv=true&lang=${lang}`, '_blank')}
                         className="flex items-center gap-2 bg-gray-800 hover:bg-primary text-white px-3 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-colors border border-gray-700 hover:border-primary"
                     >
                         <MonitorPlay className="w-3 h-3" />

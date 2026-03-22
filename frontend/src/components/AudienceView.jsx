@@ -9,13 +9,13 @@ const AudienceView = () => {
   const queryParams = new URLSearchParams(window.location.search);
   const isTvMode = queryParams.get('tv') === 'true';
   const urlLang = queryParams.get('lang');
-  const urlRoom = queryParams.get('room');
   
-  const urlEventParam = queryParams.get('event');
-  const savedEventId = sessionStorage.getItem('audienceEventId');
-  const initialEventId = urlEventParam || savedEventId || '';
+  // NUEVO: La URL ahora lee ?code=XXXXXX
+  const urlCodeParam = queryParams.get('code');
+  const savedCode = sessionStorage.getItem('audienceCode');
+  const initialCode = urlCodeParam || savedCode || '';
 
-  const [urlEvent, setUrlEvent] = useState(initialEventId);
+  const [audienceCode, setAudienceCode] = useState(initialCode);
   const [eventInput, setEventInput] = useState('');
   const [eventError, setEventError] = useState('');
   const [eventName, setEventName] = useState('Traducción en Vivo');
@@ -23,8 +23,8 @@ const AudienceView = () => {
   const [eventLogo, setEventLogo] = useState('');
   const [eventSponsor, setEventSponsor] = useState('');
 
-  const [roomName, setRoomName] = useState(urlRoom || '');
-  const [availableRooms, setAvailableRooms] = useState([]);
+  const [roomName, setRoomName] = useState('');
+  const [eventId, setEventId] = useState('');
   const [language, setLanguage] = useState(urlLang || 'es'); 
   
   const [finalTexts, setFinalTexts] = useState([]); 
@@ -36,11 +36,10 @@ const AudienceView = () => {
   const [isSystemActive, setIsSystemActive] = useState(true);
   const [isEventActive, setIsEventActive] = useState(true); 
   
-  const [isVerifying, setIsVerifying] = useState(!!initialEventId);
+  const [isVerifying, setIsVerifying] = useState(!!initialCode);
   const [hasJoinedEvent, setHasJoinedEvent] = useState(false);
   
   const [isScanning, setIsScanning] = useState(false);
-
   const [legalModalContent, setLegalModalContent] = useState(null); 
 
   const [dialogConfig, setDialogConfig] = useState({ isOpen: false, title: '', message: '', type: 'confirm', onConfirm: null, confirmStyle: '' });
@@ -71,9 +70,7 @@ const AudienceView = () => {
         wakeLockRef.current = await navigator.wakeLock.request('screen');
         wakeLockRef.current.addEventListener('release', () => {});
       }
-    } catch (err) {
-      console.warn(`[UX] No se pudo mantener la pantalla encendida: ${err.message}`);
-    }
+    } catch (err) {}
   };
 
   const releaseWakeLock = async () => {
@@ -97,10 +94,8 @@ const AudienceView = () => {
 
   const playNextInQueue = async () => {
     if (isPlaying.current || audioQueue.current.length === 0 || !isSystemActive || !isEventActive) return;
-    
     isPlaying.current = true;
     const nextAudioUrl = audioQueue.current.shift(); 
-    
     if (audioPlayerRef.current) {
       audioPlayerRef.current.src = nextAudioUrl;
       try {
@@ -120,24 +115,28 @@ const AudienceView = () => {
     playNextInQueue();
   };
 
-  const verifyEvent = (eventId) => {
-    socket.emit('check-event', eventId, (response) => {
+  // NUEVO: Verificación por código directo a la sala
+  const verifyAudienceCode = (code) => {
+    socket.emit('check-audience-code', code, (response) => {
       if (response.success) {
-        setUrlEvent(eventId);
-        setEventName(response.name);
+        setAudienceCode(code);
+        setEventId(response.eventId);
+        setRoomName(response.roomName);
+        setEventName(response.eventName);
         setEventLogo(response.logoUrl || '');
         setEventSponsor(response.sponsorText || '');
         setEventError('');
-        sessionStorage.setItem('audienceEventId', eventId);
+        sessionStorage.setItem('audienceCode', code);
         
-        socket.emit('join-event-audience', { eventId: eventId, language: language });
+        // Entra directo a la sala específica
+        socket.emit('join-direct-room-audience', { eventId: response.eventId, roomName: response.roomName, language: language });
         setHasJoinedEvent(true); 
       } else {
-        setEventError('Código de evento inválido o evento finalizado.');
-        if (eventId === urlEvent) {
-            setUrlEvent(''); 
+        setEventError('Código de sala inválido o evento finalizado.');
+        if (code === audienceCode) {
+            setAudienceCode(''); 
         }
-        sessionStorage.removeItem('audienceEventId');
+        sessionStorage.removeItem('audienceCode');
         setHasJoinedEvent(false);
       }
       setIsVerifying(false); 
@@ -148,48 +147,41 @@ const AudienceView = () => {
     e.preventDefault();
     if (!eventInput.trim()) return;
     setIsVerifying(true);
-    verifyEvent(eventInput.trim());
+    verifyAudienceCode(eventInput.trim());
   };
 
   const handleQRScan = (data) => {
     let scannedText = '';
-    
-    if (typeof data === 'string') {
-        scannedText = data;
-    } else if (Array.isArray(data) && data.length > 0) {
-        scannedText = data[0].rawValue || data[0].text || '';
-    } else if (data && data.text) {
-        scannedText = data.text;
-    }
+    if (typeof data === 'string') scannedText = data;
+    else if (Array.isArray(data) && data.length > 0) scannedText = data[0].rawValue || data[0].text || '';
+    else if (data && data.text) scannedText = data.text;
 
     if (scannedText) {
         setIsScanning(false); 
         let extractedCode = scannedText;
-        
         try {
             const url = new URL(scannedText);
-            const eventParam = url.searchParams.get('event');
-            if (eventParam) extractedCode = eventParam;
-        } catch (e) {
-            
-        }
+            const codeParam = url.searchParams.get('code');
+            if (codeParam) extractedCode = codeParam;
+        } catch (e) {}
         
         const finalCode = extractedCode.toUpperCase().trim();
         setEventInput(finalCode);
         setIsVerifying(true);
-        verifyEvent(finalCode);
+        verifyAudienceCode(finalCode);
     }
   };
 
   const handleExitEvent = () => {
     openDialog(
-      "Salir del Evento",
-      "¿Deseas salir de este evento y volver al menú principal de acceso?",
+      "Salir de la Sala",
+      "¿Deseas desconectarte y volver al menú principal?",
       "confirm",
       () => {
         socket.emit('leave-event-audience'); 
-        sessionStorage.removeItem('audienceEventId');
-        setUrlEvent('');
+        sessionStorage.removeItem('audienceCode');
+        setAudienceCode('');
+        setEventId('');
         setRoomName('');
         setEventInput('');
         setUserMode(null);
@@ -224,8 +216,8 @@ const AudienceView = () => {
   useEffect(() => {
     socket.on('connect', () => {
       setIsConnected(true);
-      if (isSystemActive && urlEvent) {
-          verifyEvent(urlEvent);
+      if (isSystemActive && audienceCode) {
+          verifyAudienceCode(audienceCode);
       }
     });
     
@@ -237,7 +229,7 @@ const AudienceView = () => {
     });
 
     socket.on('event-status-changed', (data) => {
-        if (data.eventId === urlEvent) {
+        if (data.eventId === eventId) {
             setIsEventActive(data.status);
             if (!data.status) stopPlaybackAndClear();
         }
@@ -245,17 +237,10 @@ const AudienceView = () => {
 
     socket.on('event-info', (data) => {
         setEventName(data.name);
-        setAvailableRooms(data.allRooms);
         setIsEventActive(data.isActive); 
         setEventLogo(data.logoUrl || '');
         setEventSponsor(data.sponsorText || '');
-        setRoomName(prev => {
-            if (!prev || !data.allRooms.includes(prev)) return data.allRooms[0] || '';
-            return prev;
-        });
     });
-
-    socket.on('active-rooms', (rooms) => {});
     
     socket.on('translation-result', (data) => {
       if (!isSystemActive || !isEventActive) return; 
@@ -288,7 +273,6 @@ const AudienceView = () => {
       if (!isTvMode && userMode === 'audio' && data.language === language && data.audioBuffer) {
         const blob = new Blob([data.audioBuffer], { type: 'audio/mp3' });
         const url = URL.createObjectURL(blob);
-        
         audioQueue.current.push(url);
         playNextInQueue();
       }
@@ -297,7 +281,6 @@ const AudienceView = () => {
     return () => {
       socket.off('connect');
       socket.off('disconnect');
-      socket.off('active-rooms');
       socket.off('event-info');
       socket.off('event-status-changed');
       socket.off('translation-result');
@@ -305,16 +288,7 @@ const AudienceView = () => {
       socket.off('system-status');
       releaseWakeLock();
     };
-  }, [language, userMode, isTvMode, urlEvent, isSystemActive, isEventActive]); 
-
-  useEffect(() => {
-    if (isConnected && urlEvent && roomName && isSystemActive && isEventActive && hasJoinedEvent) {
-      socket.emit('join-isolated-room', { eventId: urlEvent, roomName: roomName });
-      setFinalTexts([]); 
-      setPartialText('');
-      audioQueue.current = [];
-    }
-  }, [roomName, isConnected, isSystemActive, isEventActive, urlEvent, hasJoinedEvent]);
+  }, [language, userMode, isTvMode, audienceCode, eventId, isSystemActive, isEventActive]); 
 
   const unlockAudioAndStart = async () => {
     try {
@@ -368,7 +342,7 @@ const AudienceView = () => {
         <div className="flex flex-col items-center gap-6 animate-pulse">
           <img src="/logo.png" alt="Logo" className="h-14 w-auto object-contain drop-shadow-lg" onError={(e) => { e.target.style.display = 'none'; }} />
           <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-gray-500 text-sm font-semibold tracking-widest uppercase">Validando evento...</p>
+          <p className="text-gray-500 text-sm font-semibold tracking-widest uppercase">Validando sala...</p>
         </div>
       </div>
     );
@@ -391,7 +365,7 @@ const AudienceView = () => {
             </div>
             <div className="flex-1 relative flex flex-col items-center justify-center bg-black p-6">
                 <p className="text-gray-400 text-sm text-center mb-8 max-w-xs">
-                    Apunta la cámara al código QR del evento para ingresar automáticamente.
+                    Apunta la cámara al código QR de tu sala para ingresar automáticamente.
                 </p>
                 <div className="w-full max-w-sm rounded-3xl overflow-hidden shadow-[0_0_50px_rgba(16,185,129,0.15)] border border-primary/30 relative bg-darker">
                     <Scanner
@@ -451,7 +425,7 @@ const AudienceView = () => {
     );
   }
 
-  if (!isSystemActive || (urlEvent && !isEventActive)) {
+  if (!isSystemActive || (audienceCode && !isEventActive)) {
     return (
       <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-black relative overflow-hidden">
         
@@ -485,9 +459,9 @@ const AudienceView = () => {
           <div className="bg-red-500/10 p-6 rounded-full mb-8">
             <PowerOff className="w-16 h-16 text-red-500/80" />
           </div>
-          <h2 className="text-3xl font-bold text-white mb-3 text-center tracking-tight">Evento Pausado</h2>
+          <h2 className="text-3xl font-bold text-white mb-3 text-center tracking-tight">Sala Pausada</h2>
           <p className="text-gray-400 text-base text-center leading-relaxed max-w-xs mb-8">
-            La plataforma de traducción se encuentra inactiva en este momento. Por favor, espera a que se inicie el evento.
+            La plataforma de traducción se encuentra inactiva en este momento. Por favor, espera a que se reanude.
           </p>
           <button 
             onClick={handleExitEvent}
@@ -501,7 +475,7 @@ const AudienceView = () => {
     );
   }
 
-  if (!urlEvent) {
+  if (!audienceCode) {
     return (
       <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-darker">
         <div className="w-full max-w-sm flex flex-col items-center">
@@ -509,7 +483,7 @@ const AudienceView = () => {
           
           <h2 className="text-2xl font-bold text-white mb-2 text-center tracking-tight">Traducción en Vivo</h2>
           <p className="text-gray-400 text-sm text-center mb-8 leading-relaxed">
-            Ingresa el código manual o escanea el QR del evento para acceder.
+            Ingresa el código manual o escanea el QR de tu sala para acceder.
           </p>
           
           <form onSubmit={handleEventSubmit} className="w-full flex flex-col gap-4">
@@ -521,7 +495,7 @@ const AudienceView = () => {
                     type="text"
                     value={eventInput}
                     onChange={(e) => setEventInput(e.target.value.toUpperCase().trim())}
-                    placeholder="Código"
+                    placeholder="Código de Sala"
                     className="w-full bg-dark border border-gray-700 text-white text-center text-lg font-bold tracking-widest rounded-xl py-4 pl-10 pr-16 focus:ring-2 focus:ring-primary focus:outline-none transition-all shadow-inner"
                 />
                 <button
@@ -539,7 +513,7 @@ const AudienceView = () => {
               disabled={!eventInput.trim() || !isConnected}
               className="w-full bg-primary hover:bg-blue-600 text-white px-6 py-4 rounded-xl font-bold transition-all shadow-lg hover:shadow-blue-500/25 disabled:opacity-50 tracking-widest uppercase mt-2"
             >
-              Ingresar al Evento
+              Ingresar a la Sala
             </button>
           </form>
 
@@ -552,48 +526,9 @@ const AudienceView = () => {
   if (isTvMode) {
     return (
       <div className="flex flex-col h-screen w-full bg-black p-8 md:p-16 lg:pb-16 overflow-hidden relative">
-        
-        {dialogConfig.isOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity">
-            <div className="bg-darker border border-gray-700 p-6 rounded-3xl shadow-[0_0_40px_rgba(0,0,0,0.5)] max-w-sm w-full flex flex-col gap-2 transform transition-all scale-100">
-              <div className="flex items-center gap-3 mb-2">
-                 <AlertCircle className={`w-7 h-7 ${dialogConfig.type === 'alert' ? 'text-yellow-500' : 'text-red-500'}`} />
-                 <h3 className="text-xl font-bold text-white tracking-wide">{dialogConfig.title}</h3>
-              </div>
-              <p className="text-gray-400 text-sm leading-relaxed mb-4">{dialogConfig.message}</p>
-              <div className="flex justify-end gap-3 mt-2">
-                {dialogConfig.type === 'confirm' && (
-                  <button onClick={closeDialog} className="px-5 py-2.5 rounded-xl text-gray-400 hover:bg-gray-800 hover:text-white transition-colors text-sm font-bold tracking-wide">
-                    Cancelar
-                  </button>
-                )}
-                <button 
-                  onClick={() => { if(dialogConfig.onConfirm) dialogConfig.onConfirm(); closeDialog(); }} 
-                  className={`px-5 py-2.5 rounded-xl text-white text-sm font-bold tracking-wide transition-all shadow-lg ${dialogConfig.confirmStyle}`}
-                >
-                  Confirmar
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
         <div className="absolute top-6 right-8 z-10 flex items-center gap-4 bg-dark/80 p-3 rounded-2xl backdrop-blur-md border border-gray-800 shadow-xl transition-all duration-500 opacity-10 hover:opacity-100 hover:bg-dark">
-          <div className="relative">
-            <select 
-              value={roomName}
-              onChange={(e) => setRoomName(e.target.value)}
-              className="bg-black/50 border border-gray-700 text-gray-300 text-xs font-bold uppercase tracking-wider rounded-lg px-3 py-2 focus:ring-1 focus:ring-primary focus:outline-none appearance-none cursor-pointer"
-            >
-              {availableRooms.map((room) => (
-                <option key={room} value={room}>{room}</option>
-              ))}
-            </select>
-            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
-              <svg className="fill-current h-3 w-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
-              </svg>
-            </div>
+          <div className="bg-black/50 border border-gray-700 text-gray-300 text-xs font-bold uppercase tracking-wider rounded-lg px-4 py-2">
+              SALA: {roomName}
           </div>
 
           <div className="relative">
@@ -619,13 +554,11 @@ const AudienceView = () => {
               </svg>
             </div>
           </div>
-
           <button 
             onClick={handleExitEvent}
             className="bg-red-500/10 hover:bg-red-500 border border-red-500/30 text-red-500 hover:text-white text-xs font-bold uppercase tracking-wider rounded-lg px-4 py-2 transition-all flex items-center gap-2 shadow-sm"
-            title="Desconectar y Salir del Evento"
           >
-            <LogOut className="w-3 h-3" /> Salir
+            <LogOut className="w-3 h-3" /> Cerrar
           </button>
         </div>
 
@@ -647,8 +580,6 @@ const AudienceView = () => {
                 {eventSponsor && <span className="text-white/70 text-sm font-semibold tracking-wider">{eventSponsor}</span>}
             </div>
         )}
-
-        <div className={`fixed bottom-4 right-4 w-2 h-2 rounded-full opacity-30 ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
       </div>
     );
   }
@@ -656,32 +587,6 @@ const AudienceView = () => {
   if (!userMode) {
     return (
       <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-darker relative">
-        
-        {dialogConfig.isOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity">
-            <div className="bg-darker border border-gray-700 p-6 rounded-3xl shadow-[0_0_40px_rgba(0,0,0,0.5)] max-w-sm w-full flex flex-col gap-2 transform transition-all scale-100">
-              <div className="flex items-center gap-3 mb-2">
-                 <AlertCircle className={`w-7 h-7 ${dialogConfig.type === 'alert' ? 'text-yellow-500' : 'text-red-500'}`} />
-                 <h3 className="text-xl font-bold text-white tracking-wide">{dialogConfig.title}</h3>
-              </div>
-              <p className="text-gray-400 text-sm leading-relaxed mb-4">{dialogConfig.message}</p>
-              <div className="flex justify-end gap-3 mt-2">
-                {dialogConfig.type === 'confirm' && (
-                  <button onClick={closeDialog} className="px-5 py-2.5 rounded-xl text-gray-400 hover:bg-gray-800 hover:text-white transition-colors text-sm font-bold tracking-wide">
-                    Cancelar
-                  </button>
-                )}
-                <button 
-                  onClick={() => { if(dialogConfig.onConfirm) dialogConfig.onConfirm(); closeDialog(); }} 
-                  className={`px-5 py-2.5 rounded-xl text-white text-sm font-bold tracking-wide transition-all shadow-lg ${dialogConfig.confirmStyle}`}
-                >
-                  Confirmar
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
         <button 
           onClick={handleExitEvent}
           className="absolute top-6 right-6 text-gray-500 hover:text-red-500 transition-colors flex items-center gap-2 text-xs font-bold uppercase tracking-widest"
@@ -693,38 +598,13 @@ const AudienceView = () => {
         <div className="w-full max-w-sm flex flex-col items-center mt-6">
           <img src={eventLogo || "/logo.png"} alt="Event Logo" className="h-16 w-auto object-contain mb-6 drop-shadow-lg" onError={(e) => { e.target.src = '/logo.png'; }} />
           
-          <h2 className="text-2xl font-bold text-white mb-2 text-center tracking-tight">{eventName}</h2>
-          <p className="text-gray-400 text-sm text-center mb-8 leading-relaxed">
-            Asegúrate de estar en la sala correcta y elige cómo deseas seguir la conferencia.
-          </p>
+          <h2 className="text-xl font-bold text-gray-400 mb-1 text-center tracking-tight">{eventName}</h2>
+          <h1 className="text-2xl font-black text-white mb-8 text-center uppercase tracking-widest bg-gray-800 px-4 py-2 rounded-lg border border-gray-700">{roomName}</h1>
           
-          <div className="w-full mb-6">
-            <label className="flex items-center gap-2 text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wider justify-center">
-              Seleccionar Sala
-            </label>
-            <div className="relative">
-              <select 
-                value={roomName}
-                onChange={(e) => setRoomName(e.target.value)}
-                className="w-full bg-darker border border-gray-700 text-white text-center text-lg font-bold tracking-widest rounded-xl p-3 focus:ring-2 focus:ring-primary focus:outline-none transition-all shadow-inner appearance-none cursor-pointer"
-              >
-                {availableRooms.map((room) => (
-                  <option key={room} value={room}>{room}</option>
-                ))}
-              </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-500">
-                <svg className="fill-current h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                  <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
-                </svg>
-              </div>
-            </div>
-          </div>
-
           <div className="flex flex-col gap-4 w-full">
             <button 
               onClick={startTextMode} 
-              disabled={!roomName.trim()}
-              className="group bg-dark border border-gray-700 hover:border-gray-500 p-5 rounded-2xl flex items-center gap-5 transition-all shadow-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="group bg-dark border border-gray-700 hover:border-gray-500 p-5 rounded-2xl flex items-center gap-5 transition-all shadow-lg hover:bg-gray-800"
             >
               <div className="bg-gray-800 p-3 rounded-full group-hover:bg-gray-700 transition-colors">
                 <MessageSquare className="w-6 h-6 text-white" />
@@ -737,8 +617,7 @@ const AudienceView = () => {
 
             <button 
               onClick={unlockAudioAndStart} 
-              disabled={!roomName.trim()}
-              className="group bg-primary hover:bg-blue-600 border border-primary p-5 rounded-2xl flex items-center gap-5 transition-all shadow-lg shadow-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="group bg-primary hover:bg-blue-600 border border-primary p-5 rounded-2xl flex items-center gap-5 transition-all shadow-lg shadow-blue-500/20"
             >
               <div className="bg-white/10 p-3 rounded-full">
                 <Headphones className="w-6 h-6 text-white" />
@@ -764,32 +643,6 @@ const AudienceView = () => {
 
   return (
     <div className="flex flex-col h-screen w-full p-6 max-w-md mx-auto bg-darker relative">
-      
-      {dialogConfig.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity">
-          <div className="bg-darker border border-gray-700 p-6 rounded-3xl shadow-[0_0_40px_rgba(0,0,0,0.5)] max-w-sm w-full flex flex-col gap-2 transform transition-all scale-100">
-            <div className="flex items-center gap-3 mb-2">
-               <AlertCircle className={`w-7 h-7 ${dialogConfig.type === 'alert' ? 'text-yellow-500' : 'text-red-500'}`} />
-               <h3 className="text-xl font-bold text-white tracking-wide">{dialogConfig.title}</h3>
-            </div>
-            <p className="text-gray-400 text-sm leading-relaxed mb-4">{dialogConfig.message}</p>
-            <div className="flex justify-end gap-3 mt-2">
-              {dialogConfig.type === 'confirm' && (
-                <button onClick={closeDialog} className="px-5 py-2.5 rounded-xl text-gray-400 hover:bg-gray-800 hover:text-white transition-colors text-sm font-bold tracking-wide">
-                  Cancelar
-                </button>
-              )}
-              <button 
-                onClick={() => { if(dialogConfig.onConfirm) dialogConfig.onConfirm(); closeDialog(); }} 
-                className={`px-5 py-2.5 rounded-xl text-white text-sm font-bold tracking-wide transition-all shadow-lg ${dialogConfig.confirmStyle}`}
-              >
-                Confirmar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       <audio ref={audioPlayerRef} onEnded={handleAudioEnded} className="hidden" />
 
       <header className="flex justify-between items-center mb-6 pb-4 border-b border-gray-800 shrink-0">
@@ -808,7 +661,7 @@ const AudienceView = () => {
           <button 
             onClick={handleExitEvent}
             className="ml-2 text-gray-600 hover:text-red-500 transition-colors"
-            title="Salir del Evento"
+            title="Salir de la sala"
           >
             <LogOut className="w-5 h-5" />
           </button>
@@ -848,7 +701,6 @@ const AudienceView = () => {
 
       <main className="flex-1 flex flex-col justify-end pb-6 overflow-hidden">
         {userMode === 'text' ? (
-          
           <div className="flex flex-col gap-4 justify-end h-full w-full overflow-hidden">
             {finalTexts.map((text, idx) => (
               <p key={idx} className="text-2xl md:text-3xl font-normal leading-relaxed text-white/50 text-left tracking-wide transition-all duration-300">
@@ -860,7 +712,6 @@ const AudienceView = () => {
             </p>
             <div ref={messagesEndRef} />
           </div>
-
         ) : (
           <div className="flex flex-col items-center justify-center h-full mb-4 opacity-70">
             <div className="relative flex items-center justify-center w-32 h-32 mb-6">
@@ -913,9 +764,7 @@ const AudienceView = () => {
             <span className="text-gray-800">•</span>
             <button onClick={() => setLegalModalContent('cookies')} className="hover:text-gray-300 transition-colors">Cookies</button>
         </div>
-
       </footer>
-
     </div>
   );
 };

@@ -260,18 +260,6 @@ const EventAdminView = () => {
 
       <main className="flex-1 overflow-y-auto pr-2 flex flex-col gap-6">
         
-        {/* TARJETAS DE CLAVES (Se eliminó la Clave Orador Global) */}
-        <div className="bg-darker p-5 rounded-2xl border border-gray-700/50 shadow-inner flex flex-col justify-center shrink-0">
-            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-1"><Users className="w-3 h-3"/> CÓDIGO AUDIENCIA (ÚNICO POR EVENTO)</span>
-            <div className="flex items-center justify-between gap-2">
-                <span className="text-white font-mono text-xl font-bold tracking-widest">{eventData.id}</span>
-                <button onClick={() => copyToClipboard(eventData.id)} className="text-gray-400 hover:text-white bg-gray-800 p-2 rounded-lg transition-colors">
-                {copiedText === eventData.id ? <CheckCircle2 className="w-5 h-5 text-green-500" /> : <Copy className="w-5 h-5" />}
-                </button>
-            </div>
-            <p className="text-xs text-gray-500 mt-2">Usa este código en los QRs. La audiencia elegirá su sala al entrar o entrará directo si usas enlaces específicos por sala.</p>
-        </div>
-
         {/* ANALÍTICAS */}
         <div className="bg-gradient-to-br from-gray-900 to-black p-6 rounded-2xl border border-gray-800 shadow-xl flex flex-col sm:flex-row gap-6 items-center justify-between shrink-0">
             <div className="flex items-center gap-4">
@@ -330,24 +318,35 @@ const EventAdminView = () => {
             </form>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 overflow-y-auto pb-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 overflow-y-auto pb-4">
             {eventData.rooms.map(roomObj => (
                 <div key={roomObj.name} className="flex flex-col bg-darker p-5 rounded-xl border border-gray-700 relative group transition-all hover:border-gray-500 shadow-md">
                     <h3 className="text-base font-bold text-white uppercase tracking-wider mb-4 pr-8 truncate" title={roomObj.name}>{roomObj.name}</h3>
                     
-                    {/* Tarjeta de Clave de Sala (Orador) */}
-                    <div className="mb-5 bg-primary/10 border border-primary/20 rounded-lg p-3 flex justify-between items-center shadow-inner">
-                        <span className="text-[10px] text-primary font-bold uppercase tracking-widest flex items-center gap-1"><Key className="w-3 h-3"/> Clave Orador</span>
-                        <div className="flex items-center gap-2">
-                            <span className="text-white font-mono text-sm font-bold tracking-widest">{roomObj.speakerPassword}</span>
-                            <button onClick={() => copyToClipboard(roomObj.speakerPassword)} className="text-primary hover:text-white transition-colors">
-                                {copiedText === roomObj.speakerPassword ? <CheckCircle2 className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                            </button>
+                    <div className="grid grid-cols-2 gap-3 mb-5">
+                        <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 flex flex-col justify-center shadow-inner">
+                            <span className="text-[10px] text-primary font-bold uppercase tracking-widest flex items-center gap-1 mb-1.5"><Key className="w-3 h-3"/> Clave Orador</span>
+                            <div className="flex items-center justify-between">
+                                <span className="text-white font-mono text-sm font-bold">{roomObj.speakerPassword}</span>
+                                <button onClick={() => copyToClipboard(roomObj.speakerPassword)} className="text-primary hover:text-white transition-colors">
+                                    {copiedText === roomObj.speakerPassword ? <CheckCircle2 className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 flex flex-col justify-center shadow-inner">
+                            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest flex items-center gap-1 mb-1.5"><Users className="w-3 h-3"/> Cód. Audiencia</span>
+                            <div className="flex items-center justify-between">
+                                <span className="text-white font-mono text-sm font-bold">{roomObj.audienceCode}</span>
+                                <button onClick={() => copyToClipboard(roomObj.audienceCode)} className="text-gray-400 hover:text-white transition-colors">
+                                    {copiedText === roomObj.audienceCode ? <CheckCircle2 className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                                </button>
+                            </div>
                         </div>
                     </div>
 
                     <div className="flex items-center justify-between mt-auto">
-                        <span className="bg-green-500/10 border border-green-500/20 text-green-400 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2">
+                        <span className="bg-green-500/10 border border-green-500/20 text-green-400 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 w-max">
                             <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
                             <Users className="w-3.5 h-3.5" />
                             {eventData.stats?.roomCounts?.[roomObj.name] || 0} conectados
