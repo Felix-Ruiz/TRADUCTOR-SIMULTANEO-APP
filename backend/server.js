@@ -78,6 +78,24 @@ const registerFailedAttempt = (ip) => {
 const resetAttempts = (ip) => {
     if (ip) loginAttempts.delete(ip);
 };
+
+// --- CAMIÓN DE BASURA (Garbage Collector para Memoria RAM) ---
+setInterval(() => {
+    const now = Date.now();
+    let deletedCount = 0;
+    for (const [ip, record] of loginAttempts.entries()) {
+        if (record.lockedUntil && now >= record.lockedUntil) {
+            loginAttempts.delete(ip); // Ya cumplió el castigo
+            deletedCount++;
+        } else if (!record.lockedUntil) {
+            loginAttempts.delete(ip); // Intento parcial viejo, se limpia para no acumular basura
+            deletedCount++;
+        }
+    }
+    if (deletedCount > 0) {
+        console.log(`[🧹 Garbage Collector] Se limpiaron ${deletedCount} registros de IPs de la memoria RAM.`);
+    }
+}, LOCKOUT_DURATION_MS); // Pasa barriendo cada 15 minutos
 // ---------------------------------------------------
 
 // --- MONGODB SETUP (Bóveda de Persistencia) ---
