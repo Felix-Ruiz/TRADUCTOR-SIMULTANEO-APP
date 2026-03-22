@@ -2,12 +2,105 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/logo.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="/logo.png" />
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#0a0a0a" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    
     <title>Acofi Translator</title>
+    
+    <style>
+      body, html {
+        margin: 0;
+        padding: 0;
+        background-color: #0a0a0a; /* Fondo ultra oscuro que coincide con tu diseño */
+        height: 100%;
+        width: 100%;
+        overflow: hidden;
+      }
+      #startup-splash {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        width: 100vw;
+        background-color: #0a0a0a;
+        font-family: system-ui, -apple-system, sans-serif;
+        z-index: 99999;
+      }
+      .splash-logo {
+        width: 90px;
+        height: auto;
+        margin-bottom: 30px;
+        animation: float 3s ease-in-out infinite;
+        filter: drop-shadow(0 0 15px rgba(59, 130, 246, 0.3));
+      }
+      .spinner-container {
+        position: relative;
+        width: 50px;
+        height: 50px;
+      }
+      .spinner {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        border: 4px solid rgba(59, 130, 246, 0.1);
+        border-top-color: #3b82f6; /* Azul primary */
+        border-radius: 50%;
+        animation: spin 1s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+      }
+      .spinner-inner {
+        position: absolute;
+        top: 8px;
+        left: 8px;
+        right: 8px;
+        bottom: 8px;
+        border: 4px solid rgba(16, 185, 129, 0.1);
+        border-bottom-color: #10b981; /* Verde accent */
+        border-radius: 50%;
+        animation: spin 1.5s cubic-bezier(0.5, 0, 0.5, 1) infinite reverse;
+      }
+      .splash-text {
+        margin-top: 25px;
+        color: #6b7280;
+        font-size: 11px;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        font-weight: 700;
+        animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      }
+      @keyframes spin { 
+        0% { transform: rotate(0deg); } 
+        100% { transform: rotate(360deg); } 
+      }
+      @keyframes pulse { 
+        0%, 100% { opacity: 1; } 
+        50% { opacity: .4; } 
+      }
+      @keyframes float {
+        0% { transform: translateY(0px); }
+        50% { transform: translateY(-10px); }
+        100% { transform: translateY(0px); }
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      
+      <div id="startup-splash">
+        <img src="/logo.png" alt="Acofi Logo" class="splash-logo" onerror="this.style.display='none'" />
+        <div class="spinner-container">
+          <div class="spinner"></div>
+          <div class="spinner-inner"></div>
+        </div>
+        <div class="splash-text">Iniciando Acofi Translator</div>
+      </div>
+
+    </div>
+    
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
