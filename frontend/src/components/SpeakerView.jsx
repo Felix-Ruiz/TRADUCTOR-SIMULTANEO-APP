@@ -75,7 +75,6 @@ const SpeakerView = () => {
         sessionStorage.setItem('speakerPwd', pwd);
         setLoginError('');
       } else {
-        // FIX: Leer el mensaje dinámico del servidor (bloqueo antibots)
         setLoginError(response.message || 'Contraseña de sala incorrecta.');
         setPasswordInput('');
         sessionStorage.removeItem('speakerPwd');
@@ -286,7 +285,7 @@ const SpeakerView = () => {
         <div className="flex flex-col items-center gap-6 animate-pulse">
           <img src="/logo.png" alt="Logo" className="h-14 w-auto object-contain drop-shadow-lg" onError={(e) => { e.target.style.display = 'none'; }} />
           <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-gray-500 text-sm font-semibold tracking-widest uppercase">Verificando sesión...</p>
+          <p className="text-gray-500 text-sm font-semibold tracking-widest uppercase text-center">Verificando sesión...</p>
         </div>
       </div>
     );
@@ -294,14 +293,14 @@ const SpeakerView = () => {
 
   if (!isAuthenticated) {
     return (
-      <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-darker relative overflow-hidden">
-        <div className="bg-dark border border-gray-800 p-8 rounded-3xl shadow-2xl max-w-md w-full flex flex-col items-center gap-6 text-center z-10">
+      <div className="flex flex-col h-screen w-full items-center justify-center p-4 sm:p-6 bg-darker relative overflow-hidden">
+        <div className="bg-dark border border-gray-800 p-6 sm:p-8 rounded-3xl shadow-2xl max-w-md w-full flex flex-col items-center gap-6 text-center z-10">
           <div className="bg-primary/10 p-5 rounded-full">
             <Lock className="w-10 h-10 text-primary" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-white mb-2 tracking-tight">Acceso a Cabina de Orador</h2>
-            <p className="text-gray-400 text-sm leading-relaxed">
+            <h2 className="text-xl sm:text-2xl font-bold text-white mb-2 tracking-tight">Acceso a Cabina de Orador</h2>
+            <p className="text-gray-400 text-sm leading-relaxed px-2">
               Ingresa la Clave de Sala generada por el administrador de tu evento.
             </p>
           </div>
@@ -311,7 +310,7 @@ const SpeakerView = () => {
               value={passwordInput}
               onChange={(e) => setPasswordInput(e.target.value)}
               placeholder="Clave Secreta de Sala"
-              className="w-full bg-darker border border-gray-700 text-white text-lg rounded-xl p-4 focus:ring-2 focus:ring-primary focus:outline-none text-center tracking-widest transition-all"
+              className="w-full bg-darker border border-gray-700 text-white text-lg sm:text-xl rounded-xl p-4 focus:ring-2 focus:ring-primary focus:outline-none text-center tracking-widest transition-all"
             />
             {loginError && <p className="text-red-500 text-xs font-semibold animate-pulse">{loginError}</p>}
             <button
@@ -331,8 +330,8 @@ const SpeakerView = () => {
       <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-black">
         <div className="w-full max-w-md flex flex-col items-center">
           <AlertTriangle className="w-16 h-16 text-yellow-500 mb-6 animate-pulse" />
-          <h2 className="text-2xl font-bold text-white mb-2 text-center">Transmisión Pausada</h2>
-          <p className="text-gray-400 text-center leading-relaxed">
+          <h2 className="text-xl sm:text-2xl font-bold text-white mb-3 text-center">Transmisión Pausada</h2>
+          <p className="text-gray-400 text-sm sm:text-base text-center leading-relaxed px-4">
             El administrador ha pausado el sistema o este evento. Espera instrucciones para reanudar.
           </p>
         </div>
@@ -341,25 +340,25 @@ const SpeakerView = () => {
   }
 
   return (
-    <div className="flex flex-col h-screen w-full p-8 max-w-6xl mx-auto overflow-hidden relative">
+    <div className="flex flex-col h-screen w-full p-4 sm:p-6 md:p-8 max-w-6xl mx-auto overflow-hidden relative bg-darker">
       
       {dialogConfig.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity">
           <div className="bg-darker border border-gray-700 p-6 rounded-3xl shadow-[0_0_40px_rgba(0,0,0,0.5)] max-w-sm w-full flex flex-col gap-2 transform transition-all scale-100">
             <div className="flex items-center gap-3 mb-2">
                <AlertCircle className={`w-7 h-7 ${dialogConfig.type === 'alert' ? 'text-yellow-500' : 'text-red-500'}`} />
-               <h3 className="text-xl font-bold text-white tracking-wide">{dialogConfig.title}</h3>
+               <h3 className="text-lg sm:text-xl font-bold text-white tracking-wide">{dialogConfig.title}</h3>
             </div>
             <p className="text-gray-400 text-sm leading-relaxed mb-4">{dialogConfig.message}</p>
-            <div className="flex justify-end gap-3 mt-2">
+            <div className="flex flex-col sm:flex-row justify-end gap-3 mt-2">
               {dialogConfig.type === 'confirm' && (
-                <button onClick={closeDialog} className="px-5 py-2.5 rounded-xl text-gray-400 hover:bg-gray-800 hover:text-white transition-colors text-sm font-bold tracking-wide">
+                <button onClick={closeDialog} className="w-full sm:w-auto px-5 py-2.5 rounded-xl text-gray-400 hover:bg-gray-800 hover:text-white transition-colors text-sm font-bold tracking-wide">
                   Cancelar
                 </button>
               )}
               <button 
                 onClick={() => { if(dialogConfig.onConfirm) dialogConfig.onConfirm(); closeDialog(); }} 
-                className={`px-5 py-2.5 rounded-xl text-white text-sm font-bold tracking-wide transition-all shadow-lg ${dialogConfig.confirmStyle}`}
+                className={`w-full sm:w-auto px-5 py-2.5 rounded-xl text-white text-sm font-bold tracking-wide transition-all shadow-lg ${dialogConfig.confirmStyle}`}
               >
                 {dialogConfig.type === 'alert' ? 'Entendido' : 'Confirmar'}
               </button>
@@ -368,67 +367,69 @@ const SpeakerView = () => {
         </div>
       )}
 
-      <header className="flex justify-between items-start mb-8 shrink-0">
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-3">
-            <Globe className="w-8 h-8 text-primary" />
-            <div className="flex flex-col">
-              <h1 className="text-2xl font-bold tracking-tight text-white leading-tight">
+      <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-6 sm:mb-8 shrink-0 bg-dark p-4 sm:p-6 rounded-2xl border border-gray-800 shadow-xl">
+        <div className="flex flex-col gap-4 sm:gap-5 w-full lg:w-auto">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="bg-primary/10 p-2 sm:p-3 rounded-xl shrink-0">
+                <Globe className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
+            </div>
+            <div className="flex flex-col overflow-hidden">
+              <h1 className="text-lg sm:text-2xl font-bold tracking-tight text-white leading-tight break-words">
                 {eventInfo?.name || "Traducción Simultánea"}
               </h1>
-              <span className="text-xs text-gray-500 font-bold tracking-widest uppercase">
-                Panel de Orador: {roomName}
+              <span className="text-[10px] sm:text-xs text-gray-500 font-bold tracking-widest uppercase mt-1">
+                Panel de Orador: <span className="text-primary">{roomName}</span>
               </span>
             </div>
           </div>
           
-          <div className="flex items-center gap-3">
-              <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full font-medium text-sm w-max ${isRecording ? 'bg-red-500/10 text-red-500 border border-red-500/20' : 'bg-gray-800 text-gray-400 border border-gray-700'}`}>
-                <Radio className={`w-4 h-4 ${isRecording ? 'animate-pulse' : ''}`} />
-                {isRecording ? `Transmitiendo en Vivo` : 'Sistema en espera'}
+          <div className="flex flex-wrap items-center gap-3">
+              <div className={`inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-xl sm:rounded-full font-medium text-xs sm:text-sm w-full sm:w-max ${isRecording ? 'bg-red-500/10 text-red-500 border border-red-500/20' : 'bg-gray-800 text-gray-400 border border-gray-700'}`}>
+                <Radio className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 ${isRecording ? 'animate-pulse' : ''}`} />
+                <span>{isRecording ? `Transmitiendo en Vivo` : 'Sistema en espera'}</span>
               </div>
               
-              <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full transition-all duration-300 ${isRecording ? 'bg-green-500/10 border border-green-500/30 shadow-lg shadow-green-500/10' : 'bg-dark border border-gray-800 shadow-inner'}`}>
-                  <div className={`w-1.5 h-1.5 rounded-full ${isRecording ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`}></div>
-                  <Users className={`w-4 h-4 ${isRecording ? 'text-green-500' : 'text-gray-500'}`} />
+              <div className={`inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl sm:rounded-full transition-all duration-300 w-full sm:w-auto ${isRecording ? 'bg-green-500/10 border border-green-500/30 shadow-lg shadow-green-500/10' : 'bg-darker border border-gray-800 shadow-inner'}`}>
+                  <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${isRecording ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`}></div>
+                  <Users className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 ${isRecording ? 'text-green-500' : 'text-gray-500'}`} />
                   <span className={`font-bold text-sm leading-none ${isRecording ? 'text-white' : 'text-gray-300'}`}>{audienceCount}</span>
-                  <span className="text-gray-400 text-[10px] font-bold tracking-widest uppercase ml-0.5 hidden sm:inline-block">Oyentes en espera</span>
+                  <span className="text-gray-400 text-[10px] font-bold tracking-widest uppercase ml-0.5">Oyentes en espera</span>
               </div>
           </div>
         </div>
         
-        <div className="hidden md:flex items-center gap-5 bg-dark p-3 rounded-2xl border border-gray-800 shadow-xl">
-          <div className="bg-white p-2 rounded-xl shrink-0">
-            <QRCodeSVG value={audienceUrl} size={70} />
+        <div className="w-full lg:w-auto flex flex-row items-center gap-4 sm:gap-5 bg-darker p-3 sm:p-4 rounded-xl border border-gray-700 shadow-inner">
+          <div className="bg-white p-2 rounded-xl shrink-0 hidden xs:block">
+            <QRCodeSVG value={audienceUrl} size={64} />
           </div>
-          <div className="flex flex-col pr-4 justify-center">
-            <span className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-1">Acceso Audiencia</span>
-            <a href={audienceUrl} target="_blank" rel="noreferrer" className="text-sm text-primary hover:text-blue-400 font-bold transition-colors mb-2">
+          <div className="flex flex-col flex-1 justify-center">
+            <span className="text-[10px] sm:text-xs text-gray-400 font-bold uppercase tracking-wider mb-1">Acceso Audiencia</span>
+            <a href={audienceUrl} target="_blank" rel="noreferrer" className="text-xs sm:text-sm text-primary hover:text-blue-400 font-bold transition-colors mb-2 truncate max-w-[200px] sm:max-w-full">
               Abrir enlace de sala ↗
             </a>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between sm:justify-start gap-2 bg-black/30 p-1.5 rounded-lg sm:bg-transparent sm:p-0">
                 <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Cód:</span>
                 <span className="bg-gray-800 text-white px-2 py-0.5 rounded text-xs font-mono tracking-widest">{audienceCode}</span>
-                <button onClick={() => copyToClipboard(audienceCode)} className="text-gray-400 hover:text-white transition-colors" title="Copiar código">
-                    {copiedText === audienceCode ? <CheckCircle2 className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
+                <button onClick={() => copyToClipboard(audienceCode)} className="text-gray-400 hover:text-white transition-colors p-1 sm:p-0" title="Copiar código">
+                    {copiedText === audienceCode ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
                 </button>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="flex-1 flex flex-col min-h-0 gap-6 pb-6 overflow-y-auto pr-2">
+      <main className="flex-1 flex flex-col min-h-0 gap-6 pb-6 overflow-y-auto pr-1 sm:pr-2">
         <div className="space-y-4 shrink-0">
           
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 mb-2 flex-wrap">
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Idioma:</span>
-              <div className="relative">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 sm:gap-6 mb-2">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
+              <span className="text-xs sm:text-sm font-semibold text-gray-500 uppercase tracking-wider">Idioma:</span>
+              <div className="relative w-full sm:w-auto">
                 <select 
                   value={inputLanguage}
                   onChange={(e) => setInputLanguage(e.target.value)}
                   disabled={isRecording}
-                  className="bg-darker border border-gray-700 text-primary text-sm font-bold uppercase tracking-wider rounded-lg px-3 py-1.5 focus:ring-1 focus:ring-primary focus:outline-none appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full sm:w-auto bg-darker border border-gray-700 text-primary text-xs sm:text-sm font-bold uppercase tracking-wider rounded-lg px-3 py-2 sm:py-1.5 focus:ring-1 focus:ring-primary focus:outline-none appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <option value="es-CO">Español</option>
                   <option value="en-US">Inglés</option>
@@ -444,15 +445,14 @@ const SpeakerView = () => {
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              {/* MODIFICADO AQUÍ */}
-              <span className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Tipo de Voz:</span>
-              <div className="relative">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
+              <span className="text-xs sm:text-sm font-semibold text-gray-500 uppercase tracking-wider">Tipo de Voz:</span>
+              <div className="relative w-full sm:w-auto">
                 <select 
                   value={voiceGender}
                   onChange={(e) => setVoiceGender(e.target.value)}
                   disabled={isRecording}
-                  className="bg-darker border border-gray-700 text-primary text-sm font-bold uppercase tracking-wider rounded-lg px-3 py-1.5 focus:ring-1 focus:ring-primary focus:outline-none appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full sm:w-auto bg-darker border border-gray-700 text-primary text-xs sm:text-sm font-bold uppercase tracking-wider rounded-lg px-3 py-2 sm:py-1.5 focus:ring-1 focus:ring-primary focus:outline-none appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <option value="female">👩 Mujer</option>
                   <option value="male">👨 Hombre</option>
@@ -464,34 +464,27 @@ const SpeakerView = () => {
                 </div>
               </div>
             </div>
-
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Sala Asignada:</span>
-              <div className="bg-darker border border-gray-700 text-white text-sm font-bold uppercase tracking-wider rounded-lg px-4 py-1.5 min-w-[120px] text-center shadow-inner cursor-not-allowed">
-                {roomName}
-              </div>
-            </div>
           </div>
           
-          <p className="text-3xl md:text-4xl font-bold leading-tight text-white min-h-[3rem] text-left">
+          <p className="text-2xl sm:text-3xl md:text-4xl font-bold leading-tight text-white min-h-[4rem] sm:min-h-[3rem] text-left p-4 sm:p-0 bg-black/20 sm:bg-transparent rounded-xl border border-gray-800 sm:border-none">
             {transcription || "Presiona el botón para comenzar a hablar..."}
           </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-dark border border-gray-800 rounded-2xl p-5 shadow-xl shrink-0 mt-2">
-            <div className="flex flex-col mb-4 sm:mb-0">
-                <h3 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2 mb-1">
-                    <Monitor className="w-4 h-4 text-primary" />
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between bg-dark border border-gray-800 rounded-2xl p-4 sm:p-5 shadow-xl shrink-0 mt-2 gap-4">
+            <div className="flex flex-col">
+                <h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2 mb-1">
+                    <Monitor className="w-4 h-4 text-primary shrink-0" />
                     Pantallas de Subtítulos (Modo TV)
                 </h3>
-                <p className="text-xs text-gray-500">Selecciona el idioma y abre los subtítulos a pantalla completa para proyectar.</p>
+                <p className="text-[10px] sm:text-xs text-gray-500 leading-relaxed">Selecciona el idioma y abre los subtítulos a pantalla completa para proyectar.</p>
             </div>
-            <div className="flex items-center gap-3">
-                <div className="relative">
+            <div className="flex flex-col xs:flex-row items-stretch xs:items-center gap-3 w-full md:w-auto">
+                <div className="relative w-full xs:w-auto">
                     <select
                         value={tvLanguage}
                         onChange={(e) => setTvLanguage(e.target.value)}
-                        className="bg-gray-800 border border-gray-700 text-white text-xs font-bold uppercase tracking-wider rounded-lg px-3 py-2.5 focus:ring-1 focus:ring-primary focus:outline-none appearance-none cursor-pointer pr-8"
+                        className="w-full xs:w-auto bg-gray-800 border border-gray-700 text-white text-xs font-bold uppercase tracking-wider rounded-lg px-3 py-3 xs:py-2.5 focus:ring-1 focus:ring-primary focus:outline-none appearance-none cursor-pointer pr-8"
                     >
                         <option value="es">Español</option>
                         <option value="en">Inglés</option>
@@ -509,29 +502,29 @@ const SpeakerView = () => {
                     href={`${window.location.origin}/?code=${audienceCode}&tv=true&lang=${tvLanguage}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex items-center gap-2 bg-primary hover:bg-blue-600 text-white px-4 py-2.5 rounded-lg font-bold text-xs uppercase tracking-wider transition-colors shadow-lg shadow-blue-500/25"
+                    className="flex justify-center items-center gap-2 bg-primary hover:bg-blue-600 text-white px-4 py-3 xs:py-2.5 rounded-lg font-bold text-xs uppercase tracking-wider transition-colors shadow-lg shadow-blue-500/25 w-full xs:w-auto shrink-0"
                 >
-                    <MonitorPlay className="w-4 h-4" />
+                    <MonitorPlay className="w-4 h-4 shrink-0" />
                     Proyectar
                 </a>
             </div>
         </div>
 
         <div className="flex flex-col gap-4 shrink-0">
-          <div className="flex flex-col md:flex-row md:items-center gap-3">
-            <span className="text-sm font-semibold text-primary uppercase tracking-wider">Layout de Monitores:</span>
-            <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <span className="text-xs sm:text-sm font-semibold text-primary uppercase tracking-wider">Layout de Monitores:</span>
+            <div className="grid grid-cols-3 sm:flex gap-2 w-full sm:w-auto">
               {[1, 2, 3].map(num => (
                 <button
                   key={num}
                   onClick={() => setPanelCount(num)}
-                  className={`px-4 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
+                  className={`w-full sm:w-auto px-2 sm:px-4 py-2 sm:py-1.5 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all ${
                     panelCount === num 
                       ? 'bg-primary text-white shadow-[0_0_10px_rgba(59,130,246,0.3)]' 
                       : 'bg-dark border border-gray-700 text-gray-400 hover:bg-gray-800'
                   }`}
                 >
-                  {num} {num === 1 ? 'Panel' : 'Paneles'}
+                  {num} <span className="hidden xs:inline">{num === 1 ? 'Panel' : 'Paneles'}</span>
                 </button>
               ))}
             </div>
@@ -543,13 +536,13 @@ const SpeakerView = () => {
             'grid-cols-1 md:grid-cols-3'
           }`}>
             {Array.from({ length: panelCount }).map((_, index) => (
-              <div key={index} className="bg-dark border border-gray-800 rounded-2xl p-5 flex flex-col justify-start min-h-[10rem] shadow-xl relative">
+              <div key={index} className="bg-dark border border-gray-800 rounded-2xl p-4 sm:p-5 flex flex-col justify-start min-h-[8rem] sm:min-h-[10rem] shadow-xl relative">
                 
                 <div className="mb-3 border-b border-gray-800 pb-2 relative shrink-0">
                   <select 
                     value={panelLanguages[index]}
                     onChange={(e) => handlePanelLanguageChange(index, e.target.value)}
-                    className="w-full bg-transparent text-xs font-bold text-gray-400 uppercase tracking-widest focus:outline-none cursor-pointer hover:text-white transition-colors appearance-none pr-6"
+                    className="w-full bg-transparent text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-widest focus:outline-none cursor-pointer hover:text-white transition-colors appearance-none pr-6"
                   >
                     <option value="es" className="bg-darker text-white">Español</option>
                     <option value="en" className="bg-darker text-white">Inglés</option>
@@ -564,7 +557,7 @@ const SpeakerView = () => {
                   </div>
                 </div>
 
-                <p className="text-xl md:text-2xl font-medium leading-relaxed text-gray-300 text-left">
+                <p className="text-lg sm:text-xl md:text-2xl font-medium leading-relaxed text-gray-300 text-left break-words">
                   {allTranslations[panelLanguages[index]] || "..."}
                 </p>
               </div>
@@ -574,41 +567,41 @@ const SpeakerView = () => {
       </main>
 
       <footer className="flex flex-col items-center gap-4 pt-4 border-t border-gray-800 shrink-0">
-        <div className="flex justify-center">
+        <div className="flex justify-center w-full sm:w-auto px-4 sm:px-0">
           {!isRecording ? (
             <button 
               onClick={startRecording}
-              className="flex items-center gap-3 bg-primary hover:bg-blue-600 text-white px-8 py-4 rounded-full font-semibold transition-all shadow-lg hover:shadow-blue-500/25"
+              className="w-full sm:w-auto flex items-center justify-center gap-3 bg-primary hover:bg-blue-600 text-white px-6 sm:px-8 py-4 sm:py-4 rounded-full font-semibold transition-all shadow-lg hover:shadow-blue-500/25"
             >
-              <Mic className="w-6 h-6" />
-              Iniciar Discurso
+              <Mic className="w-5 h-5 sm:w-6 sm:h-6 shrink-0" />
+              <span className="text-sm sm:text-base">Iniciar Discurso</span>
             </button>
           ) : (
             <button 
               onClick={stopRecording}
-              className="flex items-center gap-3 bg-red-500 hover:bg-red-600 text-white px-8 py-4 rounded-full font-semibold transition-all shadow-lg hover:shadow-red-500/25"
+              className="w-full sm:w-auto flex items-center justify-center gap-3 bg-red-500 hover:bg-red-600 text-white px-6 sm:px-8 py-4 sm:py-4 rounded-full font-semibold transition-all shadow-lg hover:shadow-red-500/25"
             >
-              <Square className="w-6 h-6 fill-current" />
-              Detener Transmisión
+              <Square className="w-5 h-5 sm:w-6 sm:h-6 fill-current shrink-0" />
+              <span className="text-sm sm:text-base">Detener Transmisión</span>
             </button>
           )}
         </div>
 
         {!isRecording && fullTranscription && (
-          <div className="flex gap-4 mt-2 transition-all duration-500 ease-in-out">
+          <div className="flex flex-col sm:flex-row w-full sm:w-auto gap-3 mt-1 sm:mt-2 transition-all duration-500 ease-in-out px-4 sm:px-0">
             <button 
               onClick={downloadTranscription}
-              className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-white px-5 py-2.5 rounded-xl font-medium transition-colors text-sm border border-gray-700 shadow-lg"
+              className="w-full sm:w-auto flex justify-center items-center gap-2 bg-gray-800 hover:bg-gray-700 text-white px-4 sm:px-5 py-3 sm:py-2.5 rounded-xl font-medium transition-colors text-xs sm:text-sm border border-gray-700 shadow-lg"
             >
-              <Download className="w-4 h-4" />
-              Transcripción Completa
+              <Download className="w-4 h-4 shrink-0" />
+              <span>Transcripción Completa</span>
             </button>
             <button 
               onClick={downloadSummary}
-              className="flex items-center gap-2 bg-dark hover:bg-gray-800 text-primary px-5 py-2.5 rounded-xl font-medium transition-colors text-sm border border-primary/30 shadow-lg"
+              className="w-full sm:w-auto flex justify-center items-center gap-2 bg-dark hover:bg-gray-800 text-primary px-4 sm:px-5 py-3 sm:py-2.5 rounded-xl font-medium transition-colors text-xs sm:text-sm border border-primary/30 shadow-lg"
             >
-              <Download className="w-4 h-4" />
-              Acta de Resumen
+              <Download className="w-4 h-4 shrink-0" />
+              <span>Acta de Resumen</span>
             </button>
           </div>
         )}

@@ -74,7 +74,6 @@ const EventAdminView = () => {
         setLoginError('');
         setIsFetchingData(false);
       } else {
-        // FIX: Leer el mensaje dinámico del servidor (bloqueo antibots)
         setLoginError(response.message || 'Clave de administrador de evento incorrecta.');
         setPasswordInput('');
         setIsFetchingData(false);
@@ -295,7 +294,7 @@ const EventAdminView = () => {
         <div className="flex flex-col items-center gap-6 animate-pulse">
           <img src="/logo.png" alt="Logo" className="h-14 w-auto object-contain drop-shadow-lg" onError={(e) => { e.target.style.display = 'none'; }} />
           <div className="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-gray-500 text-sm font-semibold tracking-widest uppercase">Cargando panel de cliente...</p>
+          <p className="text-gray-500 text-sm font-semibold tracking-widest uppercase text-center">Cargando panel de cliente...</p>
         </div>
       </div>
     );
@@ -303,13 +302,13 @@ const EventAdminView = () => {
 
   if (!isAuthenticated) {
     return (
-      <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-black">
-        <div className="bg-darker border border-purple-900/30 p-8 rounded-3xl shadow-2xl shadow-purple-900/10 max-w-md w-full flex flex-col items-center gap-6 text-center">
+      <div className="flex flex-col h-screen w-full items-center justify-center p-4 sm:p-6 bg-black">
+        <div className="bg-darker border border-purple-900/30 p-6 sm:p-8 rounded-3xl shadow-2xl shadow-purple-900/10 max-w-md w-full flex flex-col items-center gap-6 text-center">
           <div className="bg-purple-500/10 p-5 rounded-full">
             <UserCog className="w-10 h-10 text-purple-500" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-white mb-2 tracking-widest uppercase">Admin de Evento</h2>
+            <h2 className="text-xl sm:text-2xl font-bold text-white mb-2 tracking-widest uppercase">Admin de Evento</h2>
             <p className="text-gray-400 text-sm leading-relaxed">Ingresa la clave administrativa proporcionada por el organizador.</p>
           </div>
           <form onSubmit={handleLogin} className="w-full flex flex-col gap-4 mt-2">
@@ -318,7 +317,7 @@ const EventAdminView = () => {
               value={passwordInput}
               onChange={(e) => setPasswordInput(e.target.value)}
               placeholder="Clave Administrativa"
-              className="w-full bg-black border border-gray-800 text-purple-500 text-xl rounded-xl p-4 focus:ring-2 focus:ring-purple-500 focus:outline-none text-center tracking-widest transition-all"
+              className="w-full bg-black border border-gray-800 text-purple-500 text-lg sm:text-xl rounded-xl p-4 focus:ring-2 focus:ring-purple-500 focus:outline-none text-center tracking-widest transition-all"
             />
             {loginError && <p className="text-red-500 text-xs font-semibold animate-pulse">{loginError}</p>}
             <button
@@ -346,18 +345,18 @@ const EventAdminView = () => {
           <div className="bg-darker border border-gray-700 p-6 rounded-3xl shadow-[0_0_40px_rgba(0,0,0,0.5)] max-w-sm w-full flex flex-col gap-2 transform transition-all scale-100">
             <div className="flex items-center gap-3 mb-2">
                <AlertCircle className={`w-7 h-7 ${dialogConfig.type === 'alert' ? 'text-yellow-500' : 'text-red-500'}`} />
-               <h3 className="text-xl font-bold text-white tracking-wide">{dialogConfig.title}</h3>
+               <h3 className="text-lg sm:text-xl font-bold text-white tracking-wide">{dialogConfig.title}</h3>
             </div>
             <p className="text-gray-400 text-sm leading-relaxed mb-4">{dialogConfig.message}</p>
-            <div className="flex justify-end gap-3 mt-2">
+            <div className="flex flex-col sm:flex-row justify-end gap-3 mt-2">
               {dialogConfig.type === 'confirm' && (
-                <button onClick={closeDialog} className="px-5 py-2.5 rounded-xl text-gray-400 hover:bg-gray-800 hover:text-white transition-colors text-sm font-bold tracking-wide">
+                <button onClick={closeDialog} className="w-full sm:w-auto px-5 py-2.5 rounded-xl text-gray-400 hover:bg-gray-800 hover:text-white transition-colors text-sm font-bold tracking-wide">
                   Cancelar
                 </button>
               )}
               <button 
                 onClick={() => { if(dialogConfig.onConfirm) dialogConfig.onConfirm(); closeDialog(); }} 
-                className={`px-5 py-2.5 rounded-xl text-white text-sm font-bold tracking-wide transition-all shadow-lg ${dialogConfig.confirmStyle}`}
+                className={`w-full sm:w-auto px-5 py-2.5 rounded-xl text-white text-sm font-bold tracking-wide transition-all shadow-lg ${dialogConfig.confirmStyle}`}
               >
                 {dialogConfig.type === 'alert' ? 'Entendido' : 'Confirmar'}
               </button>
@@ -366,30 +365,27 @@ const EventAdminView = () => {
         </div>
       )}
 
-      <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 shrink-0 bg-dark p-6 rounded-2xl border border-gray-800 shadow-xl">
-        <div className="flex items-center gap-4 w-full md:w-auto">
-          <div className="bg-purple-500/10 p-3 rounded-xl hidden sm:block">
+      <header className="flex flex-col md:flex-row justify-between items-center md:items-start gap-4 mb-6 sm:mb-8 shrink-0 bg-dark p-4 sm:p-6 rounded-2xl border border-gray-800 shadow-xl text-center md:text-left">
+        <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 w-full md:w-auto">
+          <div className="bg-purple-500/10 p-3 rounded-xl">
             <UserCog className="w-8 h-8 text-purple-500" />
           </div>
-          <div className="flex flex-col flex-1">
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white uppercase truncate">{eventData.name}</h1>
-            <span className="text-xs text-gray-500 font-bold tracking-widest flex items-center gap-3 mt-1">
+          <div className="flex flex-col flex-1 w-full sm:w-auto overflow-hidden">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white uppercase break-words">{eventData.name}</h1>
+            <div className="text-xs text-gray-500 font-bold tracking-widest flex flex-col sm:flex-row items-center sm:items-start gap-2 sm:gap-3 mt-1.5 sm:mt-1 w-full justify-center md:justify-start">
                <span>PANEL ADMINISTRATIVO</span>
                {!isSystemActive && (
-                   <span className="text-red-500 animate-pulse bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">SISTEMA CENTRAL OFFLINE</span>
+                   <span className="text-red-500 animate-pulse bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20 whitespace-nowrap">SISTEMA CENTRAL OFFLINE</span>
                )}
-            </span>
+            </div>
           </div>
-          <button onClick={handleLogout} className="p-2 bg-gray-800 text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors md:hidden">
-              <LogOut className="w-5 h-5" />
-          </button>
         </div>
 
-        <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto justify-center md:justify-end">
             <button 
             onClick={toggleEventStatus}
             disabled={!isSystemActive}
-            className={`flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all shadow-lg w-full sm:w-auto ${
+            className={`flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all shadow-lg w-full sm:w-auto shrink-0 ${
                 !isSystemActive 
                   ? 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700'
                   : eventData.isActive 
@@ -397,39 +393,40 @@ const EventAdminView = () => {
                   : 'bg-red-500 text-white border border-red-500 hover:bg-red-600 shadow-red-500/25 animate-pulse'
             }`}
             >
-            <Power className="w-4 h-4" />
-            {eventData.isActive ? 'Evento En Vivo' : 'Evento Pausado'}
+            <Power className="w-4 h-4 shrink-0" />
+            <span>{eventData.isActive ? 'Evento En Vivo' : 'Evento Pausado'}</span>
             </button>
 
             <button 
                 onClick={() => downloadAnalytics(eventData)}
-                className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all shadow-lg w-full sm:w-auto bg-blue-500/10 text-blue-500 hover:bg-blue-500 hover:text-white border border-blue-500/20 hover:border-blue-500 shadow-blue-500/10"
+                className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all shadow-lg w-full sm:w-auto shrink-0 bg-blue-500/10 text-blue-500 hover:bg-blue-500 hover:text-white border border-blue-500/20 hover:border-blue-500 shadow-blue-500/10"
                 title="Descargar Reporte Analytics (PDF)"
             >
-                <Download className="w-4 h-4" />
-                <span className="hidden sm:inline">Reporte PDF</span>
+                <Download className="w-4 h-4 shrink-0" />
+                <span>Reporte PDF</span>
             </button>
             
-            <button onClick={handleLogout} className="p-2.5 bg-gray-800 text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-colors hidden md:block">
-                <LogOut className="w-5 h-5" />
+            <button onClick={handleLogout} className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-3 sm:p-3 bg-gray-800 text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-colors shrink-0">
+                <LogOut className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
+                <span className="sm:hidden text-xs font-bold uppercase tracking-widest">Cerrar Sesión</span>
             </button>
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto pr-2 flex flex-col gap-6">
+      <main className="flex-1 overflow-y-auto pr-1 sm:pr-2 flex flex-col gap-6">
 
-        <div className="bg-gradient-to-br from-gray-900 to-black p-6 rounded-2xl border border-gray-800 shadow-xl flex flex-col sm:flex-row gap-6 items-center justify-between shrink-0">
-            <div className="flex items-center gap-4">
-                <div className="bg-primary/10 p-3.5 rounded-xl border border-primary/20">
-                    <BarChart3 className="w-8 h-8 text-primary" />
+        <div className="bg-gradient-to-br from-gray-900 to-black p-4 sm:p-6 rounded-2xl border border-gray-800 shadow-xl flex flex-col lg:flex-row gap-6 items-center justify-between shrink-0">
+            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-3 sm:gap-4 w-full lg:w-auto text-center sm:text-left">
+                <div className="bg-primary/10 p-3 sm:p-3.5 rounded-xl border border-primary/20 shrink-0">
+                    <BarChart3 className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
                 </div>
                 <div>
-                    <span className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-1">Audiencia Activa Total</span>
-                    <span className="text-4xl font-bold text-white leading-none">{safeStats.total || 0} <span className="text-base font-medium text-gray-500">en vivo</span></span>
+                    <span className="text-[10px] sm:text-xs font-bold text-gray-500 uppercase tracking-widest block mb-1">Audiencia Activa Total</span>
+                    <span className="text-3xl sm:text-4xl font-bold text-white leading-none">{safeStats.total || 0} <span className="text-sm sm:text-base font-medium text-gray-500">en vivo</span></span>
                 </div>
             </div>
             
-            <div className="flex gap-2 flex-wrap justify-center sm:justify-end w-full sm:w-auto">
+            <div className="flex gap-2 flex-wrap justify-center lg:justify-end w-full lg:w-auto">
                 {['en', 'pt', 'es', 'de', 'fr'].map(lang => {
                     if (safeStats.langs && safeStats.langs[lang] > 0) {
                         return (
@@ -444,105 +441,107 @@ const EventAdminView = () => {
             </div>
         </div>
 
-        <div className="bg-dark border border-gray-800 rounded-2xl p-6 shadow-xl flex-1 flex flex-col min-h-[300px]">
-            <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-800">
-                <h2 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2">
-                    <Activity className="w-4 h-4 text-primary" />
+        <div className="bg-dark border border-gray-800 rounded-2xl p-4 sm:p-6 shadow-xl flex-1 flex flex-col min-h-[300px] mb-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4 sm:mb-6 pb-4 border-b border-gray-800">
+                <h2 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2 w-full sm:w-auto">
+                    <Activity className="w-4 h-4 text-primary shrink-0" />
                     Gestión de Salas ({safeRooms.length})
                 </h2>
                 <button 
                     onClick={() => setIsAddingRoom(!isAddingRoom)}
-                    className="text-xs font-bold text-primary hover:text-blue-400 transition-colors uppercase disabled:opacity-50 flex items-center gap-1 bg-primary/10 px-3 py-1.5 rounded-lg"
+                    className="w-full sm:w-auto flex justify-center text-xs font-bold text-primary hover:text-blue-400 transition-colors uppercase disabled:opacity-50 items-center gap-1.5 bg-primary/10 px-4 py-2 sm:py-1.5 rounded-lg"
                     disabled={!isSystemActive || !eventData.isActive}
                 >
-                    {isAddingRoom ? <X className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
-                    {isAddingRoom ? 'Cancelar' : 'Crear Sala'}
+                    {isAddingRoom ? <X className="w-3 h-3 shrink-0" /> : <Plus className="w-3 h-3 shrink-0" />}
+                    <span>{isAddingRoom ? 'Cancelar' : 'Crear Sala'}</span>
                 </button>
             </div>
 
             {isAddingRoom && isSystemActive && eventData.isActive && (
-            <form onSubmit={handleAddRoom} className="mb-6 flex gap-3 bg-black/50 p-4 rounded-xl border border-gray-800">
+            <form onSubmit={handleAddRoom} className="mb-6 flex flex-col sm:flex-row gap-2 sm:gap-3 bg-black/40 p-3 sm:p-4 rounded-xl border border-gray-800">
                 <input 
                 type="text"
                 value={newRoomName}
                 onChange={(e) => setNewRoomName(e.target.value)}
-                placeholder="Nombre de la nueva sala (Ej: TALLER-A)"
-                className="flex-1 bg-darker border border-gray-700 text-white text-sm uppercase tracking-widest rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary focus:outline-none"
+                placeholder="Nombre de la sala (Ej: TALLER-A)"
+                className="w-full sm:flex-1 bg-darker border border-gray-700 text-white text-sm uppercase tracking-widest rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary focus:outline-none"
                 autoFocus
                 />
-                <button type="submit" disabled={!newRoomName.trim()} className="bg-primary hover:bg-blue-600 text-white px-6 py-3 rounded-xl text-sm font-bold uppercase tracking-widest transition-colors disabled:opacity-50 shadow-lg">Agregar</button>
+                <button type="submit" disabled={!newRoomName.trim()} className="w-full sm:w-auto bg-primary hover:bg-blue-600 text-white px-6 py-3 rounded-xl text-sm font-bold uppercase tracking-widest transition-colors disabled:opacity-50 shadow-lg">Agregar</button>
             </form>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 overflow-y-auto pb-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 overflow-y-auto pb-4">
             {safeRooms.map(roomObj => (
-                <div key={roomObj.name} className="flex flex-col bg-darker p-5 rounded-xl border border-gray-700 relative group transition-all hover:border-gray-500 shadow-md">
-                    <h3 className="text-base font-bold text-white uppercase tracking-wider mb-4 pr-8 truncate" title={roomObj.name}>{roomObj.name}</h3>
+                <div key={roomObj.name} className="flex flex-col bg-darker p-4 sm:p-5 rounded-xl border border-gray-700 relative group transition-all hover:border-gray-500 shadow-md">
+                    <h3 className="text-base font-bold text-white uppercase tracking-wider mb-3 sm:mb-4 pr-8 break-words leading-tight">{roomObj.name}</h3>
                     
-                    <div className="grid grid-cols-2 gap-3 mb-5">
-                        <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 flex flex-col justify-center shadow-inner">
-                            <span className="text-[10px] text-primary font-bold uppercase tracking-widest flex items-center gap-1 mb-1.5"><Key className="w-3 h-3"/> Clave Orador</span>
-                            <div className="flex items-center justify-between">
-                                <span className="text-white font-mono text-sm font-bold">{roomObj.speakerPassword}</span>
-                                <button onClick={() => copyToClipboard(roomObj.speakerPassword)} className="text-primary hover:text-white transition-colors">
+                    <div className="grid grid-cols-1 xs:grid-cols-2 gap-2 sm:gap-3 mb-4 sm:mb-5">
+                        <div className="bg-primary/10 border border-primary/20 rounded-lg p-2.5 sm:p-3 flex flex-col justify-center shadow-inner">
+                            <span className="text-[10px] text-primary font-bold uppercase tracking-widest flex items-center gap-1.5 mb-1.5"><Key className="w-3 h-3 shrink-0"/> Clave Orador</span>
+                            <div className="flex items-center justify-between bg-black/20 p-1.5 rounded sm:bg-transparent sm:p-0">
+                                <span className="text-white font-mono text-sm font-bold tracking-widest">{roomObj.speakerPassword}</span>
+                                <button onClick={() => copyToClipboard(roomObj.speakerPassword)} className="text-primary hover:text-white transition-colors p-1 sm:p-0">
                                     {copiedText === roomObj.speakerPassword ? <CheckCircle2 className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
                                 </button>
                             </div>
                         </div>
 
-                        <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 flex flex-col justify-center shadow-inner">
-                            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest flex items-center gap-1 mb-1.5"><Users className="w-3 h-3"/> Cód. Audiencia</span>
-                            <div className="flex items-center justify-between">
-                                <span className="text-white font-mono text-sm font-bold">{roomObj.audienceCode}</span>
-                                <button onClick={() => copyToClipboard(roomObj.audienceCode)} className="text-gray-400 hover:text-white transition-colors">
+                        <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-2.5 sm:p-3 flex flex-col justify-center shadow-inner">
+                            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest flex items-center gap-1.5 mb-1.5"><Users className="w-3 h-3 shrink-0"/> Cód. Audiencia</span>
+                            <div className="flex items-center justify-between bg-black/20 p-1.5 rounded sm:bg-transparent sm:p-0">
+                                <span className="text-white font-mono text-sm font-bold tracking-widest">{roomObj.audienceCode}</span>
+                                <button onClick={() => copyToClipboard(roomObj.audienceCode)} className="text-gray-400 hover:text-white transition-colors p-1 sm:p-0">
                                     {copiedText === roomObj.audienceCode ? <CheckCircle2 className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
                                 </button>
                             </div>
                         </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2 mb-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-4">
                         <a 
                             href={`/admin?pwd=${roomObj.speakerPassword}`}
                             target="_blank"
                             rel="noreferrer"
-                            className="flex-1 bg-primary/20 hover:bg-primary text-primary hover:text-white border border-primary/50 hover:border-primary px-2 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors flex justify-center items-center gap-1.5 text-center"
+                            className="w-full bg-primary/20 hover:bg-primary text-primary hover:text-white border border-primary/50 hover:border-primary px-2 py-2.5 sm:py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors flex justify-center items-center gap-1.5 text-center"
                         >
-                            <Mic className="w-3 h-3" />
-                            Link Orador
+                            <Mic className="w-3.5 h-3.5 sm:w-3 sm:h-3 shrink-0" />
+                            <span className="inline sm:hidden md:inline">Link Orador</span>
+                            <span className="hidden sm:inline md:hidden">Orador</span>
                         </a>
                         <a 
                             href={`/?code=${roomObj.audienceCode}`}
                             target="_blank"
                             rel="noreferrer"
-                            className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white border border-gray-700 px-2 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors flex justify-center items-center gap-1.5 text-center"
+                            className="w-full bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white border border-gray-700 px-2 py-2.5 sm:py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors flex justify-center items-center gap-1.5 text-center"
                         >
-                            <ExternalLink className="w-3 h-3" /> 
-                            Link Audiencia
+                            <ExternalLink className="w-3.5 h-3.5 sm:w-3 sm:h-3 shrink-0" /> 
+                            <span className="inline sm:hidden md:inline">Link Audiencia</span>
+                            <span className="hidden sm:inline md:hidden">Audiencia</span>
                         </a>
                         <a 
                             href={`/?code=${roomObj.audienceCode}&tv=true&lang=es`}
                             target="_blank"
                             rel="noreferrer"
-                            className="flex-1 bg-gray-800 hover:bg-primary/20 text-gray-300 hover:text-primary border border-gray-700 hover:border-primary/50 px-2 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors flex justify-center items-center gap-1.5 text-center"
+                            className="w-full bg-gray-800 hover:bg-primary/20 text-gray-300 hover:text-primary border border-gray-700 hover:border-primary/50 px-2 py-2.5 sm:py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors flex justify-center items-center gap-1.5 text-center"
                         >
-                            <MonitorPlay className="w-3 h-3" /> 
+                            <MonitorPlay className="w-3.5 h-3.5 sm:w-3 sm:h-3 shrink-0" /> 
                             TV (ES)
                         </a>
                     </div>
 
-                    <div className="flex items-center justify-between mt-auto pt-2 border-t border-gray-800/50">
-                        <span className="bg-green-500/10 border border-green-500/20 text-green-400 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 w-max">
-                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                            <Users className="w-4 h-4" />
-                            {safeStats.roomCounts?.[roomObj.name] || 0} Usuarios en línea
+                    <div className="flex items-center justify-between mt-auto pt-3 border-t border-gray-800/50">
+                        <span className="bg-green-500/10 border border-green-500/20 text-green-400 px-3 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold flex items-center gap-2 w-max">
+                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shrink-0"></div>
+                            <Users className="w-4 h-4 shrink-0 hidden sm:block" />
+                            <span>{safeStats.roomCounts?.[roomObj.name] || 0} Usuarios en línea</span>
                         </span>
                     </div>
 
                     {isSystemActive && eventData.isActive && (
                         <button 
                         onClick={() => handleDeleteRoom(roomObj.name)}
-                        className="absolute top-4 right-4 text-gray-600 hover:text-red-500 hover:bg-red-500/10 p-1.5 rounded-md transition-colors opacity-0 group-hover:opacity-100"
+                        className="absolute top-3 right-3 sm:top-4 sm:right-4 text-gray-500 hover:text-red-500 hover:bg-red-500/10 p-1.5 sm:p-1.5 rounded-lg transition-colors bg-black/50 sm:bg-transparent sm:opacity-0 sm:group-hover:opacity-100"
                         title="Eliminar Sala"
                         >
                         <Trash2 className="w-4 h-4" />
@@ -551,7 +550,7 @@ const EventAdminView = () => {
                 </div>
             ))}
             {safeRooms.length === 0 && (
-                <div className="col-span-full py-8 text-center text-gray-500 text-sm font-medium">
+                <div className="col-span-full py-8 text-center text-gray-500 text-sm font-medium px-4">
                     No hay salas creadas. Usa el botón "Crear Sala" para comenzar.
                 </div>
             )}

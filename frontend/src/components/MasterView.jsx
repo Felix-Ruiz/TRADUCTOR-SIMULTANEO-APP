@@ -52,7 +52,6 @@ const MasterView = () => {
         sessionStorage.setItem('isMasterAuth', 'true');
         setLoginError('');
       } else {
-        // FIX: Leer el mensaje dinámico del servidor (bloqueo antibots)
         setLoginError(response.message || 'Credenciales maestras incorrectas.');
         setPasswordInput('');
         setIsFetchingData(false);
@@ -301,7 +300,7 @@ const MasterView = () => {
         <div className="flex flex-col items-center gap-6 animate-pulse">
           <img src="/logo.png" alt="Logo" className="h-14 w-auto object-contain drop-shadow-lg" onError={(e) => { e.target.style.display = 'none'; }} />
           <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-gray-500 text-sm font-semibold tracking-widest uppercase">Restaurando sesión maestra...</p>
+          <p className="text-gray-500 text-sm font-semibold tracking-widest uppercase text-center">Restaurando sesión maestra...</p>
         </div>
       </div>
     );
@@ -309,13 +308,13 @@ const MasterView = () => {
 
   if (!isAuthenticated) {
     return (
-      <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-black">
-        <div className="bg-darker border border-red-900/30 p-8 rounded-3xl shadow-2xl max-w-md w-full flex flex-col items-center gap-6 text-center">
+      <div className="flex flex-col h-screen w-full items-center justify-center p-4 sm:p-6 bg-black">
+        <div className="bg-darker border border-red-900/30 p-6 sm:p-8 rounded-3xl shadow-2xl max-w-md w-full flex flex-col items-center gap-6 text-center">
           <div className="bg-red-500/10 p-5 rounded-full">
             <Shield className="w-10 h-10 text-red-500" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-white mb-2 tracking-widest uppercase">Master Admin</h2>
+            <h2 className="text-xl sm:text-2xl font-bold text-white mb-2 tracking-widest uppercase">Master Admin</h2>
             <p className="text-gray-400 text-sm leading-relaxed">Nivel de autorización máximo requerido.</p>
           </div>
           <form onSubmit={handleLogin} className="w-full flex flex-col gap-4 mt-2">
@@ -324,7 +323,7 @@ const MasterView = () => {
               value={passwordInput}
               onChange={(e) => setPasswordInput(e.target.value)}
               placeholder="Clave Maestra"
-              className="w-full bg-black border border-gray-800 text-red-500 text-xl rounded-xl p-4 focus:ring-2 focus:ring-red-500 focus:outline-none text-center tracking-widest transition-all"
+              className="w-full bg-black border border-gray-800 text-red-500 text-lg sm:text-xl rounded-xl p-4 focus:ring-2 focus:ring-red-500 focus:outline-none text-center tracking-widest transition-all"
             />
             {loginError && <p className="text-red-500 text-xs font-semibold animate-pulse">{loginError}</p>}
             <button
@@ -340,25 +339,25 @@ const MasterView = () => {
   }
 
   return (
-    <div className="flex flex-col h-screen w-full p-8 max-w-6xl mx-auto overflow-hidden bg-darker relative">
+    <div className="flex flex-col h-screen w-full p-4 sm:p-6 md:p-8 max-w-6xl mx-auto overflow-hidden bg-darker relative">
       
       {dialogConfig.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity">
           <div className="bg-darker border border-gray-700 p-6 rounded-3xl shadow-[0_0_40px_rgba(0,0,0,0.5)] max-w-sm w-full flex flex-col gap-2 transform transition-all scale-100">
             <div className="flex items-center gap-3 mb-2">
                <AlertCircle className={`w-7 h-7 ${dialogConfig.type === 'alert' ? 'text-yellow-500' : 'text-red-500'}`} />
-               <h3 className="text-xl font-bold text-white tracking-wide">{dialogConfig.title}</h3>
+               <h3 className="text-lg sm:text-xl font-bold text-white tracking-wide">{dialogConfig.title}</h3>
             </div>
             <p className="text-gray-400 text-sm leading-relaxed mb-4">{dialogConfig.message}</p>
-            <div className="flex justify-end gap-3 mt-2">
+            <div className="flex flex-col sm:flex-row justify-end gap-3 mt-2">
               {dialogConfig.type === 'confirm' && (
-                <button onClick={closeDialog} className="px-5 py-2.5 rounded-xl text-gray-400 hover:bg-gray-800 hover:text-white transition-colors text-sm font-bold tracking-wide">
+                <button onClick={closeDialog} className="w-full sm:w-auto px-5 py-2.5 rounded-xl text-gray-400 hover:bg-gray-800 hover:text-white transition-colors text-sm font-bold tracking-wide">
                   Cancelar
                 </button>
               )}
               <button 
                 onClick={() => { if(dialogConfig.onConfirm) dialogConfig.onConfirm(); closeDialog(); }} 
-                className={`px-5 py-2.5 rounded-xl text-white text-sm font-bold tracking-wide transition-all shadow-lg ${dialogConfig.confirmStyle}`}
+                className={`w-full sm:w-auto px-5 py-2.5 rounded-xl text-white text-sm font-bold tracking-wide transition-all shadow-lg ${dialogConfig.confirmStyle}`}
               >
                 {dialogConfig.type === 'alert' ? 'Entendido' : 'Confirmar'}
               </button>
@@ -367,59 +366,59 @@ const MasterView = () => {
         </div>
       )}
 
-      <header className="flex justify-between items-center mb-8 shrink-0 bg-dark p-6 rounded-2xl border border-gray-800 shadow-xl">
-        <div className="flex items-center gap-4">
+      <header className="flex flex-col md:flex-row justify-between items-center md:items-start gap-4 mb-6 sm:mb-8 shrink-0 bg-dark p-4 sm:p-6 rounded-2xl border border-gray-800 shadow-xl text-center md:text-left">
+        <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 w-full md:w-auto">
           <div className="bg-red-500/10 p-3 rounded-xl">
             <Shield className="w-8 h-8 text-red-500" />
           </div>
           <div className="flex flex-col">
-            <h1 className="text-2xl font-bold tracking-tight text-white uppercase">Panel Master</h1>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white uppercase">Panel Master</h1>
             <span className="text-xs text-gray-500 font-bold tracking-widest">SaaS Multi-Tenant Dashboard</span>
           </div>
         </div>
         <button 
           onClick={toggleSystem}
-          className={`flex items-center gap-3 px-6 py-3 rounded-xl font-bold uppercase tracking-widest transition-all shadow-lg ${
+          className={`w-full md:w-auto flex items-center justify-center gap-3 px-6 py-3 rounded-xl font-bold uppercase tracking-widest transition-all shadow-lg ${
             isSystemActive 
               ? 'bg-green-500/10 text-green-500 border border-green-500/20 hover:bg-green-500 hover:text-white hover:shadow-green-500/25' 
               : 'bg-red-500 text-white border border-red-500 hover:bg-red-600 shadow-red-500/25 animate-pulse'
           }`}
         >
-          <Power className="w-5 h-5" />
-          {isSystemActive ? 'Central Online' : 'Central Apagada'}
+          <Power className="w-5 h-5 shrink-0" />
+          <span>{isSystemActive ? 'Central Online' : 'Central Apagada'}</span>
         </button>
       </header>
 
-      <main className="flex-1 overflow-y-auto pr-2 flex flex-col gap-8">
+      <main className="flex-1 overflow-y-auto pr-1 sm:pr-2 flex flex-col gap-6 sm:gap-8 pb-4">
         
-        <div className={`bg-dark border p-6 rounded-2xl shadow-lg shrink-0 transition-all ${!isSystemActive ? 'border-gray-800 opacity-50 grayscale' : 'border-gray-800'}`}>
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <Activity className="w-5 h-5 text-primary" />
+        <div className={`bg-dark border p-4 sm:p-6 rounded-2xl shadow-lg shrink-0 transition-all ${!isSystemActive ? 'border-gray-800 opacity-50 grayscale' : 'border-gray-800'}`}>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4">
+            <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+              <Activity className="w-5 h-5 text-primary shrink-0" />
               Desplegar Nuevo Cliente / Evento
             </h2>
             <button onClick={() => setIsAdvancedOpen(!isAdvancedOpen)} disabled={!isSystemActive} className="text-xs font-bold text-primary hover:text-blue-400 tracking-wider uppercase disabled:opacity-50">
-                {isAdvancedOpen ? '- Ocultar Opciones SaaS' : '+ Opciones SaaS (Marca Blanca)'}
+                {isAdvancedOpen ? '- Ocultar Opciones SaaS' : '+ Opciones SaaS'}
             </button>
           </div>
           
           <form onSubmit={handleCreateEvent} className="flex flex-col gap-4">
-            <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex flex-col md:flex-row gap-4">
                 <input 
                 type="text"
                 value={newEventName}
                 onChange={(e) => setNewEventName(e.target.value)}
-                placeholder="Nombre del Cliente o Evento (Ej: Congreso ACOFI 2026)"
+                placeholder="Nombre del Cliente (Ej: Congreso 2026)"
                 disabled={!isSystemActive}
-                className="flex-1 bg-darker border border-gray-700 text-white text-base rounded-xl p-4 focus:ring-2 focus:ring-primary focus:outline-none transition-all disabled:cursor-not-allowed"
+                className="w-full flex-1 bg-darker border border-gray-700 text-white text-sm sm:text-base rounded-xl p-3 sm:p-4 focus:ring-2 focus:ring-primary focus:outline-none transition-all disabled:cursor-not-allowed"
                 />
                 <button 
                 type="submit"
                 disabled={!newEventName.trim() || !isSystemActive}
-                className="bg-primary hover:bg-blue-600 text-white px-8 py-4 rounded-xl font-bold transition-all shadow-lg hover:shadow-blue-500/25 disabled:opacity-50 flex items-center justify-center gap-2 disabled:cursor-not-allowed"
+                className="w-full md:w-auto bg-primary hover:bg-blue-600 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-xl font-bold transition-all shadow-lg hover:shadow-blue-500/25 disabled:opacity-50 flex items-center justify-center gap-2 disabled:cursor-not-allowed"
                 >
-                <Plus className="w-5 h-5" />
-                Crear Instancia
+                <Plus className="w-5 h-5 shrink-0" />
+                <span>Crear Instancia</span>
                 </button>
             </div>
 
@@ -438,17 +437,17 @@ const MasterView = () => {
           </form>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-8">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           {(events || []).map((event) => {
             const safeRooms = event.rooms || [];
             const safeStats = event.stats || { total: 0, langs: {}, roomCounts: {} };
             return (
             <div key={event.id} className={`bg-dark border rounded-2xl flex flex-col overflow-hidden shadow-xl transition-all ${!isSystemActive ? 'border-gray-800 opacity-60' : event.isActive ? 'border-gray-800' : 'border-red-900/50 opacity-80'}`}>
               
-              <div className="p-5 border-b border-gray-800 bg-black/20 flex justify-between items-center">
-                <div className="flex items-center gap-3">
-                    <h3 className="text-xl font-bold text-white leading-tight">{event.name}</h3>
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest ${
+              <div className="p-4 sm:p-5 border-b border-gray-800 bg-black/20 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
+                    <h3 className="text-lg sm:text-xl font-bold text-white leading-tight break-words w-full sm:w-auto pr-2">{event.name}</h3>
+                    <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-widest shrink-0 w-max ${
                       !isSystemActive 
                         ? 'bg-gray-500/20 text-gray-500 border border-gray-500/30' 
                         : event.isActive 
@@ -458,11 +457,11 @@ const MasterView = () => {
                         {!isSystemActive ? 'Bloqueado por Central' : (event.isActive ? 'Online' : 'Offline')}
                     </span>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end shrink-0">
                     <button 
                         onClick={() => toggleEventStatus(event.id, event.isActive)}
                         disabled={!isSystemActive}
-                        className={`p-2 rounded-lg transition-colors ${
+                        className={`p-2.5 rounded-lg transition-colors flex-1 sm:flex-none flex justify-center ${
                           !isSystemActive 
                             ? 'opacity-30 cursor-not-allowed' 
                             : event.isActive 
@@ -471,32 +470,32 @@ const MasterView = () => {
                         }`}
                         title={!isSystemActive ? "Enciende la Central primero" : (event.isActive ? "Pausar Evento" : "Reactivar Evento")}
                     >
-                        <Power className="w-4 h-4" />
+                        <Power className="w-5 h-5 sm:w-4 sm:h-4" />
                     </button>
                     <button 
                         onClick={() => handleDeleteEvent(event.id)}
-                        className="p-2 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-lg transition-colors"
+                        className="p-2.5 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-lg transition-colors flex-1 sm:flex-none flex justify-center"
                         title="Eliminar Instancia Definitivamente"
                     >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-5 h-5 sm:w-4 sm:h-4" />
                     </button>
                 </div>
               </div>
 
-              <div className="p-5 flex-1 flex flex-col gap-5">
+              <div className="p-4 sm:p-5 flex-1 flex flex-col gap-5">
                 
-                <div className="bg-gradient-to-br from-gray-900 to-black p-4 rounded-xl border border-gray-800 flex flex-col sm:flex-row gap-4 items-center justify-between">
+                <div className="bg-gradient-to-br from-gray-900 to-black p-4 rounded-xl border border-gray-800 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="bg-primary/10 p-2.5 rounded-lg border border-primary/20">
+                        <div className="bg-primary/10 p-2.5 rounded-lg border border-primary/20 shrink-0">
                             <BarChart3 className="w-6 h-6 text-primary" />
                         </div>
                         <div>
-                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block">Audiencia Activa Total</span>
-                            <span className="text-2xl font-bold text-white leading-none">{safeStats.total || 0} <span className="text-sm font-medium text-gray-500">oyentes en vivo</span></span>
+                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block">Audiencia Activa</span>
+                            <span className="text-xl sm:text-2xl font-bold text-white leading-none">{safeStats.total || 0} <span className="text-xs sm:text-sm font-medium text-gray-500">oyentes en vivo</span></span>
                         </div>
                     </div>
                     
-                    <div className="flex gap-2 flex-wrap justify-end">
+                    <div className="flex gap-2 flex-wrap md:justify-end w-full md:w-auto">
                         {['en', 'pt', 'es', 'de', 'fr'].map(lang => {
                             if (safeStats.langs && safeStats.langs[lang] > 0) {
                                 return (
@@ -511,130 +510,130 @@ const MasterView = () => {
                     </div>
                 </div>
 
-                <div className="bg-purple-500/5 p-4 rounded-xl border border-purple-500/20 flex flex-col sm:flex-row justify-between items-center gap-4">
-                    <div>
+                <div className="bg-purple-500/5 p-4 rounded-xl border border-purple-500/20 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div className="w-full sm:w-auto">
                         <span className="text-[10px] font-bold text-purple-500 uppercase tracking-widest mb-1 flex items-center gap-1"><UserCog className="w-3 h-3"/> CLAVE ADMIN CLIENTE</span>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center justify-between sm:justify-start gap-2 bg-black/20 p-2 rounded-lg sm:bg-transparent sm:p-0">
                             <span className="text-purple-500 font-mono text-base font-bold tracking-widest">{event.adminPassword}</span>
-                            <button onClick={() => copyToClipboard(event.adminPassword)} className="text-purple-500 hover:text-white transition-colors">
-                            {copiedText === event.adminPassword ? <CheckCircle2 className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                            <button onClick={() => copyToClipboard(event.adminPassword)} className="text-purple-500 hover:text-white transition-colors p-1 sm:p-0">
+                            {copiedText === event.adminPassword ? <CheckCircle2 className="w-5 h-5 sm:w-4 sm:h-4 text-green-500" /> : <Copy className="w-5 h-5 sm:w-4 sm:h-4" />}
                             </button>
                         </div>
                     </div>
-                    <div className="flex flex-col gap-2 w-full sm:w-auto">
+                    <div className="flex flex-row sm:flex-col gap-2 w-full sm:w-auto">
                         <a 
                             href="/event-admin"
                             target="_blank"
                             rel="noreferrer"
-                            className="w-full bg-purple-500/10 hover:bg-purple-500 border border-purple-500/30 hover:border-purple-500 text-purple-500 hover:text-white px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-2"
+                            className="flex-1 sm:w-full bg-purple-500/10 hover:bg-purple-500 border border-purple-500/30 hover:border-purple-500 text-purple-500 hover:text-white px-3 py-2.5 sm:py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-2"
                         >
-                            <ExternalLink className="w-3 h-3" /> Panel Cliente
+                            <ExternalLink className="w-4 h-4 sm:w-3 sm:h-3 shrink-0" /> <span className="hidden sm:inline">Panel Cliente</span>
                         </a>
                         <button 
                             onClick={() => downloadAnalytics(event)}
-                            className="w-full bg-blue-500/10 hover:bg-blue-500 border border-blue-500/30 hover:border-blue-500 text-blue-500 hover:text-white px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-2"
+                            className="flex-1 sm:w-full bg-blue-500/10 hover:bg-blue-500 border border-blue-500/30 hover:border-blue-500 text-blue-500 hover:text-white px-3 py-2.5 sm:py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-2"
                         >
-                            <Download className="w-3 h-3" /> Reporte PDF
+                            <Download className="w-4 h-4 sm:w-3 sm:h-3 shrink-0" /> <span className="hidden sm:inline">Reporte PDF</span>
                         </button>
                     </div>
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between mb-3 mt-2">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4 mt-2 border-t border-gray-800/50 pt-4 sm:border-none sm:pt-0">
                     <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Salas Creadas ({safeRooms.length}):</span>
                     <button 
                       onClick={() => setSelectedEventId(selectedEventId === event.id ? null : event.id)}
-                      className="text-xs font-bold text-primary hover:text-blue-400 transition-colors uppercase disabled:opacity-50"
+                      className="w-full sm:w-auto text-xs font-bold text-primary bg-primary/10 sm:bg-transparent px-3 py-2 sm:p-0 rounded-lg sm:rounded-none hover:text-blue-400 transition-colors uppercase disabled:opacity-50 text-center"
                       disabled={!isSystemActive || !event.isActive}
                     >
-                      + Añadir Sala Maestra
+                      {selectedEventId === event.id ? '- Cancelar' : '+ Añadir Sala Maestra'}
                     </button>
                   </div>
 
                   {selectedEventId === event.id && isSystemActive && event.isActive && (
-                    <form onSubmit={(e) => handleAddRoom(e, event.id)} className="mb-3 flex gap-2">
+                    <form onSubmit={(e) => handleAddRoom(e, event.id)} className="mb-4 flex flex-col sm:flex-row gap-2 bg-black/40 p-3 rounded-xl border border-gray-800">
                       <input 
                         type="text"
                         value={newRoomName}
                         onChange={(e) => setNewRoomName(e.target.value)}
                         placeholder="NUEVA-SALA"
-                        className="flex-1 bg-black border border-gray-700 text-white text-xs uppercase tracking-widest rounded-lg px-3 py-2 focus:ring-1 focus:ring-primary focus:outline-none"
+                        className="w-full sm:flex-1 bg-dark border border-gray-700 text-white text-xs uppercase tracking-widest rounded-lg px-3 py-3 sm:py-2 focus:ring-1 focus:ring-primary focus:outline-none"
                         autoFocus
                       />
-                      <button type="submit" className="bg-primary text-white px-3 py-2 rounded-lg text-xs font-bold">OK</button>
+                      <button type="submit" className="w-full sm:w-auto bg-primary hover:bg-blue-600 text-white px-6 py-3 sm:py-2 rounded-lg text-xs font-bold transition-colors shadow-lg">Agregar</button>
                     </form>
                   )}
 
-                  <div className="grid grid-cols-1 gap-3">
+                  <div className="grid grid-cols-1 gap-4">
                     {safeRooms.map(roomObj => (
-                        <div key={roomObj.name} className="flex flex-col bg-darker p-3 rounded-lg border border-gray-700 relative group transition-all">
-                            <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-2 pr-6 truncate">{roomObj.name}</h3>
+                        <div key={roomObj.name} className="flex flex-col bg-darker p-4 rounded-xl border border-gray-700 relative group transition-all">
+                            <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-3 pr-8 break-words leading-tight">{roomObj.name}</h3>
                             
-                            <div className="grid grid-cols-2 gap-2 mb-3">
-                                <div className="bg-primary/10 border border-primary/20 rounded p-1.5 flex flex-col justify-center">
-                                    <span className="text-[9px] text-primary font-bold uppercase tracking-widest mb-1">Clave Orador</span>
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-white font-mono text-xs font-bold">{roomObj.speakerPassword}</span>
-                                        <button onClick={() => copyToClipboard(roomObj.speakerPassword)} className="text-primary hover:text-white transition-colors">
-                                            {copiedText === roomObj.speakerPassword ? <CheckCircle2 className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
+                            <div className="grid grid-cols-1 xs:grid-cols-2 gap-3 mb-4">
+                                <div className="bg-primary/10 border border-primary/20 rounded-lg p-2.5 flex flex-col justify-center">
+                                    <span className="text-[10px] text-primary font-bold uppercase tracking-widest mb-1.5 flex items-center gap-1"><Key className="w-3 h-3"/> Orador</span>
+                                    <div className="flex items-center justify-between bg-black/20 p-1.5 rounded">
+                                        <span className="text-white font-mono text-xs font-bold tracking-widest">{roomObj.speakerPassword}</span>
+                                        <button onClick={() => copyToClipboard(roomObj.speakerPassword)} className="text-primary hover:text-white transition-colors p-1">
+                                            {copiedText === roomObj.speakerPassword ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
                                         </button>
                                     </div>
                                 </div>
-                                <div className="bg-gray-800/50 border border-gray-700 rounded p-1.5 flex flex-col justify-center">
-                                    <span className="text-[9px] text-gray-400 font-bold uppercase tracking-widest mb-1">Cód. Audiencia</span>
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-white font-mono text-xs font-bold">{roomObj.audienceCode}</span>
-                                        <button onClick={() => copyToClipboard(roomObj.audienceCode)} className="text-gray-400 hover:text-white transition-colors">
-                                            {copiedText === roomObj.audienceCode ? <CheckCircle2 className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
+                                <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-2.5 flex flex-col justify-center">
+                                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1.5 flex items-center gap-1"><Users className="w-3 h-3"/> Audiencia</span>
+                                    <div className="flex items-center justify-between bg-black/20 p-1.5 rounded">
+                                        <span className="text-white font-mono text-xs font-bold tracking-widest">{roomObj.audienceCode}</span>
+                                        <button onClick={() => copyToClipboard(roomObj.audienceCode)} className="text-gray-400 hover:text-white transition-colors p-1">
+                                            {copiedText === roomObj.audienceCode ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
                                         </button>
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="flex flex-wrap items-center gap-1.5 mb-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-4">
                                 <a 
                                     href={`/admin?pwd=${roomObj.speakerPassword}`}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="flex-1 bg-primary/20 hover:bg-primary text-primary hover:text-white border border-primary/50 hover:border-primary px-1 py-1.5 rounded text-[9px] font-bold uppercase tracking-wider transition-colors flex justify-center items-center gap-1 text-center"
+                                    className="w-full bg-primary/20 hover:bg-primary text-primary hover:text-white border border-primary/50 hover:border-primary px-2 py-2.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors flex justify-center items-center gap-1.5 text-center"
                                 >
-                                    <Mic className="w-3 h-3" />
-                                    Link Orador
+                                    <Mic className="w-3.5 h-3.5" />
+                                    Orador
                                 </a>
                                 <a 
                                     href={`/?code=${roomObj.audienceCode}`}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white border border-gray-700 px-1 py-1.5 rounded text-[9px] font-bold uppercase tracking-wider transition-colors flex justify-center items-center gap-1 text-center"
+                                    className="w-full bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white border border-gray-700 px-2 py-2.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors flex justify-center items-center gap-1.5 text-center"
                                 >
-                                    <ExternalLink className="w-3 h-3" /> 
-                                    Link Audiencia
+                                    <ExternalLink className="w-3.5 h-3.5" /> 
+                                    Audiencia
                                 </a>
                                 <a 
                                     href={`/?code=${roomObj.audienceCode}&tv=true&lang=es`}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="flex-1 bg-gray-800 hover:bg-primary/20 text-gray-300 hover:text-primary border border-gray-700 hover:border-primary/50 px-1 py-1.5 rounded text-[9px] font-bold uppercase tracking-wider transition-colors flex justify-center items-center gap-1 text-center"
+                                    className="w-full bg-gray-800 hover:bg-primary/20 text-gray-300 hover:text-primary border border-gray-700 hover:border-primary/50 px-2 py-2.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors flex justify-center items-center gap-1.5 text-center"
                                 >
-                                    <MonitorPlay className="w-3 h-3" /> 
+                                    <MonitorPlay className="w-3.5 h-3.5" /> 
                                     TV (ES)
                                 </a>
                             </div>
 
-                            <div className="flex items-center justify-between mt-auto pt-1 border-t border-gray-800/50">
-                                <span className="bg-green-500/10 border border-green-500/20 text-green-400 px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1.5 w-max">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
-                                    <Users className="w-3 h-3" />
-                                    {safeStats.roomCounts?.[roomObj.name] || 0} Usuarios en línea
+                            <div className="flex items-center justify-between mt-auto pt-2 border-t border-gray-800/50">
+                                <span className="bg-green-500/10 border border-green-500/20 text-green-400 px-3 py-1.5 rounded-lg text-[10px] font-bold flex items-center gap-2 w-max">
+                                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                                    <Users className="w-3.5 h-3.5" />
+                                    {safeStats.roomCounts?.[roomObj.name] || 0} en línea
                                 </span>
                             </div>
 
                             {isSystemActive && event.isActive && (
                                 <button 
                                 onClick={() => handleDeleteRoom(event.id, roomObj.name)}
-                                className="absolute top-2 right-2 text-gray-600 hover:text-red-500 hover:bg-red-500/10 p-1 rounded-md transition-colors opacity-0 group-hover:opacity-100"
+                                className="absolute top-3 right-3 text-gray-500 hover:text-red-500 hover:bg-red-500/10 p-1.5 rounded-lg transition-colors bg-black/50 sm:bg-transparent sm:opacity-0 sm:group-hover:opacity-100"
                                 >
-                                <X className="w-3 h-3" />
+                                <X className="w-4 h-4" />
                                 </button>
                             )}
                         </div>
@@ -646,9 +645,9 @@ const MasterView = () => {
             );
           })}
           {(events || []).length === 0 && (
-            <div className="col-span-full py-12 flex flex-col items-center justify-center text-gray-500 border-2 border-dashed border-gray-800 rounded-2xl">
+            <div className="col-span-full py-12 flex flex-col items-center justify-center text-gray-500 border-2 border-dashed border-gray-800 rounded-2xl mx-2 sm:mx-0">
               <Shield className="w-12 h-12 mb-4 opacity-20" />
-              <p className="text-lg font-medium">No hay instancias activas en el servidor.</p>
+              <p className="text-base sm:text-lg font-medium text-center px-4">No hay instancias activas en el servidor.</p>
             </div>
           )}
         </div>
