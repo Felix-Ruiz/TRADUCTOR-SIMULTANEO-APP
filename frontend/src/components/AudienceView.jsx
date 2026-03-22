@@ -41,7 +41,6 @@ const AudienceView = () => {
   
   const [isScanning, setIsScanning] = useState(false);
 
-  // NUEVO: Estado para controlar los modales legales
   const [legalModalContent, setLegalModalContent] = useState(null); 
 
   const [dialogConfig, setDialogConfig] = useState({ isOpen: false, title: '', message: '', type: 'confirm', onConfirm: null, confirmStyle: '' });
@@ -350,7 +349,6 @@ const AudienceView = () => {
     }
   };
 
-  // NUEVO: Componente reutilizable para el Pie de Página Legal
   const LegalFooter = () => (
     <div className="mt-8 flex flex-wrap justify-center items-center gap-x-3 gap-y-2 text-[10px] text-gray-500 font-bold uppercase tracking-widest text-center w-full">
         <button onClick={() => setLegalModalContent('privacy')} className="hover:text-gray-300 transition-colors underline decoration-gray-700 underline-offset-4">Privacidad</button>
@@ -408,7 +406,6 @@ const AudienceView = () => {
     );
   }
 
-  // NUEVO: RENDERIZADO DEL MODAL LEGAL
   if (legalModalContent) {
     return (
       <div className="fixed inset-0 z-[100] flex flex-col bg-darker overflow-hidden">
@@ -427,7 +424,7 @@ const AudienceView = () => {
             <div className="max-w-2xl mx-auto space-y-6">
                 {legalModalContent === 'privacy' && (
                     <>
-                        <p><strong>1. Captura y Procesamiento de Voz:</strong> La plataforma utiliza el micrófono del dispositivo emisor exclusivamente para capturar la voz durante la sesión activa. El audio se transmite en tiempo real a los servidores de inteligencia artificial (Microsoft Azure) para generar la traducción y síntesis de voz neuronal.</p>
+                        <p><strong>1. Captura y Procesamiento de Voz:</strong> La plataforma utiliza el micrófono del dispositivo emisor exclusivamente para capturar la voz durante la sesión activa. El audio se transmite en tiempo real mediante canales cifrados a <strong>servidores de inteligencia artificial de terceros con certificación de seguridad corporativa</strong> para generar la traducción y síntesis de voz neuronal.</p>
                         <p><strong>2. Almacenamiento No Persistente:</strong> Las transmisiones de audio son efímeras. No almacenamos, grabamos ni guardamos copias de voz de los oradores ni de la audiencia en bases de datos a largo plazo.</p>
                         <p><strong>3. Telemetría y Analíticas:</strong> Recopilamos información analítica anónima, como el recuento de usuarios por sala y los idiomas seleccionados, para proporcionar métricas de calidad al organizador del evento. No se recopilan datos de identificación personal sin consentimiento.</p>
                         <p><strong>4. Marco Normativo:</strong> Este tratamiento se realiza garantizando el cumplimiento de los estándares de protección de datos vigentes aplicables a entornos institucionales y corporativos.</p>
@@ -435,17 +432,17 @@ const AudienceView = () => {
                 )}
                 {legalModalContent === 'terms' && (
                     <>
-                        <p><strong>1. Uso del Servicio:</strong> Esta plataforma se proporciona "tal cual" para la transmisión de traducción simultánea en eventos. El usuario se compromete a no utilizar el sistema para fines ilícitos o que interfieran con la transmisión del evento.</p>
-                        <p><strong>2. Propiedad Intelectual:</strong> Las traducciones, el diseño de la interfaz y la marca blanca mostrada pertenecen al organizador del evento o a la entidad licenciante. Queda prohibida su reproducción o distribución sin autorización expresa.</p>
-                        <p><strong>3. Disponibilidad:</strong> Al ser un sistema que depende de conexiones de red y proveedores de inteligencia artificial en la nube, el servicio puede presentar interrupciones o retrasos inherentes a la infraestructura de internet.</p>
-                        <p><strong>4. Responsabilidad:</strong> La plataforma no se hace responsable de inexactitudes en la traducción automática generada por la Inteligencia Artificial.</p>
+                        <p><strong>1. Uso del Servicio:</strong> Esta plataforma se proporciona "tal cual" como una herramienta de asistencia en tiempo real para eventos en vivo. El usuario se compromete a no utilizar el sistema para fines ilícitos o que interfieran con la transmisión tecnológica del evento.</p>
+                        <p><strong>2. Propiedad Intelectual:</strong> El diseño de la interfaz y la marca blanca mostrada pertenecen al organizador del evento o a la entidad licenciante. Queda prohibida su reproducción o distribución sin autorización expresa.</p>
+                        <p><strong>3. Naturaleza de la Traducción:</strong> La plataforma proporciona traducciones generadas de forma automática en tiempo real para facilitar la comprensión general. Debido a la naturaleza del procesamiento automatizado y el lenguaje hablado, pueden presentarse variaciones, omisiones o inexactitudes con respecto al mensaje original. Este servicio está diseñado como soporte comunicativo y <strong>no constituye ni sustituye una traducción humana certificada</strong>.</p>
+                        <p><strong>4. Disponibilidad:</strong> Al ser un sistema que depende de conexiones de red y proveedores en la nube, el servicio puede presentar latencia o interrupciones inherentes a la infraestructura de internet local del usuario.</p>
                     </>
                 )}
                 {legalModalContent === 'cookies' && (
                     <>
-                        <p><strong>1. Cookies Técnicas Estrictamente Necesarias:</strong> Utilizamos tecnologías de almacenamiento local en su navegador (SessionStorage, LocalStorage y cachés de Service Workers para PWA) exclusivamente para garantizar el funcionamiento técnico de la aplicación (ej. mantener su sesión activa en una sala, recordar su idioma y cargar la app rápidamente).</p>
-                        <p><strong>2. Ausencia de Rastreadores de Publicidad:</strong> No implementamos cookies de terceros con fines publicitarios, de marketing cruzado ni de venta de perfiles de navegación.</p>
-                        <p><strong>3. Gestión del Usuario:</strong> Al hacer clic en "Salir del evento", el sistema limpia activamente el rastro de sesión (eventos y salas) de su dispositivo.</p>
+                        <p><strong>1. Cookies Técnicas Estrictamente Necesarias:</strong> Utilizamos tecnologías de almacenamiento local en su navegador (SessionStorage, LocalStorage y cachés de Service Workers para Aplicaciones Web Progresivas) exclusivamente para garantizar el funcionamiento técnico de la aplicación (ej. mantener su sesión activa en una sala, recordar su idioma de preferencia y cargar la interfaz rápidamente ante cortes de red).</p>
+                        <p><strong>2. Ausencia de Rastreadores de Publicidad:</strong> No implementamos cookies de terceros con fines publicitarios, de marketing cruzado ni de venta de perfiles de navegación. Nuestra plataforma está diseñada desde el principio bajo el principio de privacidad por diseño (Privacy by Design).</p>
+                        <p><strong>3. Gestión del Usuario:</strong> Al hacer clic en "Salir del evento" o utilizar el botón de desconexión, el sistema limpia activamente el rastro de su sesión de las salas en memoria.</p>
                     </>
                 )}
             </div>
@@ -909,7 +906,6 @@ const AudienceView = () => {
             </div>
         )}
 
-        {/* WIDGET LEGAL MINIMALISTA */}
         <div className="mt-4 flex flex-wrap justify-center items-center gap-x-2 gap-y-1 text-[9px] text-gray-600 font-semibold uppercase tracking-widest text-center w-full opacity-60 hover:opacity-100 transition-opacity">
             <button onClick={() => setLegalModalContent('privacy')} className="hover:text-gray-300 transition-colors">Privacidad</button>
             <span className="text-gray-800">•</span>
