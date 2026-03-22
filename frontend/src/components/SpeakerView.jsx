@@ -18,7 +18,7 @@ const SpeakerView = () => {
   const [passwordInput, setPasswordInput] = useState('');
   const [loginError, setLoginError] = useState('');
   
-  const [isVerifying, setIsVerifying] = useState(true); // Inicia en true para comprobar URL o Storage
+  const [isVerifying, setIsVerifying] = useState(true); 
   
   const [eventInfo, setEventInfo] = useState(null);
   const [isSystemActive, setIsSystemActive] = useState(true);
@@ -91,14 +91,12 @@ const SpeakerView = () => {
     attemptLogin(passwordInput);
   };
 
-  // MODIFICADO: Ahora lee el parámetro de la URL para auto-login
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const urlPwd = urlParams.get('pwd');
     const savedPwd = sessionStorage.getItem('speakerPwd');
 
     if (urlPwd) {
-      // Limpia la URL por seguridad y estética después de leer la clave
       window.history.replaceState(null, '', window.location.pathname);
       attemptLogin(urlPwd);
     } else if (savedPwd) {
@@ -167,7 +165,7 @@ const SpeakerView = () => {
       audioContextRef.current.close().catch(() => {});
     }
     if (streamRef.current) streamRef.current.getTracks().forEach(track => track.stop());
-    setAudienceCount(0); 
+    // FIX: Ya no reiniciamos a 0, queremos seguir viendo el conteo aunque apaguen el mic
   };
 
   const startRecording = async () => {
@@ -237,7 +235,6 @@ const SpeakerView = () => {
       gainNode.connect(audioContext.destination);
 
       setIsRecording(true);
-      setAudienceCount(0); 
     } catch (error) {
       console.error('Error accediendo al micrófono:', error);
       openDialog("Permiso Denegado", "Por favor, permite el acceso al micrófono en tu navegador para poder transmitir.", "alert");
@@ -383,19 +380,18 @@ const SpeakerView = () => {
           </div>
           
           <div className="flex items-center gap-3">
-              <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full font-medium text-sm w-max ${isRecording ? 'bg-red-500/10 text-red-500' : 'bg-gray-800 text-gray-400'}`}>
+              <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full font-medium text-sm w-max ${isRecording ? 'bg-red-500/10 text-red-500 border border-red-500/20' : 'bg-gray-800 text-gray-400 border border-gray-700'}`}>
                 <Radio className={`w-4 h-4 ${isRecording ? 'animate-pulse' : ''}`} />
                 {isRecording ? `Transmitiendo en Vivo` : 'Sistema en espera'}
               </div>
               
-              {isRecording && (
-                  <div className="inline-flex items-center gap-2 bg-green-500/10 border border-green-500/30 px-3 py-1.5 rounded-full shadow-lg shadow-green-500/10 transition-all duration-300">
-                      <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
-                      <Users className="w-4 h-4 text-green-500" />
-                      <span className="text-white font-bold text-sm leading-none">{audienceCount}</span>
-                      <span className="text-gray-400 text-[10px] font-bold tracking-widest uppercase ml-0.5 hidden sm:inline-block">Oyentes</span>
-                  </div>
-              )}
+              {/* FIX: Ahora el widget de usuarios siempre es visible */}
+              <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full transition-all duration-300 ${isRecording ? 'bg-green-500/10 border border-green-500/30 shadow-lg shadow-green-500/10' : 'bg-dark border border-gray-800 shadow-inner'}`}>
+                  <div className={`w-1.5 h-1.5 rounded-full ${isRecording ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`}></div>
+                  <Users className={`w-4 h-4 ${isRecording ? 'text-green-500' : 'text-gray-500'}`} />
+                  <span className={`font-bold text-sm leading-none ${isRecording ? 'text-white' : 'text-gray-300'}`}>{audienceCount}</span>
+                  <span className="text-gray-400 text-[10px] font-bold tracking-widest uppercase ml-0.5 hidden sm:inline-block">Oyentes en espera</span>
+              </div>
           </div>
         </div>
         

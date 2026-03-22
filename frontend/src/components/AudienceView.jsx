@@ -10,7 +10,6 @@ const AudienceView = () => {
   const isTvMode = queryParams.get('tv') === 'true';
   const urlLang = queryParams.get('lang');
   
-  // NUEVO: La URL ahora lee ?code=XXXXXX
   const urlCodeParam = queryParams.get('code');
   const savedCode = sessionStorage.getItem('audienceCode');
   const initialCode = urlCodeParam || savedCode || '';
@@ -115,7 +114,6 @@ const AudienceView = () => {
     playNextInQueue();
   };
 
-  // NUEVO: Verificación por código directo a la sala
   const verifyAudienceCode = (code) => {
     socket.emit('check-audience-code', code, (response) => {
       if (response.success) {
@@ -128,7 +126,6 @@ const AudienceView = () => {
         setEventError('');
         sessionStorage.setItem('audienceCode', code);
         
-        // Entra directo a la sala específica
         socket.emit('join-direct-room-audience', { eventId: response.eventId, roomName: response.roomName, language: language });
         setHasJoinedEvent(true); 
       } else {
@@ -194,7 +191,7 @@ const AudienceView = () => {
         isPlaying.current = false;
         if (audioPlayerRef.current) {
           audioPlayerRef.current.pause();
-          audioPlayerRef.current.src = "";
+          audioPlayerRef.current.removeAttribute('src');
         }
         releaseWakeLock();
       }
@@ -204,7 +201,7 @@ const AudienceView = () => {
   const stopPlaybackAndClear = () => {
       if (audioPlayerRef.current) {
         audioPlayerRef.current.pause();
-        audioPlayerRef.current.src = "";
+        audioPlayerRef.current.removeAttribute('src');
       }
       audioQueue.current = [];
       isPlaying.current = false;
@@ -290,7 +287,9 @@ const AudienceView = () => {
     };
   }, [language, userMode, isTvMode, audienceCode, eventId, isSystemActive, isEventActive]); 
 
+  // FIX: Ajuste radical anti-race-conditions para los botones de cambio de modo
   const unlockAudioAndStart = async () => {
+    setUserMode('audio'); 
     try {
       if (audioPlayerRef.current) {
         audioPlayerRef.current.src = "data:audio/mp3;base64,//NExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq";
@@ -299,7 +298,6 @@ const AudienceView = () => {
     } catch (e) {
       console.warn("[Audio] Advertencia de desbloqueo:", e);
     }
-    setUserMode('audio');
     requestWakeLock();
   };
 
@@ -315,10 +313,12 @@ const AudienceView = () => {
       setUserMode('text');
       audioQueue.current = [];
       isPlaying.current = false;
-      if (audioPlayerRef.current) {
-        audioPlayerRef.current.pause();
-        audioPlayerRef.current.src = "";
-      }
+      try {
+          if (audioPlayerRef.current) {
+              audioPlayerRef.current.pause();
+              audioPlayerRef.current.removeAttribute('src'); // Forma nativa y segura de limpiar el reproductor
+          }
+      } catch(e) {}
       requestWakeLock();
     }
   };

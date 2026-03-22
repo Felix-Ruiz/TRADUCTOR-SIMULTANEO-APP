@@ -69,6 +69,7 @@ io.on('connection', (socket) => {
 
     let translationService = null;
 
+    // --- RUTAS MASTER ---
     socket.on('master-login', (pwd, callback) => {
         if (pwd === MASTER_PASSWORD) {
             callback({ success: true });
@@ -168,6 +169,7 @@ io.on('connection', (socket) => {
         }
     });
 
+    // --- RUTAS EVENT ADMIN ---
     socket.on('event-admin-login', (pwd, callback) => {
         let foundEvent = null;
         for (const event of eventsDB.values()) {
@@ -235,6 +237,7 @@ io.on('connection', (socket) => {
         }
     });
 
+    // --- RUTAS SPEAKER ---
     socket.on('speaker-login', (password, callback) => {
         let foundEvent = null;
         let foundRoom = null;
@@ -247,6 +250,14 @@ io.on('connection', (socket) => {
             }
         }
         if (foundEvent && foundRoom) {
+            // FIX: Unimos al orador a la sala inmediatamente al hacer login para telemetría
+            const isolatedRoom = `${foundEvent.id}_${foundRoom.name}`;
+            socket.join(isolatedRoom);
+            
+            const stats = statsDB.get(foundEvent.id);
+            const currentCount = stats?.roomCounts?.[foundRoom.name] || 0;
+            socket.emit('room-audience-count', currentCount);
+
             callback({ success: true, event: foundEvent, roomName: foundRoom.name, audienceCode: foundRoom.audienceCode });
         } else {
             callback({ success: false, message: "Clave de sala incorrecta o evento no encontrado." });
@@ -262,7 +273,7 @@ io.on('connection', (socket) => {
         const roomName = config.roomName;
         const isolatedRoom = `${eventId}_${roomName}`;
         
-        socket.join(isolatedRoom);
+        socket.join(isolatedRoom); // Por si acaso se desconectó y reconectó
         socket.speakerEventId = eventId;
         socket.speakerRoom = roomName;
 
@@ -274,9 +285,6 @@ io.on('connection', (socket) => {
             socket, config.fromLanguage, config.toLanguages, config.voiceGender, isolatedRoom 
         );
         translationService.start();
-
-        const stats = statsDB.get(eventId);
-        socket.emit('room-audience-count', stats?.roomCounts?.[roomName] || 0);
     });
 
     socket.on('audio-stream', (data) => {
@@ -306,6 +314,7 @@ io.on('connection', (socket) => {
         }
     });
 
+    // --- NUEVAS RUTAS AUDIENCIA DIRECTA A SALA ---
     socket.on('check-audience-code', (code, callback) => {
         for (const event of eventsDB.values()) {
             const room = (event.rooms || []).find(r => r.audienceCode === code);

@@ -29,3 +29,13 @@ Integración profunda con **Microsoft Azure Cognitive Services**:
 2. Configurar variables de entorno `.env` en Backend (Credenciales de Azure, Master Passwords, Frontend URL).
 3. `npm install` en ambos directorios (frontend y backend).
 4. `npm run dev` para iniciar los entornos locales.
+---------------------------------------
+1. Necesitamos estadisticas
+
+2. Hay manera de mejorar la entrada del audio, que sea mas claro, que no reciba voces extra a la principal, dado que si hay personas hablando en el auditorio el sistema puede escuchar y traducir eso también.  O que debemos hacer para que solo reconozca a la voz principal al speaker e ignore el resto?  
+
+3. Si estan hablando dos personas al tiempo o mas, y necesitamos que el sistema identifique y en los subtitulos coloque identificadores de que cada parte de los subtitulos es de personas diferentes hablando ?
+
+4. El boton de cambiar a texto o audio tiene un bug,  cuando selecciono texto y luego paso a audio, al intentar regresar a texto intenta hacerlo pero se queda en audio, pero si lo hago por segunda vez si funciona. revisas que esta sucediendo?
+
+5. En el panel de admin speaker solo muestra cuantas personas hay en audience cuando se enciende el boton de iniciar discurso, pero en realidad debemos mostrarlo incluso si no se ha iniciado discurso, eso nos ayuda a saber cuantos hay conectado esperando un trasmisión.
