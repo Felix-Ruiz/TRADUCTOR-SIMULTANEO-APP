@@ -65,6 +65,9 @@ const registerFailedAttempt = (ip) => {
     if (!ip) return;
     const record = loginAttempts.get(ip) || { attempts: 0, lockedUntil: null };
     record.attempts += 1;
+    
+    console.log(`[Seguridad] Intento fallido ${record.attempts}/${MAX_FAILED_ATTEMPTS} para IP: ${ip}`);
+
     if (record.attempts >= MAX_FAILED_ATTEMPTS) {
         record.lockedUntil = Date.now() + LOCKOUT_DURATION_MS;
         console.warn(`[🛡️ SEGURIDAD] IP Bloqueada por fuerza bruta: ${ip}`);
@@ -256,8 +259,10 @@ app.get('/api/status', (req, res) => {
 });
 
 io.on('connection', (socket) => {
-    // Obtenemos la IP real del cliente (incluso si pasa por los balanceadores de Render/Vercel)
-    const clientIp = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address;
+    // Obtenemos la IP real del cliente filtrando proxies
+    const rawIp = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address || "unknown_ip";
+    const clientIp = rawIp.split(',')[0].trim();
+    
     console.log(`[+] Dispositivo conectado: ${socket.id} (IP: ${clientIp})`);
     
     socket.emit('system-status', isSystemActive);
