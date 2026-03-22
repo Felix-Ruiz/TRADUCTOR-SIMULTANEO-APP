@@ -54,7 +54,7 @@ const EventAdminView = () => {
     socket.on('system-status', (status) => setIsSystemActive(status));
     
     socket.on('event-admin-data-updated', (updatedEvent) => {
-        setEventData(updatedEvent);
+        if (updatedEvent) setEventData(updatedEvent);
     });
 
     return () => socket.disconnect();
@@ -98,6 +98,7 @@ const EventAdminView = () => {
   };
 
   const toggleEventStatus = () => {
+    if (!eventData) return;
     const newStatus = !eventData.isActive;
     if (!newStatus) {
       openDialog(
@@ -114,7 +115,7 @@ const EventAdminView = () => {
 
   const handleAddRoom = (e) => {
     e.preventDefault();
-    if (!newRoomName.trim()) return;
+    if (!newRoomName.trim() || !eventData) return;
     socket.emit('event-admin-add-room', { 
         eventId: eventData.id, 
         adminPassword: sessionStorage.getItem('eventAdminPwd'),
@@ -128,6 +129,7 @@ const EventAdminView = () => {
   };
 
   const handleDeleteRoom = (room) => {
+    if (!eventData) return;
     openDialog(
       "Eliminar Sala", 
       `¿Seguro que deseas eliminar la sala ${room}?`, 
@@ -188,6 +190,9 @@ const EventAdminView = () => {
   }
 
   if (!eventData) return null;
+
+  const safeRooms = eventData.rooms || [];
+  const safeStats = eventData.stats || { total: 0, langs: {}, roomCounts: {} };
 
   return (
     <div className="flex flex-col h-screen w-full p-4 md:p-8 max-w-5xl mx-auto overflow-hidden bg-darker relative">
@@ -259,7 +264,7 @@ const EventAdminView = () => {
       </header>
 
       <main className="flex-1 overflow-y-auto pr-2 flex flex-col gap-6">
-        
+
         {/* ANALÍTICAS */}
         <div className="bg-gradient-to-br from-gray-900 to-black p-6 rounded-2xl border border-gray-800 shadow-xl flex flex-col sm:flex-row gap-6 items-center justify-between shrink-0">
             <div className="flex items-center gap-4">
@@ -268,17 +273,17 @@ const EventAdminView = () => {
                 </div>
                 <div>
                     <span className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-1">Audiencia Activa Total</span>
-                    <span className="text-4xl font-bold text-white leading-none">{eventData.stats?.total || 0} <span className="text-base font-medium text-gray-500">conexiones</span></span>
+                    <span className="text-4xl font-bold text-white leading-none">{safeStats.total || 0} <span className="text-base font-medium text-gray-500">conexiones</span></span>
                 </div>
             </div>
             
             <div className="flex gap-2 flex-wrap justify-center sm:justify-end w-full sm:w-auto">
                 {['en', 'pt', 'es', 'de', 'fr'].map(lang => {
-                    if (eventData.stats && eventData.stats.langs[lang] > 0) {
+                    if (safeStats.langs && safeStats.langs[lang] > 0) {
                         return (
                             <div key={lang} className="bg-gray-800/80 border border-gray-700 px-3 py-1.5 rounded-lg flex items-center gap-2">
                                 <span className="text-[10px] font-bold text-gray-400 uppercase">{lang}</span>
-                                <span className="text-sm font-bold text-white">{eventData.stats.langs[lang]}</span>
+                                <span className="text-sm font-bold text-white">{safeStats.langs[lang]}</span>
                             </div>
                         )
                     }
@@ -292,7 +297,7 @@ const EventAdminView = () => {
             <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-800">
                 <h2 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2">
                     <Activity className="w-4 h-4 text-primary" />
-                    Gestión de Salas ({eventData.rooms.length})
+                    Gestión de Salas ({safeRooms.length})
                 </h2>
                 <button 
                     onClick={() => setIsAddingRoom(!isAddingRoom)}
@@ -319,7 +324,7 @@ const EventAdminView = () => {
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 overflow-y-auto pb-4">
-            {eventData.rooms.map(roomObj => (
+            {safeRooms.map(roomObj => (
                 <div key={roomObj.name} className="flex flex-col bg-darker p-5 rounded-xl border border-gray-700 relative group transition-all hover:border-gray-500 shadow-md">
                     <h3 className="text-base font-bold text-white uppercase tracking-wider mb-4 pr-8 truncate" title={roomObj.name}>{roomObj.name}</h3>
                     
@@ -349,7 +354,7 @@ const EventAdminView = () => {
                         <span className="bg-green-500/10 border border-green-500/20 text-green-400 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 w-max">
                             <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
                             <Users className="w-3.5 h-3.5" />
-                            {eventData.stats?.roomCounts?.[roomObj.name] || 0} conectados
+                            {safeStats.roomCounts?.[roomObj.name] || 0} conectados
                         </span>
                     </div>
 
@@ -364,7 +369,7 @@ const EventAdminView = () => {
                     )}
                 </div>
             ))}
-            {eventData.rooms.length === 0 && (
+            {safeRooms.length === 0 && (
                 <div className="col-span-full py-8 text-center text-gray-500 text-sm font-medium">
                     No hay salas creadas. Usa el botón "Crear Sala" para comenzar.
                 </div>

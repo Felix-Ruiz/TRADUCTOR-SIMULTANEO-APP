@@ -69,7 +69,6 @@ io.on('connection', (socket) => {
 
     let translationService = null;
 
-    // --- RUTAS MASTER ---
     socket.on('master-login', (pwd, callback) => {
         if (pwd === MASTER_PASSWORD) {
             callback({ success: true });
@@ -111,14 +110,14 @@ io.on('connection', (socket) => {
     });
 
     socket.on('master-create-event', (data, callback) => {
-        const internalId = Math.random().toString(36).slice(-8).toUpperCase(); // ID interno oculto
+        const internalId = Math.random().toString(36).slice(-8).toUpperCase(); 
         const secretAdminPassword = Math.random().toString(36).slice(-8).toUpperCase(); 
         
         const newEvent = {
             id: internalId,
             name: data.name,
             adminPassword: secretAdminPassword, 
-            rooms: [], // Inicia SIN SALAS
+            rooms: [], 
             isActive: true,
             logoUrl: data.logoUrl || "",
             sponsorText: data.sponsorText || ""
@@ -141,10 +140,10 @@ io.on('connection', (socket) => {
     socket.on('master-add-room', (data, callback) => {
         const event = eventsDB.get(data.id);
         if (event) {
-            if (!event.rooms.find(r => r.name === data.room)) {
-                // SE CREAN LAS DOS LLAVES POR SALA AQUI
+            if (!(event.rooms || []).find(r => r.name === data.room)) {
                 const speakerPwd = Math.random().toString(36).slice(-6).toUpperCase();
                 const audienceCode = Math.random().toString(36).slice(-6).toUpperCase();
+                if (!event.rooms) event.rooms = [];
                 event.rooms.push({ name: data.room, speakerPassword: speakerPwd, audienceCode: audienceCode });
             }
             callback({ success: true });
@@ -157,7 +156,7 @@ io.on('connection', (socket) => {
     socket.on('master-delete-room', (data, callback) => {
         const event = eventsDB.get(data.id);
         if (event) {
-            event.rooms = event.rooms.filter(r => r.name !== data.room);
+            event.rooms = (event.rooms || []).filter(r => r.name !== data.room);
             const stats = statsDB.get(data.id);
             if (stats && stats.roomCounts && stats.roomCounts[data.room]) {
                 delete stats.roomCounts[data.room];
@@ -169,7 +168,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // --- RUTAS EVENT ADMIN ---
     socket.on('event-admin-login', (pwd, callback) => {
         let foundEvent = null;
         for (const event of eventsDB.values()) {
@@ -209,9 +207,10 @@ io.on('connection', (socket) => {
     socket.on('event-admin-add-room', (data, callback) => {
         const event = eventsDB.get(data.eventId);
         if (event && event.adminPassword === data.adminPassword) {
-            if (!event.rooms.find(r => r.name === data.room)) {
+            if (!(event.rooms || []).find(r => r.name === data.room)) {
                 const speakerPwd = Math.random().toString(36).slice(-6).toUpperCase();
                 const audienceCode = Math.random().toString(36).slice(-6).toUpperCase();
+                if (!event.rooms) event.rooms = [];
                 event.rooms.push({ name: data.room, speakerPassword: speakerPwd, audienceCode: audienceCode });
             }
             callback({ success: true });
@@ -224,7 +223,7 @@ io.on('connection', (socket) => {
     socket.on('event-admin-delete-room', (data, callback) => {
         const event = eventsDB.get(data.eventId);
         if (event && event.adminPassword === data.adminPassword) {
-            event.rooms = event.rooms.filter(r => r.name !== data.room);
+            event.rooms = (event.rooms || []).filter(r => r.name !== data.room);
             const stats = statsDB.get(data.eventId);
             if (stats && stats.roomCounts && stats.roomCounts[data.room]) {
                 delete stats.roomCounts[data.room];
@@ -236,20 +235,18 @@ io.on('connection', (socket) => {
         }
     });
 
-    // --- RUTAS SPEAKER ---
     socket.on('speaker-login', (password, callback) => {
         let foundEvent = null;
         let foundRoom = null;
         for (const event of eventsDB.values()) {
-            const room = event.rooms.find(r => r.speakerPassword === password);
+            const room = (event.rooms || []).find(r => r.speakerPassword === password);
             if (room) {
                 foundEvent = event;
                 foundRoom = room;
                 break;
             }
         }
-        if (foundEvent) {
-            // Le enviamos al orador su audienceCode para que lo muestre en su panel
+        if (foundEvent && foundRoom) {
             callback({ success: true, event: foundEvent, roomName: foundRoom.name, audienceCode: foundRoom.audienceCode });
         } else {
             callback({ success: false, message: "Clave de sala incorrecta o evento no encontrado." });
@@ -309,10 +306,9 @@ io.on('connection', (socket) => {
         }
     });
 
-    // --- NUEVAS RUTAS AUDIENCIA DIRECTA A SALA ---
     socket.on('check-audience-code', (code, callback) => {
         for (const event of eventsDB.values()) {
-            const room = event.rooms.find(r => r.audienceCode === code);
+            const room = (event.rooms || []).find(r => r.audienceCode === code);
             if (room) {
                 return callback({ 
                     success: true, 

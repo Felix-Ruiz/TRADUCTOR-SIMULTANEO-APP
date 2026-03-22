@@ -34,11 +34,11 @@ const MasterView = () => {
     socket.connect();
     socket.emit('master-get-data', (data) => {
       setIsSystemActive(data.isSystemActive);
-      setEvents(data.events);
+      setEvents(data.events || []);
       setIsFetchingData(false); 
     });
     socket.on('system-status', (status) => setIsSystemActive(status));
-    socket.on('master-data-updated', (updatedEvents) => setEvents(updatedEvents));
+    socket.on('master-data-updated', (updatedEvents) => setEvents(updatedEvents || []));
     return () => socket.disconnect();
   }, [isAuthenticated]);
 
@@ -295,7 +295,10 @@ const MasterView = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-8">
-          {events.map((event) => (
+          {(events || []).map((event) => {
+            const safeRooms = event.rooms || [];
+            const safeStats = event.stats || { total: 0, langs: {}, roomCounts: {} };
+            return (
             <div key={event.id} className={`bg-dark border rounded-2xl flex flex-col overflow-hidden shadow-xl transition-all ${!isSystemActive ? 'border-gray-800 opacity-60' : event.isActive ? 'border-gray-800' : 'border-red-900/50 opacity-80'}`}>
               
               <div className="p-5 border-b border-gray-800 bg-black/20 flex justify-between items-center">
@@ -345,17 +348,17 @@ const MasterView = () => {
                         </div>
                         <div>
                             <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block">Audiencia Activa Total</span>
-                            <span className="text-2xl font-bold text-white leading-none">{event.stats?.total || 0} <span className="text-sm font-medium text-gray-500">oyentes</span></span>
+                            <span className="text-2xl font-bold text-white leading-none">{safeStats.total || 0} <span className="text-sm font-medium text-gray-500">oyentes</span></span>
                         </div>
                     </div>
                     
                     <div className="flex gap-2 flex-wrap justify-end">
                         {['en', 'pt', 'es', 'de', 'fr'].map(lang => {
-                            if (event.stats && event.stats.langs[lang] > 0) {
+                            if (safeStats.langs && safeStats.langs[lang] > 0) {
                                 return (
                                     <div key={lang} className="bg-gray-800/50 border border-gray-700 px-2.5 py-1 rounded-md flex items-center gap-1.5">
                                         <span className="text-[10px] font-bold text-gray-400 uppercase">{lang}</span>
-                                        <span className="text-xs font-bold text-white">{event.stats.langs[lang]}</span>
+                                        <span className="text-xs font-bold text-white">{safeStats.langs[lang]}</span>
                                     </div>
                                 )
                             }
@@ -377,7 +380,7 @@ const MasterView = () => {
 
                 <div>
                   <div className="flex items-center justify-between mb-3 mt-2">
-                    <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Salas Creadas ({event.rooms.length}):</span>
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Salas Creadas ({safeRooms.length}):</span>
                     <button 
                       onClick={() => setSelectedEventId(selectedEventId === event.id ? null : event.id)}
                       className="text-xs font-bold text-primary hover:text-blue-400 transition-colors uppercase disabled:opacity-50"
@@ -402,7 +405,7 @@ const MasterView = () => {
                   )}
 
                   <div className="grid grid-cols-1 gap-3">
-                    {event.rooms.map(roomObj => (
+                    {safeRooms.map(roomObj => (
                         <div key={roomObj.name} className="flex flex-col bg-darker p-3 rounded-lg border border-gray-700 relative group transition-all">
                             <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-2 pr-6 truncate">{roomObj.name}</h3>
                             
@@ -429,7 +432,7 @@ const MasterView = () => {
 
                             <span className="bg-green-500/10 border border-green-500/20 text-green-400 px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1.5 w-max">
                                 <Users className="w-3 h-3" />
-                                {event.stats?.roomCounts?.[roomObj.name] || 0}
+                                {safeStats.roomCounts?.[roomObj.name] || 0}
                             </span>
 
                             {isSystemActive && event.isActive && (
@@ -446,8 +449,9 @@ const MasterView = () => {
                 </div>
               </div>
             </div>
-          ))}
-          {events.length === 0 && (
+            );
+          })}
+          {(events || []).length === 0 && (
             <div className="col-span-full py-12 flex flex-col items-center justify-center text-gray-500 border-2 border-dashed border-gray-800 rounded-2xl">
               <Shield className="w-12 h-12 mb-4 opacity-20" />
               <p className="text-lg font-medium">No hay instancias activas en el servidor.</p>
