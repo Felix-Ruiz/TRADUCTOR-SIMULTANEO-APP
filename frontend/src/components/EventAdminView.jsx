@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
-import { Power, Plus, Trash2, Key, Copy, CheckCircle2, X, Users, AlertCircle, BarChart3, UserCog, LogOut, Activity, ExternalLink, MonitorPlay } from 'lucide-react';
+import { Power, Plus, Trash2, Key, Copy, CheckCircle2, X, Users, AlertCircle, BarChart3, UserCog, LogOut, Activity, ExternalLink, MonitorPlay, Mic } from 'lucide-react';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001', { autoConnect: false });
 
@@ -139,7 +139,7 @@ const EventAdminView = () => {
     );
   };
 
-  const copyToClipboard = (text) => {
+  const copyToClipboard = (text, type = 'text') => {
     navigator.clipboard.writeText(text);
     setCopiedText(text);
     setTimeout(() => setCopiedText(null), 2000);
@@ -352,13 +352,22 @@ const EventAdminView = () => {
 
                     <div className="flex flex-wrap items-center gap-2 mb-4">
                         <a 
+                            href={`/admin?pwd=${roomObj.speakerPassword}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex-1 bg-primary/20 hover:bg-primary text-primary hover:text-white border border-primary/50 hover:border-primary px-2 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors flex justify-center items-center gap-1.5 text-center"
+                        >
+                            <Mic className="w-3 h-3" />
+                            Link Orador
+                        </a>
+                        <a 
                             href={`/?code=${roomObj.audienceCode}`}
                             target="_blank"
                             rel="noreferrer"
                             className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white border border-gray-700 px-2 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors flex justify-center items-center gap-1.5 text-center"
                         >
                             <ExternalLink className="w-3 h-3" /> 
-                            Abrir Audiencia
+                            Link Audiencia
                         </a>
                         <a 
                             href={`/?code=${roomObj.audienceCode}&tv=true&lang=es`}
@@ -367,7 +376,7 @@ const EventAdminView = () => {
                             className="flex-1 bg-gray-800 hover:bg-primary/20 text-gray-300 hover:text-primary border border-gray-700 hover:border-primary/50 px-2 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors flex justify-center items-center gap-1.5 text-center"
                         >
                             <MonitorPlay className="w-3 h-3" /> 
-                            Proyectar TV (ES)
+                            TV (ES)
                         </a>
                     </div>
 

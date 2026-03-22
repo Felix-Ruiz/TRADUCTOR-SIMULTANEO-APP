@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
-import { Shield, Power, Plus, Trash2, Key, Activity, Copy, CheckCircle2, X, Users, AlertCircle, BarChart3, Image as ImageIcon, Briefcase, UserCog, ExternalLink, MonitorPlay } from 'lucide-react';
+import { Shield, Power, Plus, Trash2, Key, Activity, Copy, CheckCircle2, X, Users, AlertCircle, BarChart3, Image as ImageIcon, Briefcase, UserCog, ExternalLink, MonitorPlay, Mic } from 'lucide-react';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001', { autoConnect: false });
 
@@ -114,7 +114,7 @@ const MasterView = () => {
   const handleDeleteEvent = (id) => {
     openDialog(
       "Eliminar Evento", 
-      "¿Deseas eliminar este evento y todas sus salas de forma permanente? Esta acción no se puede deshacer.", 
+      "¿Deseas eliminar este evento y todas salas de forma permanente? Esta acción no se puede deshacer.", 
       "confirm", 
       () => socket.emit('master-delete-event', id, () => {}),
       "bg-red-600 hover:bg-red-700 shadow-red-500/25"
@@ -441,13 +441,22 @@ const MasterView = () => {
 
                             <div className="flex flex-wrap items-center gap-1.5 mb-3">
                                 <a 
+                                    href={`/admin?pwd=${roomObj.speakerPassword}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="flex-1 bg-primary/20 hover:bg-primary text-primary hover:text-white border border-primary/50 hover:border-primary px-1 py-1.5 rounded text-[9px] font-bold uppercase tracking-wider transition-colors flex justify-center items-center gap-1 text-center"
+                                >
+                                    <Mic className="w-3 h-3" />
+                                    Link Orador
+                                </a>
+                                <a 
                                     href={`/?code=${roomObj.audienceCode}`}
                                     target="_blank"
                                     rel="noreferrer"
                                     className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white border border-gray-700 px-1 py-1.5 rounded text-[9px] font-bold uppercase tracking-wider transition-colors flex justify-center items-center gap-1 text-center"
                                 >
                                     <ExternalLink className="w-3 h-3" /> 
-                                    Abrir Audiencia
+                                    Link Audiencia
                                 </a>
                                 <a 
                                     href={`/?code=${roomObj.audienceCode}&tv=true&lang=es`}

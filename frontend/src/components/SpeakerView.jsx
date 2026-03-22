@@ -18,7 +18,7 @@ const SpeakerView = () => {
   const [passwordInput, setPasswordInput] = useState('');
   const [loginError, setLoginError] = useState('');
   
-  const [isVerifying, setIsVerifying] = useState(!!sessionStorage.getItem('speakerPwd'));
+  const [isVerifying, setIsVerifying] = useState(true); // Inicia en true para comprobar URL o Storage
   
   const [eventInfo, setEventInfo] = useState(null);
   const [isSystemActive, setIsSystemActive] = useState(true);
@@ -38,7 +38,6 @@ const SpeakerView = () => {
   const [panelCount, setPanelCount] = useState(1); 
   const [panelLanguages, setPanelLanguages] = useState(['en', 'de', 'fr']); 
   
-  // NUEVO: Estado para el idioma del Modo TV
   const [tvLanguage, setTvLanguage] = useState('es');
 
   const [fullTranscription, setFullTranscription] = useState('');
@@ -92,9 +91,17 @@ const SpeakerView = () => {
     attemptLogin(passwordInput);
   };
 
+  // MODIFICADO: Ahora lee el parámetro de la URL para auto-login
   useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlPwd = urlParams.get('pwd');
     const savedPwd = sessionStorage.getItem('speakerPwd');
-    if (savedPwd) {
+
+    if (urlPwd) {
+      // Limpia la URL por seguridad y estética después de leer la clave
+      window.history.replaceState(null, '', window.location.pathname);
+      attemptLogin(urlPwd);
+    } else if (savedPwd) {
       attemptLogin(savedPwd);
     } else {
       setIsVerifying(false);
@@ -472,7 +479,6 @@ const SpeakerView = () => {
           </p>
         </div>
 
-        {/* MODIFICADO: Selector de idioma desplegable para Pantallas de TV */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-dark border border-gray-800 rounded-2xl p-5 shadow-xl shrink-0 mt-2">
             <div className="flex flex-col mb-4 sm:mb-0">
                 <h3 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2 mb-1">
