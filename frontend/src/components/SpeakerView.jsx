@@ -33,11 +33,14 @@ const SpeakerView = () => {
   const [voiceGender, setVoiceGender] = useState('female');
   
   const [roomName, setRoomName] = useState('');
-  const [audienceCode, setAudienceCode] = useState(''); // NUEVO: Guardar el codigo de la audiencia de esta sala
+  const [audienceCode, setAudienceCode] = useState(''); 
   
   const [panelCount, setPanelCount] = useState(1); 
   const [panelLanguages, setPanelLanguages] = useState(['en', 'de', 'fr']); 
   
+  // NUEVO: Estado para el idioma del Modo TV
+  const [tvLanguage, setTvLanguage] = useState('es');
+
   const [fullTranscription, setFullTranscription] = useState('');
   const [audienceCount, setAudienceCount] = useState(0);
   const [copiedText, setCopiedText] = useState(null);
@@ -53,7 +56,6 @@ const SpeakerView = () => {
   };
   const closeDialog = () => setDialogConfig(prev => ({ ...prev, isOpen: false }));
 
-  // NUEVO: La URL ahora usa solo el código de acceso directo a la sala
   const audienceUrl = `${window.location.origin}/?code=${audienceCode}`;
 
   const copyToClipboard = (text) => {
@@ -70,7 +72,7 @@ const SpeakerView = () => {
         setEventInfo(response.event);
         setIsEventActive(response.event.isActive); 
         setRoomName(response.roomName); 
-        setAudienceCode(response.audienceCode); // Guardamos el código
+        setAudienceCode(response.audienceCode); 
         sessionStorage.setItem('speakerPwd', pwd);
         setLoginError('');
       } else {
@@ -470,25 +472,43 @@ const SpeakerView = () => {
           </p>
         </div>
 
+        {/* MODIFICADO: Selector de idioma desplegable para Pantallas de TV */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-dark border border-gray-800 rounded-2xl p-5 shadow-xl shrink-0 mt-2">
             <div className="flex flex-col mb-4 sm:mb-0">
                 <h3 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2 mb-1">
                     <Monitor className="w-4 h-4 text-primary" />
                     Pantallas de Subtítulos (Modo TV)
                 </h3>
-                <p className="text-xs text-gray-500">Abre los subtítulos en pantalla completa para proyectarlos. Entran directo a esta sala.</p>
+                <p className="text-xs text-gray-500">Selecciona el idioma y abre los subtítulos a pantalla completa para proyectar.</p>
             </div>
-            <div className="flex flex-wrap gap-2">
-                {['es', 'en', 'pt', 'fr', 'de'].map(lang => (
-                    <button 
-                        key={lang}
-                        onClick={() => window.open(`${window.location.origin}/?code=${audienceCode}&tv=true&lang=${lang}`, '_blank')}
-                        className="flex items-center gap-2 bg-gray-800 hover:bg-primary text-white px-3 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-colors border border-gray-700 hover:border-primary"
+            <div className="flex items-center gap-3">
+                <div className="relative">
+                    <select
+                        value={tvLanguage}
+                        onChange={(e) => setTvLanguage(e.target.value)}
+                        className="bg-gray-800 border border-gray-700 text-white text-xs font-bold uppercase tracking-wider rounded-lg px-3 py-2.5 focus:ring-1 focus:ring-primary focus:outline-none appearance-none cursor-pointer pr-8"
                     >
-                        <MonitorPlay className="w-3 h-3" />
-                        {langNames[lang]}
-                    </button>
-                ))}
+                        <option value="es">Español</option>
+                        <option value="en">Inglés</option>
+                        <option value="de">Alemán</option>
+                        <option value="fr">Francés</option>
+                        <option value="pt">Portugués</option>
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
+                        <svg className="fill-current h-3 w-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                            <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                        </svg>
+                    </div>
+                </div>
+                <a 
+                    href={`${window.location.origin}/?code=${audienceCode}&tv=true&lang=${tvLanguage}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-2 bg-primary hover:bg-blue-600 text-white px-4 py-2.5 rounded-lg font-bold text-xs uppercase tracking-wider transition-colors shadow-lg shadow-blue-500/25"
+                >
+                    <MonitorPlay className="w-4 h-4" />
+                    Proyectar
+                </a>
             </div>
         </div>
 
