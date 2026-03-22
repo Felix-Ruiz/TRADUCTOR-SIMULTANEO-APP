@@ -48,7 +48,7 @@ eventsDB.set("DEFAULT", {
     id: "DEFAULT",
     name: "Evento Principal (Por Defecto)",
     adminPassword: process.env.VITE_EVENT_ADMIN_PASSWORD || "admin-evento-123",
-    rooms: [{ name: "PRINCIPAL", speakerPassword: process.env.VITE_ADMIN_PASSWORD || "admin123" }], // Habitaciones ahora son Objetos
+    rooms: [], // Inicia completamente limpio, sin salas creadas
     isActive: true,
     logoUrl: "", 
     sponsorText: "" 
@@ -79,7 +79,7 @@ const emitMasterData = () => {
 const broadcastEventInfoToAudience = (event) => {
     io.to(`audience_${event.id}`).emit('event-info', { 
         name: event.name, 
-        allRooms: event.rooms.map(r => r.name), // Audiencia solo recibe nombres, NUNCA claves
+        allRooms: event.rooms.map(r => r.name),
         isActive: event.isActive, 
         logoUrl: event.logoUrl, 
         sponsorText: event.sponsorText 
@@ -148,7 +148,7 @@ io.on('connection', (socket) => {
             id: publicId,
             name: data.name,
             adminPassword: secretAdminPassword, 
-            rooms: [], // Inicia con 0 salas.
+            rooms: [], // Inicia sin salas
             isActive: true,
             logoUrl: data.logoUrl || "",
             sponsorText: data.sponsorText || ""
@@ -275,7 +275,6 @@ io.on('connection', (socket) => {
     socket.on('speaker-login', (password, callback) => {
         let foundEvent = null;
         let foundRoom = null;
-        // Ahora el servidor escanea TODAS las salas buscando ESA contraseña exacta
         for (const event of eventsDB.values()) {
             const room = event.rooms.find(r => r.speakerPassword === password);
             if (room) {

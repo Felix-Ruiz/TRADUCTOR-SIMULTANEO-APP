@@ -447,6 +447,12 @@ const MasterView = () => {
               </div>
             </div>
           ))}
+          {events.length === 0 && (
+            <div className="col-span-full py-12 flex flex-col items-center justify-center text-gray-500 border-2 border-dashed border-gray-800 rounded-2xl">
+              <Shield className="w-12 h-12 mb-4 opacity-20" />
+              <p className="text-lg font-medium">No hay instancias activas en el servidor.</p>
+            </div>
+          )}
         </div>
       </main>
     </div>
