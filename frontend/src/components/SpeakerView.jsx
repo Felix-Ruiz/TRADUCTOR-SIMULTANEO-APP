@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
-import { Mic, Square, Radio, Globe, Download, Lock, AlertTriangle, AlertCircle, Users } from 'lucide-react';
+import { Mic, Square, Radio, Globe, Download, Lock, AlertTriangle, AlertCircle, Users, Monitor, MonitorPlay } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL, { autoConnect: false });
@@ -39,7 +39,6 @@ const SpeakerView = () => {
   
   const [fullTranscription, setFullTranscription] = useState('');
   
-  // NUEVO: Estado para el contador de audiencia
   const [audienceCount, setAudienceCount] = useState(0);
 
   const audioContextRef = useRef(null);
@@ -62,11 +61,11 @@ const SpeakerView = () => {
         setIsAuthenticated(true);
         setEventInfo(response.event);
         setIsEventActive(response.event.isActive); 
-        setRoomName(response.event.rooms[0] || 'PRINCIPAL');
+        setRoomName(response.roomName); // La sala es obligatoria dictada por el servidor
         sessionStorage.setItem('speakerPwd', pwd);
         setLoginError('');
       } else {
-        setLoginError(response.message || 'Contraseña de evento incorrecta.');
+        setLoginError(response.message || 'Contraseña de sala incorrecta.');
         setPasswordInput('');
         sessionStorage.removeItem('speakerPwd');
         socket.disconnect();
@@ -129,7 +128,6 @@ const SpeakerView = () => {
       }
     });
 
-    // NUEVO: Escuchar el contador de audiencia en vivo desde el servidor
     socket.on('room-audience-count', (count) => {
         setAudienceCount(count);
     });
@@ -151,15 +149,12 @@ const SpeakerView = () => {
       audioContextRef.current.close().catch(() => {});
     }
     if (streamRef.current) streamRef.current.getTracks().forEach(track => track.stop());
-    setAudienceCount(0); // Reiniciar el contador al apagar
+    setAudienceCount(0); 
   };
 
   const startRecording = async () => {
     try {
-      if (!roomName) {
-        openDialog("Información Incompleta", "Por favor selecciona una sala antes de iniciar la transmisión.", "alert");
-        return;
-      }
+      if (!roomName) return;
 
       const stream = await navigator.mediaDevices.getUserMedia({ 
           audio: { 
@@ -224,7 +219,7 @@ const SpeakerView = () => {
       gainNode.connect(audioContext.destination);
 
       setIsRecording(true);
-      setAudienceCount(0); // Reiniciar visualmente al conectar
+      setAudienceCount(0); 
     } catch (error) {
       console.error('Error accediendo al micrófono:', error);
       openDialog("Permiso Denegado", "Por favor, permite el acceso al micrófono en tu navegador para poder transmitir.", "alert");
@@ -287,9 +282,9 @@ const SpeakerView = () => {
             <Lock className="w-10 h-10 text-primary" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-white mb-2 tracking-tight">Acceso a Oradores</h2>
+            <h2 className="text-2xl font-bold text-white mb-2 tracking-tight">Acceso a Cabina de Orador</h2>
             <p className="text-gray-400 text-sm leading-relaxed">
-              Ingresa la Clave Secreta de Orador generada por el administrador Master.
+              Ingresa la Clave de Sala generada por el administrador de tu evento.
             </p>
           </div>
           <form onSubmit={handleLogin} className="w-full flex flex-col gap-4 mt-2">
@@ -297,7 +292,7 @@ const SpeakerView = () => {
               type="password"
               value={passwordInput}
               onChange={(e) => setPasswordInput(e.target.value)}
-              placeholder="Clave Secreta de Orador"
+              placeholder="Clave Secreta de Sala"
               className="w-full bg-darker border border-gray-700 text-white text-lg rounded-xl p-4 focus:ring-2 focus:ring-primary focus:outline-none text-center tracking-widest transition-all"
             />
             {loginError && <p className="text-red-500 text-xs font-semibold animate-pulse">{loginError}</p>}
@@ -375,7 +370,6 @@ const SpeakerView = () => {
                 {isRecording ? `Transmitiendo en: ${roomName}` : 'Sistema en espera'}
               </div>
               
-              {/* NUEVO: WIDGET DE AUDIENCIA EN VIVO */}
               {isRecording && (
                   <div className="inline-flex items-center gap-2 bg-green-500/10 border border-green-500/30 px-3 py-1.5 rounded-full shadow-lg shadow-green-500/10 transition-all duration-300">
                       <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
@@ -388,14 +382,20 @@ const SpeakerView = () => {
         </div>
         
         <div className="hidden md:flex items-center gap-5 bg-dark p-3 rounded-2xl border border-gray-800 shadow-xl">
-          <div className="bg-white p-2 rounded-xl">
+          <div className="bg-white p-2 rounded-xl shrink-0">
             <QRCodeSVG value={audienceUrl} size={70} />
           </div>
-          <div className="flex flex-col pr-4">
+          <div className="flex flex-col pr-4 justify-center">
             <span className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-1">Acceso Audiencia</span>
-            <a href={audienceUrl} target="_blank" rel="noreferrer" className="text-sm text-primary hover:text-blue-400 font-medium transition-colors">
+            <a href={audienceUrl} target="_blank" rel="noreferrer" className="text-sm text-primary hover:text-blue-400 font-bold transition-colors mb-2">
               Abrir enlace de sala ↗
             </a>
+            <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">
+                Cód. Evento: <span className="bg-gray-800 text-white px-2 py-0.5 rounded text-xs ml-1">{eventInfo?.id}</span>
+            </span>
+            <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">
+                Sala: <span className="bg-gray-800 text-white px-2 py-0.5 rounded text-xs ml-1">{roomName}</span>
+            </span>
           </div>
         </div>
       </header>
@@ -449,22 +449,8 @@ const SpeakerView = () => {
 
             <div className="flex items-center gap-3">
               <span className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Sala Asignada:</span>
-              <div className="relative">
-                <select 
-                  value={roomName}
-                  onChange={(e) => setRoomName(e.target.value)}
-                  disabled={isRecording}
-                  className="bg-darker border border-gray-700 text-white text-sm font-bold uppercase tracking-wider rounded-lg px-3 py-1.5 focus:ring-1 focus:ring-primary focus:outline-none appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed min-w-[120px]"
-                >
-                  {eventInfo?.rooms.map(room => (
-                    <option key={room} value={room}>{room}</option>
-                  ))}
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
-                  <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
-                  </svg>
-                </div>
+              <div className="bg-darker border border-gray-700 text-white text-sm font-bold uppercase tracking-wider rounded-lg px-4 py-1.5 min-w-[120px] text-center shadow-inner cursor-not-allowed">
+                {roomName}
               </div>
             </div>
           </div>
@@ -472,6 +458,29 @@ const SpeakerView = () => {
           <p className="text-3xl md:text-4xl font-bold leading-tight text-white min-h-[3rem] text-left">
             {transcription || "Presiona el botón para comenzar a hablar..."}
           </p>
+        </div>
+
+        {/* NUEVO: PANEL DE ENLACES TV PARA PROYECTAR */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-dark border border-gray-800 rounded-2xl p-5 shadow-xl shrink-0 mt-2">
+            <div className="flex flex-col mb-4 sm:mb-0">
+                <h3 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2 mb-1">
+                    <Monitor className="w-4 h-4 text-primary" />
+                    Pantallas de Subtítulos (Modo TV)
+                </h3>
+                <p className="text-xs text-gray-500">Haz clic para abrir los subtítulos de esta sala en pantalla completa para proyectarlos.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+                {['es', 'en', 'pt', 'fr', 'de'].map(lang => (
+                    <button 
+                        key={lang}
+                        onClick={() => window.open(`${window.location.origin}/?event=${eventInfo?.id}&room=${roomName}&tv=true&lang=${lang}`, '_blank')}
+                        className="flex items-center gap-2 bg-gray-800 hover:bg-primary text-white px-3 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-colors border border-gray-700 hover:border-primary"
+                    >
+                        <MonitorPlay className="w-3 h-3" />
+                        {langNames[lang]}
+                    </button>
+                ))}
+            </div>
         </div>
 
         <div className="flex flex-col gap-4 shrink-0">

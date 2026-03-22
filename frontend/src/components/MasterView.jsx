@@ -364,24 +364,13 @@ const MasterView = () => {
                     </div>
                 </div>
 
-                {/* MODIFICADO: Ahora muestra 3 columnas con la Llave del Cliente */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="bg-darker p-4 rounded-xl border border-gray-700/50">
                         <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-1"><Users className="w-3 h-3"/> CÓDIGO AUDIENCIA</span>
                         <div className="flex items-center justify-between gap-2">
                             <span className="text-white font-mono text-base font-bold tracking-widest">{event.id}</span>
                             <button onClick={() => copyToClipboard(event.id)} className="text-gray-400 hover:text-white">
                             {copiedText === event.id ? <CheckCircle2 className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <div className="bg-primary/5 p-4 rounded-xl border border-primary/20">
-                        <span className="text-[10px] font-bold text-primary uppercase tracking-widest mb-2 flex items-center gap-1"><Key className="w-3 h-3"/> CLAVE ORADOR</span>
-                        <div className="flex items-center justify-between gap-2">
-                            <span className="text-primary font-mono text-base font-bold tracking-widest">{event.password}</span>
-                            <button onClick={() => copyToClipboard(event.password)} className="text-primary hover:text-white">
-                            {copiedText === event.password ? <CheckCircle2 className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
                             </button>
                         </div>
                     </div>
@@ -399,13 +388,13 @@ const MasterView = () => {
 
                 <div>
                   <div className="flex items-center justify-between mb-3 mt-2">
-                    <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Salas Asignadas ({event.rooms.length}):</span>
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Salas Creadas ({event.rooms.length}):</span>
                     <button 
                       onClick={() => setSelectedEventId(selectedEventId === event.id ? null : event.id)}
                       className="text-xs font-bold text-primary hover:text-blue-400 transition-colors uppercase disabled:opacity-50"
                       disabled={!isSystemActive || !event.isActive}
                     >
-                      + Añadir Sala Fija
+                      + Añadir Sala Maestra
                     </button>
                   </div>
 
@@ -423,38 +412,41 @@ const MasterView = () => {
                     </form>
                   )}
 
-                  <div className="flex flex-wrap gap-2">
-                    {event.rooms.map(room => (
-                      <span key={room} className="flex items-center gap-2 px-3 py-1 bg-gray-800 text-gray-300 text-xs font-bold uppercase tracking-wider rounded-md border border-gray-700">
-                        {room}
-                        
-                        <span className="bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded text-[10px] flex items-center gap-1">
-                            <Users className="w-3 h-3" />
-                            {event.stats?.roomCounts?.[room] || 0}
-                        </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {event.rooms.map(roomObj => (
+                        <div key={roomObj.name} className="flex flex-col bg-darker p-3 rounded-lg border border-gray-700 relative group transition-all">
+                            <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-2 pr-6 truncate">{roomObj.name}</h3>
+                            
+                            <div className="bg-primary/10 border border-primary/20 rounded p-1.5 flex justify-between items-center mb-2">
+                                <span className="text-[9px] text-primary font-bold uppercase tracking-widest">Clave Orador:</span>
+                                <div className="flex items-center gap-1.5">
+                                    <span className="text-white font-mono text-xs font-bold">{roomObj.speakerPassword}</span>
+                                    <button onClick={() => copyToClipboard(roomObj.speakerPassword)} className="text-primary hover:text-white transition-colors">
+                                        {copiedText === roomObj.speakerPassword ? <CheckCircle2 className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
+                                    </button>
+                                </div>
+                            </div>
 
-                        {isSystemActive && event.isActive && (
-                            <button 
-                            onClick={() => handleDeleteRoom(event.id, room)}
-                            className="text-gray-500 hover:text-red-500 transition-colors ml-1"
-                            title="Eliminar Sala"
-                            >
-                            <X className="w-3 h-3" />
-                            </button>
-                        )}
-                      </span>
+                            <span className="bg-green-500/10 border border-green-500/20 text-green-400 px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1.5 w-max">
+                                <Users className="w-3 h-3" />
+                                {event.stats?.roomCounts?.[roomObj.name] || 0}
+                            </span>
+
+                            {isSystemActive && event.isActive && (
+                                <button 
+                                onClick={() => handleDeleteRoom(event.id, roomObj.name)}
+                                className="absolute top-2 right-2 text-gray-600 hover:text-red-500 hover:bg-red-500/10 p-1 rounded-md transition-colors opacity-0 group-hover:opacity-100"
+                                >
+                                <X className="w-3 h-3" />
+                                </button>
+                            )}
+                        </div>
                     ))}
                   </div>
                 </div>
               </div>
             </div>
           ))}
-          {events.length === 0 && (
-            <div className="col-span-full py-12 flex flex-col items-center justify-center text-gray-500 border-2 border-dashed border-gray-800 rounded-2xl">
-              <Shield className="w-12 h-12 mb-4 opacity-20" />
-              <p className="text-lg font-medium">No hay instancias activas en el servidor.</p>
-            </div>
-          )}
         </div>
       </main>
     </div>

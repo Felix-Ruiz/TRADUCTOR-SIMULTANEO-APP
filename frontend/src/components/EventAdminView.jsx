@@ -42,7 +42,6 @@ const EventAdminView = () => {
         setEventData(response.event);
         setIsFetchingData(false);
       } else {
-        // Si el evento fue eliminado por el Master, expulsa al cliente sin preguntar
         setIsAuthenticated(false);
         setEventData(null);
         sessionStorage.removeItem('isEventAdminAuth');
@@ -67,7 +66,6 @@ const EventAdminView = () => {
     setIsFetchingData(true);
     socket.emit('event-admin-login', passwordInput.trim(), (response) => {
       if (response.success) {
-        // SOLUCIÓN AL BUG: Ahora sí inyectamos la data en la vista antes de dejarlo entrar
         setIsSystemActive(response.isSystemActive);
         setEventData(response.event);
         setIsAuthenticated(true);
@@ -262,27 +260,16 @@ const EventAdminView = () => {
 
       <main className="flex-1 overflow-y-auto pr-2 flex flex-col gap-6">
         
-        {/* TARJETAS DE CLAVES */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 shrink-0">
-            <div className="bg-darker p-5 rounded-2xl border border-gray-700/50 shadow-inner flex flex-col justify-center">
-                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-1"><Users className="w-3 h-3"/> CÓDIGO AUDIENCIA</span>
-                <div className="flex items-center justify-between gap-2">
-                    <span className="text-white font-mono text-xl font-bold tracking-widest">{eventData.id}</span>
-                    <button onClick={() => copyToClipboard(eventData.id)} className="text-gray-400 hover:text-white bg-gray-800 p-2 rounded-lg transition-colors">
-                    {copiedText === eventData.id ? <CheckCircle2 className="w-5 h-5 text-green-500" /> : <Copy className="w-5 h-5" />}
-                    </button>
-                </div>
+        {/* TARJETAS DE CLAVES (Se eliminó la Clave Orador Global) */}
+        <div className="bg-darker p-5 rounded-2xl border border-gray-700/50 shadow-inner flex flex-col justify-center shrink-0">
+            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-1"><Users className="w-3 h-3"/> CÓDIGO AUDIENCIA (ÚNICO POR EVENTO)</span>
+            <div className="flex items-center justify-between gap-2">
+                <span className="text-white font-mono text-xl font-bold tracking-widest">{eventData.id}</span>
+                <button onClick={() => copyToClipboard(eventData.id)} className="text-gray-400 hover:text-white bg-gray-800 p-2 rounded-lg transition-colors">
+                {copiedText === eventData.id ? <CheckCircle2 className="w-5 h-5 text-green-500" /> : <Copy className="w-5 h-5" />}
+                </button>
             </div>
-            
-            <div className="bg-primary/5 p-5 rounded-2xl border border-primary/20 shadow-inner flex flex-col justify-center">
-                <span className="text-[10px] font-bold text-primary uppercase tracking-widest mb-2 flex items-center gap-1"><Key className="w-3 h-3"/> CLAVE ORADORES</span>
-                <div className="flex items-center justify-between gap-2">
-                    <span className="text-primary font-mono text-xl font-bold tracking-widest">{eventData.password}</span>
-                    <button onClick={() => copyToClipboard(eventData.password)} className="text-primary hover:text-white bg-primary/10 p-2 rounded-lg transition-colors">
-                    {copiedText === eventData.password ? <CheckCircle2 className="w-5 h-5 text-green-500" /> : <Copy className="w-5 h-5" />}
-                    </button>
-                </div>
-            </div>
+            <p className="text-xs text-gray-500 mt-2">Usa este código en los QRs. La audiencia elegirá su sala al entrar o entrará directo si usas enlaces específicos por sala.</p>
         </div>
 
         {/* ANALÍTICAS */}
@@ -344,21 +331,32 @@ const EventAdminView = () => {
             )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 overflow-y-auto pb-4">
-            {eventData.rooms.map(room => (
-                <div key={room} className="flex flex-col bg-darker p-4 rounded-xl border border-gray-700 relative group transition-all hover:border-gray-500 shadow-md">
-                    <h3 className="text-base font-bold text-white uppercase tracking-wider mb-3 pr-8 truncate" title={room}>{room}</h3>
+            {eventData.rooms.map(roomObj => (
+                <div key={roomObj.name} className="flex flex-col bg-darker p-5 rounded-xl border border-gray-700 relative group transition-all hover:border-gray-500 shadow-md">
+                    <h3 className="text-base font-bold text-white uppercase tracking-wider mb-4 pr-8 truncate" title={roomObj.name}>{roomObj.name}</h3>
                     
+                    {/* Tarjeta de Clave de Sala (Orador) */}
+                    <div className="mb-5 bg-primary/10 border border-primary/20 rounded-lg p-3 flex justify-between items-center shadow-inner">
+                        <span className="text-[10px] text-primary font-bold uppercase tracking-widest flex items-center gap-1"><Key className="w-3 h-3"/> Clave Orador</span>
+                        <div className="flex items-center gap-2">
+                            <span className="text-white font-mono text-sm font-bold tracking-widest">{roomObj.speakerPassword}</span>
+                            <button onClick={() => copyToClipboard(roomObj.speakerPassword)} className="text-primary hover:text-white transition-colors">
+                                {copiedText === roomObj.speakerPassword ? <CheckCircle2 className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                            </button>
+                        </div>
+                    </div>
+
                     <div className="flex items-center justify-between mt-auto">
                         <span className="bg-green-500/10 border border-green-500/20 text-green-400 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2">
                             <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
                             <Users className="w-3.5 h-3.5" />
-                            {eventData.stats?.roomCounts?.[room] || 0}
+                            {eventData.stats?.roomCounts?.[roomObj.name] || 0} conectados
                         </span>
                     </div>
 
                     {isSystemActive && eventData.isActive && (
                         <button 
-                        onClick={() => handleDeleteRoom(room)}
+                        onClick={() => handleDeleteRoom(roomObj.name)}
                         className="absolute top-4 right-4 text-gray-600 hover:text-red-500 hover:bg-red-500/10 p-1.5 rounded-md transition-colors opacity-0 group-hover:opacity-100"
                         title="Eliminar Sala"
                         >
