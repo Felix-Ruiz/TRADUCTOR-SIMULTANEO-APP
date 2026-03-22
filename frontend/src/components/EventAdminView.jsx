@@ -145,7 +145,6 @@ const EventAdminView = () => {
     setTimeout(() => setCopiedText(null), 2000);
   };
 
-  // NUEVO: Generador de Reporte SaaS
   const downloadAnalytics = (event) => {
     let report = `--- REPORTE DE ANALÍTICAS DEL EVENTO ---\n`;
     report += `Evento: ${event.name}\n`;
@@ -307,7 +306,6 @@ const EventAdminView = () => {
             {eventData.isActive ? 'Evento En Vivo' : 'Evento Pausado'}
             </button>
 
-            {/* NUEVO BOTON DESCARGAR REPORTE CLIENTE */}
             <button 
                 onClick={() => downloadAnalytics(eventData)}
                 className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all shadow-lg w-full sm:w-auto bg-blue-500/10 text-blue-500 hover:bg-blue-500 hover:text-white border border-blue-500/20 hover:border-blue-500 shadow-blue-500/10"
@@ -325,7 +323,6 @@ const EventAdminView = () => {
 
       <main className="flex-1 overflow-y-auto pr-2 flex flex-col gap-6">
 
-        {/* ANALÍTICAS */}
         <div className="bg-gradient-to-br from-gray-900 to-black p-6 rounded-2xl border border-gray-800 shadow-xl flex flex-col sm:flex-row gap-6 items-center justify-between shrink-0">
             <div className="flex items-center gap-4">
                 <div className="bg-primary/10 p-3.5 rounded-xl border border-primary/20">
@@ -333,7 +330,7 @@ const EventAdminView = () => {
                 </div>
                 <div>
                     <span className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-1">Audiencia Activa Total</span>
-                    <span className="text-4xl font-bold text-white leading-none">{safeStats.total || 0} <span className="text-base font-medium text-gray-500">en vivo</span></span>
+                    <span className="text-4xl font-bold text-white leading-none">{safeStats.total || 0} <span className="text-base font-medium text-gray-500">conexiones</span></span>
                 </div>
             </div>
             
@@ -352,7 +349,6 @@ const EventAdminView = () => {
             </div>
         </div>
 
-        {/* GESTIÓN DE SALAS */}
         <div className="bg-dark border border-gray-800 rounded-2xl p-6 shadow-xl flex-1 flex flex-col min-h-[300px]">
             <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-800">
                 <h2 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2">

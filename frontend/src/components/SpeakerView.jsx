@@ -142,7 +142,6 @@ const SpeakerView = () => {
       if (data.type === 'final') {
         const text = data.original;
         setFullTranscription(prev => prev + text + " ");
-        // NUEVO: Enviamos silenciosamente las palabras al servidor
         const wordsCount = text.trim().split(/\s+/).length;
         if (wordsCount > 0) socket.emit('analytics-sync-words', { words: wordsCount });
       }
@@ -445,7 +444,8 @@ const SpeakerView = () => {
             </div>
 
             <div className="flex items-center gap-3">
-              <span className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Voz IA:</span>
+              {/* MODIFICADO AQUÍ */}
+              <span className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Tipo de Voz:</span>
               <div className="relative">
                 <select 
                   value={voiceGender}

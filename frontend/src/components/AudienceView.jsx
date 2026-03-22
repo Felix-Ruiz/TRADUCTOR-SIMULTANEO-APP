@@ -5,7 +5,6 @@ import { Scanner } from '@yudiel/react-qr-scanner';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001');
 
-// Generador de ID Único para Estadísticas SaaS
 const getDeviceId = () => {
     let id = localStorage.getItem('audienceDeviceId');
     if (!id) {
@@ -140,7 +139,7 @@ const AudienceView = () => {
             eventId: response.eventId, 
             roomName: response.roomName, 
             language: language,
-            deviceId: getDeviceId() // <-- Analiticas de Unicidad
+            deviceId: getDeviceId() 
         });
         setHasJoinedEvent(true); 
       } else {
@@ -412,7 +411,7 @@ const AudienceView = () => {
             <div className="max-w-2xl mx-auto space-y-6">
                 {legalModalContent === 'privacy' && (
                     <>
-                        <p><strong>1. Captura y Procesamiento de Voz:</strong> La plataforma utiliza el micrófono del dispositivo emisor exclusivamente para capturar la voz durante la sesión activa. El audio se transmite en tiempo real mediante canales cifrados a <strong>servidores de inteligencia artificial de terceros con certificación de seguridad corporativa</strong> para generar la traducción y síntesis de voz neuronal.</p>
+                        <p><strong>1. Captura y Procesamiento de Voz:</strong> La plataforma utiliza el micrófono del dispositivo emisor exclusivamente para capturar la voz durante la sesión activa. El audio se transmite en tiempo real mediante canales cifrados a <strong>servidores de procesamiento automatizado de terceros con certificación de seguridad corporativa</strong> para generar la traducción y síntesis de voz neuronal.</p>
                         <p><strong>2. Almacenamiento No Persistente:</strong> Las transmisiones de audio son efímeras. No almacenamos, grabamos ni guardamos copias de voz de los oradores ni de la audiencia en bases de datos a largo plazo.</p>
                         <p><strong>3. Telemetría y Analíticas:</strong> Recopilamos información analítica anónima, como el recuento de usuarios por sala y los idiomas seleccionados, para proporcionar métricas de calidad al organizador del evento. No se recopilan datos de identificación personal sin consentimiento.</p>
                         <p><strong>4. Marco Normativo:</strong> Este tratamiento se realiza garantizando el cumplimiento de los estándares de protección de datos vigentes aplicables a entornos institucionales y corporativos.</p>
