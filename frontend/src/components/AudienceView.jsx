@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
-import { Headphones, Globe2, AlertCircle, MessageSquare, Radio, PowerOff, Key, LogOut, QrCode, X } from 'lucide-react';
+import { Headphones, Globe2, AlertCircle, MessageSquare, Radio, PowerOff, Key, LogOut, QrCode, X, Scale } from 'lucide-react';
 import { Scanner } from '@yudiel/react-qr-scanner';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001');
@@ -40,6 +40,9 @@ const AudienceView = () => {
   const [hasJoinedEvent, setHasJoinedEvent] = useState(false);
   
   const [isScanning, setIsScanning] = useState(false);
+
+  // NUEVO: Estado para controlar los modales legales
+  const [legalModalContent, setLegalModalContent] = useState(null); 
 
   const [dialogConfig, setDialogConfig] = useState({ isOpen: false, title: '', message: '', type: 'confirm', onConfirm: null, confirmStyle: '' });
 
@@ -347,6 +350,20 @@ const AudienceView = () => {
     }
   };
 
+  // NUEVO: Componente reutilizable para el Pie de Página Legal
+  const LegalFooter = () => (
+    <div className="mt-8 flex flex-wrap justify-center items-center gap-x-3 gap-y-2 text-[10px] text-gray-500 font-bold uppercase tracking-widest text-center w-full">
+        <button onClick={() => setLegalModalContent('privacy')} className="hover:text-gray-300 transition-colors underline decoration-gray-700 underline-offset-4">Privacidad</button>
+        <span className="text-gray-700">•</span>
+        <button onClick={() => setLegalModalContent('terms')} className="hover:text-gray-300 transition-colors underline decoration-gray-700 underline-offset-4">Términos</button>
+        <span className="text-gray-700">•</span>
+        <button onClick={() => setLegalModalContent('cookies')} className="hover:text-gray-300 transition-colors underline decoration-gray-700 underline-offset-4">Cookies</button>
+        <div className="w-full mt-2 text-gray-600 flex items-center justify-center gap-1.5">
+           <Scale className="w-3 h-3" /> © {new Date().getFullYear()} Plataforma de Traducción
+        </div>
+    </div>
+  );
+
   if (isVerifying) {
     return (
       <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-darker">
@@ -388,6 +405,52 @@ const AudienceView = () => {
                 </div>
             </div>
         </div>
+    );
+  }
+
+  // NUEVO: RENDERIZADO DEL MODAL LEGAL
+  if (legalModalContent) {
+    return (
+      <div className="fixed inset-0 z-[100] flex flex-col bg-darker overflow-hidden">
+         <div className="flex justify-between items-center p-5 bg-dark border-b border-gray-800 shrink-0 shadow-lg z-10">
+            <h3 className="text-white font-bold tracking-widest uppercase flex items-center gap-2 text-sm">
+                <Scale className="w-4 h-4 text-primary" />
+                {legalModalContent === 'privacy' && "Tratamiento de Datos"}
+                {legalModalContent === 'terms' && "Términos y Condiciones"}
+                {legalModalContent === 'cookies' && "Política de Almacenamiento"}
+            </h3>
+            <button onClick={() => setLegalModalContent(null)} className="text-gray-400 hover:text-white bg-gray-800 hover:bg-red-500 hover:border-red-500 p-1.5 rounded-lg border border-gray-700 transition-all">
+                <X className="w-5 h-5" />
+            </button>
+         </div>
+         <div className="flex-1 overflow-y-auto p-6 md:p-8 text-gray-300 text-sm leading-relaxed">
+            <div className="max-w-2xl mx-auto space-y-6">
+                {legalModalContent === 'privacy' && (
+                    <>
+                        <p><strong>1. Captura y Procesamiento de Voz:</strong> La plataforma utiliza el micrófono del dispositivo emisor exclusivamente para capturar la voz durante la sesión activa. El audio se transmite en tiempo real a los servidores de inteligencia artificial (Microsoft Azure) para generar la traducción y síntesis de voz neuronal.</p>
+                        <p><strong>2. Almacenamiento No Persistente:</strong> Las transmisiones de audio son efímeras. No almacenamos, grabamos ni guardamos copias de voz de los oradores ni de la audiencia en bases de datos a largo plazo.</p>
+                        <p><strong>3. Telemetría y Analíticas:</strong> Recopilamos información analítica anónima, como el recuento de usuarios por sala y los idiomas seleccionados, para proporcionar métricas de calidad al organizador del evento. No se recopilan datos de identificación personal sin consentimiento.</p>
+                        <p><strong>4. Marco Normativo:</strong> Este tratamiento se realiza garantizando el cumplimiento de los estándares de protección de datos vigentes aplicables a entornos institucionales y corporativos.</p>
+                    </>
+                )}
+                {legalModalContent === 'terms' && (
+                    <>
+                        <p><strong>1. Uso del Servicio:</strong> Esta plataforma se proporciona "tal cual" para la transmisión de traducción simultánea en eventos. El usuario se compromete a no utilizar el sistema para fines ilícitos o que interfieran con la transmisión del evento.</p>
+                        <p><strong>2. Propiedad Intelectual:</strong> Las traducciones, el diseño de la interfaz y la marca blanca mostrada pertenecen al organizador del evento o a la entidad licenciante. Queda prohibida su reproducción o distribución sin autorización expresa.</p>
+                        <p><strong>3. Disponibilidad:</strong> Al ser un sistema que depende de conexiones de red y proveedores de inteligencia artificial en la nube, el servicio puede presentar interrupciones o retrasos inherentes a la infraestructura de internet.</p>
+                        <p><strong>4. Responsabilidad:</strong> La plataforma no se hace responsable de inexactitudes en la traducción automática generada por la Inteligencia Artificial.</p>
+                    </>
+                )}
+                {legalModalContent === 'cookies' && (
+                    <>
+                        <p><strong>1. Cookies Técnicas Estrictamente Necesarias:</strong> Utilizamos tecnologías de almacenamiento local en su navegador (SessionStorage, LocalStorage y cachés de Service Workers para PWA) exclusivamente para garantizar el funcionamiento técnico de la aplicación (ej. mantener su sesión activa en una sala, recordar su idioma y cargar la app rápidamente).</p>
+                        <p><strong>2. Ausencia de Rastreadores de Publicidad:</strong> No implementamos cookies de terceros con fines publicitarios, de marketing cruzado ni de venta de perfiles de navegación.</p>
+                        <p><strong>3. Gestión del Usuario:</strong> Al hacer clic en "Salir del evento", el sistema limpia activamente el rastro de sesión (eventos y salas) de su dispositivo.</p>
+                    </>
+                )}
+            </div>
+         </div>
+      </div>
     );
   }
 
@@ -482,6 +545,8 @@ const AudienceView = () => {
               Ingresar al Evento
             </button>
           </form>
+
+          <LegalFooter />
         </div>
       </div>
     );
@@ -591,14 +656,10 @@ const AudienceView = () => {
     );
   }
 
-  // ==========================================
-  // VISTA CORREGIDA: SELECCIÓN DE SALA Y MODO
-  // ==========================================
   if (!userMode) {
     return (
       <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-darker relative">
         
-        {/* MODAL INYECTADO AQUÍ */}
         {dialogConfig.isOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity">
             <div className="bg-darker border border-gray-700 p-6 rounded-3xl shadow-[0_0_40px_rgba(0,0,0,0.5)] max-w-sm w-full flex flex-col gap-2 transform transition-all scale-100">
@@ -698,6 +759,7 @@ const AudienceView = () => {
              </div>
           )}
 
+          <LegalFooter />
         </div>
       </div>
     );
@@ -846,6 +908,16 @@ const AudienceView = () => {
                 {eventSponsor}
             </div>
         )}
+
+        {/* WIDGET LEGAL MINIMALISTA */}
+        <div className="mt-4 flex flex-wrap justify-center items-center gap-x-2 gap-y-1 text-[9px] text-gray-600 font-semibold uppercase tracking-widest text-center w-full opacity-60 hover:opacity-100 transition-opacity">
+            <button onClick={() => setLegalModalContent('privacy')} className="hover:text-gray-300 transition-colors">Privacidad</button>
+            <span className="text-gray-800">•</span>
+            <button onClick={() => setLegalModalContent('terms')} className="hover:text-gray-300 transition-colors">Términos</button>
+            <span className="text-gray-800">•</span>
+            <button onClick={() => setLegalModalContent('cookies')} className="hover:text-gray-300 transition-colors">Cookies</button>
+        </div>
+
       </footer>
 
     </div>
