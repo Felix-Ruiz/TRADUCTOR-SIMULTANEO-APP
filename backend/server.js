@@ -44,10 +44,12 @@ const initEventStats = (eventId) => {
     }
 };
 
+// Evento por defecto (Ahora incluye adminPassword)
 eventsDB.set("DEFAULT", {
     id: "DEFAULT",
     name: "Evento Principal (Por Defecto)",
-    password: process.env.VITE_ADMIN_PASSWORD || "admin123",
+    adminPassword: process.env.VITE_EVENT_ADMIN_PASSWORD || "admin-evento-123", // Llave del Cliente
+    password: process.env.VITE_ADMIN_PASSWORD || "admin123", // Llave del Orador
     rooms: ["PRINCIPAL"],
     isActive: true,
     logoUrl: "", 
@@ -64,18 +66,30 @@ const broadcastActiveRoomsToEvent = (eventId) => {
     io.to(`audience_${eventId}`).emit('active-rooms', rooms);
 };
 
+// Modificado: Ahora le avisa al Master Y al Cliente de ese evento al mismo tiempo
 const emitMasterData = () => {
     const eventsArray = Array.from(eventsDB.values()).map(event => {
-        return {
+        const eventWithStats = {
             ...event,
             stats: statsDB.get(event.id) || { total: 0, langs: { es: 0, en: 0, de: 0, fr: 0, pt: 0 }, roomCounts: {} }
         };
+        // Magia SaaS: Mantener actualizado el panel privado del cliente en tiempo real
+        io.to(`event_admin_${event.id}`).emit('event-admin-data-updated', eventWithStats);
+        return eventWithStats;
     });
     io.emit('master-data-updated', eventsArray);
 };
 
+// Utilidad para notificar a la audiencia de un evento si cambian sus salas o estado
+const broadcastEventInfoToAudience = (event) => {
+    io.to(`audience_${event.id}`).emit('event-info', { 
+        name: event.name, allRooms: event.rooms, isActive: event.isActive, 
+        logoUrl: event.logoUrl, sponsorText: event.sponsorText 
+    });
+};
+
 app.get('/api/status', (req, res) => {
-    res.status(200).json({ status: 'online', message: 'Servidor activo, blindado y analítico.' });
+    res.status(200).json({ status: 'online', message: 'Servidor SaaS activo, blindado y analítico.' });
 });
 
 io.on('connection', (socket) => {
@@ -85,7 +99,7 @@ io.on('connection', (socket) => {
     let translationService = null;
 
     // ==========================================
-    // RUTAS MASTER
+    // RUTAS MASTER (DUEÑO DE LA PLATAFORMA)
     // ==========================================
     socket.on('master-login', (pwd, callback) => {
         if (pwd === MASTER_PASSWORD) {
@@ -133,12 +147,14 @@ io.on('connection', (socket) => {
 
     socket.on('master-create-event', (data, callback) => {
         const publicId = Math.random().toString(36).slice(-6).toUpperCase();
-        const secretPassword = Math.random().toString(36).slice(-6).toUpperCase();
+        const secretSpeakerPassword = Math.random().toString(36).slice(-6).toUpperCase();
+        const secretAdminPassword = Math.random().toString(36).slice(-8).toUpperCase(); // NUEVO: Llave Cliente
         
         const newEvent = {
             id: publicId,
             name: data.name,
-            password: secretPassword,
+            adminPassword: secretAdminPassword, // Asignada
+            password: secretSpeakerPassword,
             rooms: ["PRINCIPAL"],
             isActive: true,
             logoUrl: data.logoUrl || "",
@@ -165,6 +181,7 @@ io.on('connection', (socket) => {
             if (!event.rooms.includes(data.room)) event.rooms.push(data.room);
             callback({ success: true });
             emitMasterData();
+            broadcastEventInfoToAudience(event);
         } else {
             callback({ success: false });
         }
@@ -180,13 +197,90 @@ io.on('connection', (socket) => {
             }
             callback({ success: true });
             emitMasterData();
+            broadcastEventInfoToAudience(event);
         } else {
             callback({ success: false });
         }
     });
 
     // ==========================================
-    // RUTAS SPEAKER
+    // NUEVO: RUTAS ADMIN DE EVENTO (EL CLIENTE)
+    // ==========================================
+    socket.on('event-admin-login', (pwd, callback) => {
+        let foundEvent = null;
+        for (const event of eventsDB.values()) {
+            // Verifica la llave exclusiva del cliente
+            if (event.adminPassword === pwd) {
+                foundEvent = event;
+                break;
+            }
+        }
+        if (foundEvent) {
+            // Lo encierra en un "cuarto" virtual solo para recibir alertas de su evento
+            socket.join(`event_admin_${foundEvent.id}`);
+            callback({ 
+                success: true, 
+                isSystemActive,
+                event: {
+                    ...foundEvent,
+                    stats: statsDB.get(foundEvent.id)
+                } 
+            });
+        } else {
+            callback({ success: false, message: "Clave de administrador de evento incorrecta." });
+        }
+    });
+
+    socket.on('event-admin-toggle-event', (data, callback) => {
+        const event = eventsDB.get(data.eventId);
+        // Validar que realmente tiene la contraseña antes de dejarlo modificar
+        if (event && event.adminPassword === data.adminPassword) {
+            event.isActive = data.status;
+            if (!event.isActive) {
+                const eventRoomsMap = activeSpeakerRooms.get(data.eventId);
+                if (eventRoomsMap) {
+                    eventRoomsMap.clear();
+                    broadcastActiveRoomsToEvent(data.eventId);
+                }
+            }
+            emitMasterData();
+            io.emit('event-status-changed', { eventId: data.eventId, status: data.status });
+            callback({ success: true });
+        } else {
+            callback({ success: false });
+        }
+    });
+
+    socket.on('event-admin-add-room', (data, callback) => {
+        const event = eventsDB.get(data.eventId);
+        if (event && event.adminPassword === data.adminPassword) {
+            if (!event.rooms.includes(data.room)) event.rooms.push(data.room);
+            callback({ success: true });
+            emitMasterData();
+            broadcastEventInfoToAudience(event);
+        } else {
+            callback({ success: false });
+        }
+    });
+
+    socket.on('event-admin-delete-room', (data, callback) => {
+        const event = eventsDB.get(data.eventId);
+        if (event && event.adminPassword === data.adminPassword) {
+            event.rooms = event.rooms.filter(r => r !== data.room);
+            const stats = statsDB.get(data.eventId);
+            if (stats && stats.roomCounts && stats.roomCounts[data.room]) {
+                delete stats.roomCounts[data.room];
+            }
+            callback({ success: true });
+            emitMasterData();
+            broadcastEventInfoToAudience(event);
+        } else {
+            callback({ success: false });
+        }
+    });
+
+    // ==========================================
+    // RUTAS SPEAKER (ORADOR)
     // ==========================================
     socket.on('speaker-login', (password, callback) => {
         let foundEvent = null;
@@ -231,7 +325,6 @@ io.on('connection', (socket) => {
         );
         translationService.start();
 
-        // NUEVO: Al conectar, enviarle al orador cuánta audiencia hay YA en la sala
         const stats = statsDB.get(eventId);
         const audienceCount = stats?.roomCounts?.[roomName] || 0;
         socket.emit('room-audience-count', audienceCount);
@@ -336,7 +429,6 @@ io.on('connection', (socket) => {
                 const oldRoom = socket.audienceData.roomName;
                 if (oldRoom && stats.roomCounts[oldRoom] > 0) {
                     stats.roomCounts[oldRoom] -= 1;
-                    // NUEVO: Avisar a la sala que alguien salió
                     io.to(`${data.eventId}_${oldRoom}`).emit('room-audience-count', stats.roomCounts[oldRoom]);
                 }
                 
@@ -345,7 +437,6 @@ io.on('connection', (socket) => {
                         stats.roomCounts[data.roomName] = 0;
                     }
                     stats.roomCounts[data.roomName] += 1;
-                    // NUEVO: Avisar a la sala que alguien entró
                     io.to(`${data.eventId}_${data.roomName}`).emit('room-audience-count', stats.roomCounts[data.roomName]);
                 }
                 
@@ -364,7 +455,6 @@ io.on('connection', (socket) => {
                 if (stats.langs[language] > 0) stats.langs[language] -= 1;
                 if (roomName && stats.roomCounts[roomName] > 0) {
                     stats.roomCounts[roomName] -= 1;
-                    // NUEVO: Avisar a la sala que alguien se desconectó
                     io.to(`${eventId}_${roomName}`).emit('room-audience-count', stats.roomCounts[roomName]);
                 }
                 emitMasterData();
@@ -393,6 +483,6 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
     console.log(`=========================================`);
-    console.log(`🚀 Servidor blindado y analítico en puerto ${PORT}`);
+    console.log(`🚀 Servidor SaaS blindado y analítico en puerto ${PORT}`);
     console.log(`=========================================`);
 });
