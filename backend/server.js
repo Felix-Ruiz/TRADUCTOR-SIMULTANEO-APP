@@ -85,18 +85,34 @@ setInterval(() => {
     let deletedCount = 0;
     for (const [ip, record] of loginAttempts.entries()) {
         if (record.lockedUntil && now >= record.lockedUntil) {
-            loginAttempts.delete(ip); // Ya cumplió el castigo
+            loginAttempts.delete(ip); 
             deletedCount++;
         } else if (!record.lockedUntil) {
-            loginAttempts.delete(ip); // Intento parcial viejo, se limpia para no acumular basura
+            loginAttempts.delete(ip); 
             deletedCount++;
         }
     }
     if (deletedCount > 0) {
         console.log(`[🧹 Garbage Collector] Se limpiaron ${deletedCount} registros de IPs de la memoria RAM.`);
     }
-}, LOCKOUT_DURATION_MS); // Pasa barriendo cada 15 minutos
+}, LOCKOUT_DURATION_MS); 
 // ---------------------------------------------------
+
+// --- MONITOR DE SIGNOS VITALES (RAM) ---
+const MAX_RAM_MB = 512; // Límite típico de Render Starter/Free
+const getRamUsage = () => {
+    const usedMB = Math.round(process.memoryUsage().rss / 1024 / 1024);
+    const percent = Math.min(100, Math.round((usedMB / MAX_RAM_MB) * 100));
+    return { used: usedMB, max: MAX_RAM_MB, percent };
+};
+
+// Transmite la RAM al panel Master cada 5 segundos
+setInterval(() => {
+    if (isSystemActive) {
+        io.emit('master-ram-update', getRamUsage());
+    }
+}, 5000);
+// ---------------------------------------
 
 // --- MONGODB SETUP (Bóveda de Persistencia) ---
 const eventSchema = new mongoose.Schema({
@@ -129,7 +145,6 @@ const connectDB = async () => {
         await mongoose.connect(uri);
         console.log("✅ Conectado a Bóveda MongoDB Atlas");
 
-        // Restaurar memoria desde la base de datos tras un reinicio
         const events = await EventModel.find();
         const stats = await StatsModel.find();
 
@@ -277,11 +292,8 @@ app.get('/api/status', (req, res) => {
 });
 
 io.on('connection', (socket) => {
-    // Obtenemos la IP real del cliente filtrando proxies
     const rawIp = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address || "unknown_ip";
     const clientIp = rawIp.split(',')[0].trim();
-    
-    console.log(`[+] Dispositivo conectado: ${socket.id} (IP: ${clientIp})`);
     
     socket.emit('system-status', isSystemActive);
 
@@ -396,6 +408,40 @@ io.on('connection', (socket) => {
             emitMasterData();
         } else {
             callback({ success: false });
+        }
+    });
+
+    // --- NUEVO: BOTÓN DE PÁNICO (Load Shedding Manual) ---
+    socket.on('master-optimize-room', async (data, callback) => {
+        const { eventId, roomName } = data;
+        const isolatedRoom = `${eventId}_${roomName}`;
+
+        try {
+            const sockets = await io.in(isolatedRoom).fetchSockets();
+            let mobileCandidates = [];
+            
+            // Filtramos a los VIP (Solo guardamos audiencia móvil)
+            sockets.forEach(s => {
+                if (s.audienceData && !s.audienceData.isTv) {
+                    mobileCandidates.push(s);
+                }
+            });
+
+            // Evacuamos silenciosamente a la mitad de los móviles
+            const kickCount = Math.floor(mobileCandidates.length / 2);
+            for(let i=0; i<kickCount; i++) {
+                const s = mobileCandidates[i];
+                // Enviamos la orden secreta al celular
+                s.emit('graceful-pause', { message: "Optimizando calidad de transmisión..." });
+                removeAudienceFromStats(s);
+                s.leave(isolatedRoom);
+            }
+            
+            if (callback) callback({ success: true, kicked: kickCount });
+            console.log(`[⚡ Load Shedding] Expulsados ${kickCount} oyentes móviles de ${roomName} para liberar RAM.`);
+        } catch (error) {
+            console.error("Error en optimización manual:", error);
+            if (callback) callback({ success: false });
         }
     });
 
@@ -518,7 +564,6 @@ io.on('connection', (socket) => {
         
         socket.join(isolatedRoom); 
         
-        // Cronómetro de Analíticas
         socket.speakerSession = { eventId, roomName, startTimestamp: Date.now() };
 
         if (!activeSpeakerRooms.has(eventId)) activeSpeakerRooms.set(eventId, new Map());
@@ -535,7 +580,6 @@ io.on('connection', (socket) => {
         if (translationService && isSystemActive) translationService.writeAudio(data);
     });
 
-    // Recibe los conteos de palabras desde el navegador del orador
     socket.on('analytics-sync-words', (data) => {
         if (socket.speakerSession) {
             const { eventId, roomName } = socket.speakerSession;
@@ -552,7 +596,6 @@ io.on('connection', (socket) => {
         if (socket.speakerSession) {
             const { eventId, roomName, startTimestamp } = socket.speakerSession;
             
-            // Calculamos tiempo total
             const duration = Date.now() - startTimestamp;
             const stats = statsDB.get(eventId);
             if (stats) {
@@ -568,7 +611,7 @@ io.on('connection', (socket) => {
                 else eventRoomsMap.set(roomName, count - 1);
             }
             socket.speakerSession = null;
-            emitMasterData(); // Actualiza a los masters
+            emitMasterData(); 
         }
     };
 
@@ -613,21 +656,33 @@ io.on('connection', (socket) => {
         const event = eventsDB.get(data.eventId);
         if (!event || !event.isActive) return;
 
-        const { eventId, roomName, language, deviceId } = data;
-        const isolatedRoom = `${eventId}_${roomName}`;
+        const { eventId, roomName, language, deviceId, isTv } = data; // Captura si es TV
         
-        socket.join(isolatedRoom);
-        socket.audienceData = { eventId, roomName, language: language || 'es', deviceId };
-        
+        // --- NUEVO: PEAJE AUTOMÁTICO (Auto Load Shedding) ---
+        const currentRam = getRamUsage();
         const stats = statsDB.get(eventId);
+        const currentRoomUsers = stats?.roomCounts?.[roomName] || 0;
+        const MAX_ROOM_USERS = 300; // Límite por seguridad de red
+
+        // Si es un celular y los recursos están críticos, lo mandamos a pausa elegante al instante
+        if (!isTv && (currentRam.percent >= 85 || currentRoomUsers >= MAX_ROOM_USERS)) {
+            socket.emit('graceful-pause', { message: "Conectando al servidor secundario..." });
+            return; // Bloqueamos el acceso
+        }
+        // ----------------------------------------------------
+
+        const isolatedRoom = `${eventId}_${roomName}`;
+        socket.join(isolatedRoom);
+        
+        // Guardamos si es TV o Celular para darle inmunidad
+        socket.audienceData = { eventId, roomName, language: language || 'es', deviceId, isTv: !!isTv };
+        
         if (stats) {
-            // Estadísticas en Vivo (Entran y Salen)
             stats.total += 1;
             if (stats.langs[language] !== undefined) stats.langs[language] += 1;
             if (stats.roomCounts[roomName] === undefined) stats.roomCounts[roomName] = 0;
             stats.roomCounts[roomName] += 1;
             
-            // ANALÍTICAS HISTÓRICAS (Garantizan Usuarios Únicos)
             if (deviceId) {
                 stats.analytics.uniqueUsers.add(deviceId);
                 
@@ -657,7 +712,6 @@ io.on('connection', (socket) => {
                 if (stats.langs[newLang] !== undefined) stats.langs[newLang] += 1;
                 socket.audienceData.language = newLang;
                 
-                // Actualiza unicidad en base a nuevo idioma
                 if (deviceId) {
                     if (!stats.analytics.uniqueByLang[newLang]) stats.analytics.uniqueByLang[newLang] = new Set();
                     stats.analytics.uniqueByLang[newLang].add(deviceId);
@@ -674,7 +728,6 @@ io.on('connection', (socket) => {
             const { eventId, language, roomName } = socketInstance.audienceData;
             const stats = statsDB.get(eventId);
             if (stats) {
-                // Solo reducimos los contadores "en vivo", los "únicos" se quedan en analytics
                 if (stats.total > 0) stats.total -= 1;
                 if (stats.langs[language] > 0) stats.langs[language] -= 1;
                 if (stats.roomCounts[roomName] > 0) {

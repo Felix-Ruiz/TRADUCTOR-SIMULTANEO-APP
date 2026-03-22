@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
-import { Shield, Power, Plus, Trash2, Key, Activity, Copy, CheckCircle2, X, Users, AlertCircle, BarChart3, Image as ImageIcon, Briefcase, UserCog, ExternalLink, MonitorPlay, Mic, Download } from 'lucide-react';
+import { Shield, Power, Plus, Trash2, Key, Activity, Copy, CheckCircle2, X, Users, AlertCircle, BarChart3, Image as ImageIcon, Briefcase, UserCog, ExternalLink, MonitorPlay, Mic, Download, Cpu } from 'lucide-react';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001', { autoConnect: false });
 
@@ -12,6 +12,9 @@ const MasterView = () => {
 
   const [isSystemActive, setIsSystemActive] = useState(false);
   const [events, setEvents] = useState([]);
+  
+  // NUEVO: Estado de la RAM
+  const [ramUsage, setRamUsage] = useState({ used: 0, max: 512, percent: 0 });
   
   const [newEventName, setNewEventName] = useState('');
   const [newLogoUrl, setNewLogoUrl] = useState('');
@@ -38,7 +41,20 @@ const MasterView = () => {
       setIsFetchingData(false); 
     });
     socket.on('system-status', (status) => setIsSystemActive(status));
-    socket.on('master-data-updated', (updatedEvents) => setEvents(updatedEvents || []));
+    socket.on('master-data-updated', (data) => {
+        // En el backend ahora mandamos un objeto { events, ram } pero nos protegemos por si manda array
+        if (Array.isArray(data)) {
+            setEvents(data);
+        } else {
+            setEvents(data.events || []);
+        }
+    });
+    
+    // Escuchador de los signos vitales del servidor
+    socket.on('master-ram-update', (ramStats) => {
+        setRamUsage(ramStats);
+    });
+
     return () => socket.disconnect();
   }, [isAuthenticated]);
 
@@ -145,13 +161,23 @@ const MasterView = () => {
     );
   };
 
+  // NUEVO: GATILLO DE EVACUACIÓN MANUAL
+  const handleOptimizeRoom = (eventId, roomName) => {
+    openDialog(
+      "Optimizar Sala (Load Shedding)", 
+      `El servidor expulsará silenciosamente al 50% de la audiencia móvil en la sala ${roomName} para liberar RAM. Las TVs y Oradores no se verán afectados. ¿Proceder?`, 
+      "confirm", 
+      () => socket.emit('master-optimize-room', { eventId, roomName }, () => {}),
+      "bg-yellow-600 hover:bg-yellow-700 shadow-yellow-500/25 text-white"
+    );
+  };
+
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
     setCopiedText(text);
     setTimeout(() => setCopiedText(null), 2000);
   };
 
-  // REPORTE HTML PROFESIONAL LISTO PARA IMPRIMIR EN PDF
   const downloadAnalytics = (event) => {
     const analytics = event.stats?.analytics || {};
     const safeRooms = event.rooms || [];
@@ -371,9 +397,27 @@ const MasterView = () => {
           <div className="bg-red-500/10 p-3 rounded-xl">
             <Shield className="w-8 h-8 text-red-500" />
           </div>
-          <div className="flex flex-col">
+          <div className="flex flex-col justify-center items-center sm:items-start">
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white uppercase">Panel Master</h1>
-            <span className="text-xs text-gray-500 font-bold tracking-widest">SaaS Multi-Tenant Dashboard</span>
+            
+            {/* BARRA DE MEMORIA RAM */}
+            {isSystemActive && (
+              <div className="flex flex-col gap-1 w-full sm:w-[200px] mt-2 bg-black/40 p-2 rounded-lg border border-gray-700">
+                  <div className="flex justify-between items-center text-[9px] font-bold uppercase tracking-widest">
+                      <span className="text-gray-400 flex items-center gap-1"><Cpu className="w-3 h-3"/> RAM Render</span>
+                      <span className={ramUsage.percent > 80 ? 'text-red-500' : ramUsage.percent > 60 ? 'text-yellow-500' : 'text-green-500'}>
+                          {ramUsage.used}MB
+                      </span>
+                  </div>
+                  <div className="w-full bg-gray-800 rounded-full h-1.5 overflow-hidden">
+                      <div 
+                          className={`h-full transition-all duration-500 ${ramUsage.percent > 80 ? 'bg-red-500' : ramUsage.percent > 60 ? 'bg-yellow-500' : 'bg-green-500'}`} 
+                          style={{ width: `${ramUsage.percent}%` }}
+                      ></div>
+                  </div>
+              </div>
+            )}
+
           </div>
         </div>
         <button 
@@ -567,7 +611,7 @@ const MasterView = () => {
                   <div className="grid grid-cols-1 gap-4">
                     {safeRooms.map(roomObj => (
                         <div key={roomObj.name} className="flex flex-col bg-darker p-4 rounded-xl border border-gray-700 relative group transition-all">
-                            <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-3 pr-8 break-words leading-tight">{roomObj.name}</h3>
+                            <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-3 pr-20 break-words leading-tight">{roomObj.name}</h3>
                             
                             <div className="grid grid-cols-1 xs:grid-cols-2 gap-3 mb-4">
                                 <div className="bg-primary/10 border border-primary/20 rounded-lg p-2.5 flex flex-col justify-center">
@@ -622,19 +666,31 @@ const MasterView = () => {
 
                             <div className="flex items-center justify-between mt-auto pt-2 border-t border-gray-800/50">
                                 <span className="bg-green-500/10 border border-green-500/20 text-green-400 px-3 py-1.5 rounded-lg text-[10px] font-bold flex items-center gap-2 w-max">
-                                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shrink-0"></div>
                                     <Users className="w-3.5 h-3.5" />
                                     {safeStats.roomCounts?.[roomObj.name] || 0} en línea
                                 </span>
                             </div>
 
+                            {/* GATILLO DE EVACUACIÓN Y ELIMINAR */}
                             {isSystemActive && event.isActive && (
-                                <button 
-                                onClick={() => handleDeleteRoom(event.id, roomObj.name)}
-                                className="absolute top-3 right-3 text-gray-500 hover:text-red-500 hover:bg-red-500/10 p-1.5 rounded-lg transition-colors bg-black/50 sm:bg-transparent sm:opacity-0 sm:group-hover:opacity-100"
-                                >
-                                <X className="w-4 h-4" />
-                                </button>
+                                <>
+                                    <button 
+                                    onClick={() => handleOptimizeRoom(event.id, roomObj.name)}
+                                    className="absolute top-3 right-12 text-gray-500 hover:text-yellow-500 hover:bg-yellow-500/10 p-1.5 rounded-lg transition-colors bg-black/50 sm:bg-transparent sm:opacity-0 sm:group-hover:opacity-100"
+                                    title="Optimizar RAM (Expulsar 50% Móviles)"
+                                    >
+                                    <Activity className="w-4 h-4" />
+                                    </button>
+
+                                    <button 
+                                    onClick={() => handleDeleteRoom(event.id, roomObj.name)}
+                                    className="absolute top-3 right-3 text-gray-500 hover:text-red-500 hover:bg-red-500/10 p-1.5 rounded-lg transition-colors bg-black/50 sm:bg-transparent sm:opacity-0 sm:group-hover:opacity-100"
+                                    title="Eliminar Sala"
+                                    >
+                                    <X className="w-4 h-4" />
+                                    </button>
+                                </>
                             )}
                         </div>
                     ))}

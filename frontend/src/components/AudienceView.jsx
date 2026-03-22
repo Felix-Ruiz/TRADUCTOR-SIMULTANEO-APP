@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
-import { Headphones, Globe2, AlertCircle, MessageSquare, Radio, PowerOff, Key, LogOut, QrCode, X, Scale } from 'lucide-react';
+import { Headphones, Globe2, AlertCircle, MessageSquare, Radio, PowerOff, Key, LogOut, QrCode, X, Scale, RefreshCw } from 'lucide-react';
 import { Scanner } from '@yudiel/react-qr-scanner';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001');
@@ -49,6 +49,9 @@ const AudienceView = () => {
   
   const [isScanning, setIsScanning] = useState(false);
   const [legalModalContent, setLegalModalContent] = useState(null); 
+
+  // NUEVO: Estado para la expulsión silenciosa (Load Shedding)
+  const [gracefulPauseMsg, setGracefulPauseMsg] = useState(null);
 
   const [dialogConfig, setDialogConfig] = useState({ isOpen: false, title: '', message: '', type: 'confirm', onConfirm: null, confirmStyle: '' });
 
@@ -135,15 +138,17 @@ const AudienceView = () => {
         setEventError('');
         sessionStorage.setItem('audienceCode', code);
         
+        // El Escudo de Inmunidad para las TVs se envía aquí
         socket.emit('join-direct-room-audience', { 
             eventId: response.eventId, 
             roomName: response.roomName, 
             language: language,
-            deviceId: getDeviceId() 
+            deviceId: getDeviceId(),
+            isTv: isTvMode // Las TVs jamás serán expulsadas
         });
         setHasJoinedEvent(true); 
+        setGracefulPauseMsg(null); // Limpiamos cualquier pausa anterior
       } else {
-        // FIX: Mostrar el mensaje de bloqueo de seguridad real si existe
         setEventError(response.message || 'Código de sala inválido o evento finalizado.');
         if (code === audienceCode) {
             setAudienceCode(''); 
@@ -202,6 +207,7 @@ const AudienceView = () => {
         setEventLogo('');
         setEventSponsor('');
         setHasJoinedEvent(false); 
+        setGracefulPauseMsg(null);
         audioQueue.current = [];
         isPlaying.current = false;
         if (audioPlayerRef.current) {
@@ -228,7 +234,7 @@ const AudienceView = () => {
   useEffect(() => {
     socket.on('connect', () => {
       setIsConnected(true);
-      if (isSystemActive && audienceCode) {
+      if (isSystemActive && audienceCode && !gracefulPauseMsg) {
           verifyAudienceCode(audienceCode);
       }
     });
@@ -253,9 +259,16 @@ const AudienceView = () => {
         setEventLogo(data.logoUrl || '');
         setEventSponsor(data.sponsorText || '');
     });
+
+    // NUEVO: Escuchador de la Expulsión Silenciosa (Load Shedding)
+    socket.on('graceful-pause', () => {
+        stopPlaybackAndClear();
+        // Mensaje sutil y profesional que no asusta al usuario
+        setGracefulPauseMsg("Ajustando el canal de traducción en tiempo real para garantizar la mejor calidad en tu dispositivo.");
+    });
     
     socket.on('translation-result', (data) => {
-      if (!isSystemActive || !isEventActive) return; 
+      if (!isSystemActive || !isEventActive || gracefulPauseMsg) return; 
       
       if (isTvMode || userMode === 'text') {
         let currentText = '';
@@ -281,7 +294,7 @@ const AudienceView = () => {
     });
 
     socket.on('neural-audio', (data) => {
-      if (!isSystemActive || !isEventActive) return; 
+      if (!isSystemActive || !isEventActive || gracefulPauseMsg) return; 
       if (!isTvMode && userMode === 'audio' && data.language === language && data.audioBuffer) {
         const blob = new Blob([data.audioBuffer], { type: 'audio/mp3' });
         const url = URL.createObjectURL(blob);
@@ -298,9 +311,10 @@ const AudienceView = () => {
       socket.off('translation-result');
       socket.off('neural-audio');
       socket.off('system-status');
+      socket.off('graceful-pause');
       releaseWakeLock();
     };
-  }, [language, userMode, isTvMode, audienceCode, eventId, isSystemActive, isEventActive]); 
+  }, [language, userMode, isTvMode, audienceCode, eventId, isSystemActive, isEventActive, gracefulPauseMsg]); 
 
   const unlockAudioAndStart = async () => {
     setUserMode('audio'); 
@@ -359,6 +373,45 @@ const AudienceView = () => {
           <p className="text-gray-500 text-sm font-semibold tracking-widest uppercase">Validando sala...</p>
         </div>
       </div>
+    );
+  }
+
+  // PANTALLA CAMUFLADA DE EXPULSIÓN (Load Shedding)
+  if (gracefulPauseMsg) {
+    return (
+       <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-black relative overflow-hidden">
+          <div className="absolute inset-0 bg-darker/80 z-0"></div>
+          <div className="w-full max-w-sm flex flex-col items-center z-10">
+            <div className="bg-primary/10 p-6 rounded-full mb-8 relative">
+              <div className="absolute inset-0 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+              <RefreshCw className="w-10 h-10 text-primary animate-pulse" />
+            </div>
+            <h2 className="text-2xl font-bold text-white mb-3 text-center tracking-tight">Sincronizando...</h2>
+            <p className="text-gray-400 text-sm text-center leading-relaxed max-w-xs mb-8">
+              {gracefulPauseMsg}
+            </p>
+            <button
+              onClick={() => {
+                  setIsVerifying(true);
+                  verifyAudienceCode(audienceCode);
+              }}
+              className="w-full bg-primary hover:bg-blue-600 text-white px-6 py-4 rounded-xl font-bold transition-all shadow-lg text-sm tracking-widest uppercase"
+            >
+              Reconectar
+            </button>
+            <button
+              onClick={() => {
+                  socket.emit('leave-event-audience'); 
+                  sessionStorage.removeItem('audienceCode');
+                  setAudienceCode('');
+                  setGracefulPauseMsg(null);
+              }}
+              className="mt-6 text-gray-500 hover:text-white transition-colors text-xs font-bold uppercase tracking-widest"
+            >
+              Salir al menú principal
+            </button>
+          </div>
+       </div>
     );
   }
 
