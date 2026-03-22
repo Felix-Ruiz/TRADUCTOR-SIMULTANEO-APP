@@ -37,3 +37,5 @@ Integración profunda con **Microsoft Azure Cognitive Services**:
 
 4. lentitud de carga pwa
 5. mejorar los logos , iconos 
+6. costos
+7. cantidad de user, crear solucion si se conectan muchos.
