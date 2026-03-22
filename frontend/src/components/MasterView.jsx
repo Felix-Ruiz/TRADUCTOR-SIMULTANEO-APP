@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
-import { Shield, Power, Plus, Trash2, Key, Activity, Copy, CheckCircle2, X, Users, AlertCircle, BarChart3, Image as ImageIcon, Briefcase } from 'lucide-react';
+import { Shield, Power, Plus, Trash2, Key, Activity, Copy, CheckCircle2, X, Users, AlertCircle, BarChart3, Image as ImageIcon, Briefcase, UserCog } from 'lucide-react';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001', { autoConnect: false });
 
@@ -230,7 +230,7 @@ const MasterView = () => {
           </div>
           <div className="flex flex-col">
             <h1 className="text-2xl font-bold tracking-tight text-white uppercase">Panel Master</h1>
-            <span className="text-xs text-gray-500 font-bold tracking-widest">SaaS & Analytics Dashboard</span>
+            <span className="text-xs text-gray-500 font-bold tracking-widest">SaaS Multi-Tenant Dashboard</span>
           </div>
         </div>
         <button 
@@ -252,7 +252,7 @@ const MasterView = () => {
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
               <Activity className="w-5 h-5 text-primary" />
-              Desplegar Nueva Instancia
+              Desplegar Nuevo Cliente / Evento
             </h2>
             <button onClick={() => setIsAdvancedOpen(!isAdvancedOpen)} disabled={!isSystemActive} className="text-xs font-bold text-primary hover:text-blue-400 tracking-wider uppercase disabled:opacity-50">
                 {isAdvancedOpen ? '- Ocultar Opciones SaaS' : '+ Opciones SaaS (Marca Blanca)'}
@@ -265,7 +265,7 @@ const MasterView = () => {
                 type="text"
                 value={newEventName}
                 onChange={(e) => setNewEventName(e.target.value)}
-                placeholder="Nombre del Evento (Ej: Congreso ACOFI 2026)"
+                placeholder="Nombre del Cliente o Evento (Ej: Congreso ACOFI 2026)"
                 disabled={!isSystemActive}
                 className="flex-1 bg-darker border border-gray-700 text-white text-base rounded-xl p-4 focus:ring-2 focus:ring-primary focus:outline-none transition-all disabled:cursor-not-allowed"
                 />
@@ -364,7 +364,8 @@ const MasterView = () => {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                {/* MODIFICADO: Ahora muestra 3 columnas con la Llave del Cliente */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="bg-darker p-4 rounded-xl border border-gray-700/50">
                         <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-1"><Users className="w-3 h-3"/> CÓDIGO AUDIENCIA</span>
                         <div className="flex items-center justify-between gap-2">
@@ -384,6 +385,16 @@ const MasterView = () => {
                             </button>
                         </div>
                     </div>
+
+                    <div className="bg-purple-500/5 p-4 rounded-xl border border-purple-500/20">
+                        <span className="text-[10px] font-bold text-purple-500 uppercase tracking-widest mb-2 flex items-center gap-1"><UserCog className="w-3 h-3"/> CLAVE ADMIN CLIENTE</span>
+                        <div className="flex items-center justify-between gap-2">
+                            <span className="text-purple-500 font-mono text-base font-bold tracking-widest">{event.adminPassword}</span>
+                            <button onClick={() => copyToClipboard(event.adminPassword)} className="text-purple-500 hover:text-white">
+                            {copiedText === event.adminPassword ? <CheckCircle2 className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <div>
@@ -394,7 +405,7 @@ const MasterView = () => {
                       className="text-xs font-bold text-primary hover:text-blue-400 transition-colors uppercase disabled:opacity-50"
                       disabled={!isSystemActive || !event.isActive}
                     >
-                      + Añadir Sala
+                      + Añadir Sala Fija
                     </button>
                   </div>
 
@@ -417,7 +428,6 @@ const MasterView = () => {
                       <span key={room} className="flex items-center gap-2 px-3 py-1 bg-gray-800 text-gray-300 text-xs font-bold uppercase tracking-wider rounded-md border border-gray-700">
                         {room}
                         
-                        {/* WIDGET: Contador de usuarios activos por sala */}
                         <span className="bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded text-[10px] flex items-center gap-1">
                             <Users className="w-3 h-3" />
                             {event.stats?.roomCounts?.[room] || 0}
