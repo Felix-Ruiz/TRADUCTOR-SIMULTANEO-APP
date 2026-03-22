@@ -7,14 +7,26 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['logo.png'], // Asegura que tu logo cargue rápido
+      // Le decimos qué recursos estáticos debe guardar obligatoriamente
+      includeAssets: ['logo.png', 'pwa-192x192.png', 'pwa-512x512.png'],
+      
+      // EL MOTOR DE CACHÉ PARA VELOCIDAD EXTREMA
+      workbox: {
+        // Guarda en el disco duro del celular todo el código (JS, CSS, HTML)
+        globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+        // Limpia la caché vieja cuando lanzas una nueva actualización a Vercel
+        cleanupOutdatedCaches: true,
+        // Tamaño máximo de archivos a guardar (aumentado para el escáner QR)
+        maximumFileSizeToCacheInBytes: 5000000 
+      },
+
       manifest: {
         name: 'Traducción Simultánea en Vivo',
         short_name: 'Traductor Live',
         description: 'Plataforma de traducción simultánea con Inteligencia Artificial.',
         theme_color: '#000000',
         background_color: '#000000',
-        display: 'standalone', // Esto oculta la barra de direcciones de Chrome/Safari
+        display: 'standalone', 
         orientation: 'portrait',
         icons: [
           {
@@ -26,7 +38,7 @@ export default defineConfig({
             src: '/pwa-512x512.png',
             sizes: '512x512',
             type: 'image/png',
-            purpose: 'any maskable' // Ideal para los íconos adaptativos de Android
+            purpose: 'any maskable' 
           }
         ]
       }
