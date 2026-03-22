@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
-import { Power, Plus, Trash2, Key, Copy, CheckCircle2, X, Users, AlertCircle, BarChart3, UserCog, LogOut } from 'lucide-react';
+import { Power, Plus, Trash2, Key, Copy, CheckCircle2, X, Users, AlertCircle, BarChart3, UserCog, LogOut, Activity } from 'lucide-react';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001', { autoConnect: false });
 
@@ -35,7 +35,6 @@ const EventAdminView = () => {
 
     socket.connect();
     
-    // Re-autenticar y obtener datos iniciales
     socket.emit('event-admin-login', savedPwd, (response) => {
       if (response.success) {
         setIsSystemActive(response.isSystemActive);
@@ -48,7 +47,6 @@ const EventAdminView = () => {
 
     socket.on('system-status', (status) => setIsSystemActive(status));
     
-    // Escuchar actualizaciones en tiempo real SOLO de este evento
     socket.on('event-admin-data-updated', (updatedEvent) => {
         setEventData(updatedEvent);
     });
