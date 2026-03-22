@@ -29,7 +29,8 @@ const EventAdminView = () => {
     
     const savedPwd = sessionStorage.getItem('eventAdminPwd');
     if (!savedPwd) {
-        handleLogout();
+        setIsAuthenticated(false);
+        setIsFetchingData(false);
         return;
     }
 
@@ -41,7 +42,13 @@ const EventAdminView = () => {
         setEventData(response.event);
         setIsFetchingData(false);
       } else {
-        handleLogout();
+        // Si el evento fue eliminado por el Master, expulsa al cliente sin preguntar
+        setIsAuthenticated(false);
+        setEventData(null);
+        sessionStorage.removeItem('isEventAdminAuth');
+        sessionStorage.removeItem('eventAdminPwd');
+        setIsFetchingData(false);
+        socket.disconnect();
       }
     });
 
@@ -60,10 +67,14 @@ const EventAdminView = () => {
     setIsFetchingData(true);
     socket.emit('event-admin-login', passwordInput.trim(), (response) => {
       if (response.success) {
+        // SOLUCIÓN AL BUG: Ahora sí inyectamos la data en la vista antes de dejarlo entrar
+        setIsSystemActive(response.isSystemActive);
+        setEventData(response.event);
         setIsAuthenticated(true);
         sessionStorage.setItem('isEventAdminAuth', 'true');
         sessionStorage.setItem('eventAdminPwd', passwordInput.trim());
         setLoginError('');
+        setIsFetchingData(false);
       } else {
         setLoginError('Clave de administrador de evento incorrecta.');
         setPasswordInput('');
