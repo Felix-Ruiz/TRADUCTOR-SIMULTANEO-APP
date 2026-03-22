@@ -8,7 +8,11 @@ const TranslationService = require('./services/azureService');
 
 const app = express();
 
-const allowedOrigins = process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : "*";
+// FIX: Lógica CORS a prueba de fallos para entornos de desarrollo y producción
+let allowedOrigins = "*";
+if (process.env.FRONTEND_URL && process.env.FRONTEND_URL !== "*") {
+    allowedOrigins = process.env.FRONTEND_URL.split(',').map(url => url.trim());
+}
 
 app.use(cors({ origin: allowedOrigins }));
 app.use(express.json());
