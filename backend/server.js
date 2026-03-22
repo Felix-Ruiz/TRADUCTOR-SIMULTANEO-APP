@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
+const mongoose = require('mongoose');
 require('dotenv').config();
 
 const TranslationService = require('./services/azureService');
@@ -38,7 +39,119 @@ let isSystemActive = false;
 const eventsDB = new Map();
 const statsDB = new Map(); 
 
-// NUEVO: Estructura de analíticas profundas
+// --- MONGODB SETUP (Bóveda de Persistencia) ---
+const eventSchema = new mongoose.Schema({
+    id: String,
+    name: String,
+    adminPassword: String,
+    rooms: Array,
+    isActive: Boolean,
+    logoUrl: String,
+    sponsorText: String
+});
+const EventModel = mongoose.model('Event', eventSchema);
+
+const statsSchema = new mongoose.Schema({
+    eventId: String,
+    total: Number,
+    langs: Object,
+    roomCounts: Object,
+    analytics: Object
+});
+const StatsModel = mongoose.model('Stats', statsSchema);
+
+const connectDB = async () => {
+    try {
+        const uri = process.env.MONGO_URI;
+        if (!uri) {
+            console.warn("⚠️ MONGO_URI no definida. El servidor funcionará solo en memoria RAM (Riesgo de pérdida de datos).");
+            return;
+        }
+        await mongoose.connect(uri);
+        console.log("✅ Conectado a Bóveda MongoDB Atlas");
+
+        // Restaurar memoria desde la base de datos tras un reinicio
+        const events = await EventModel.find();
+        const stats = await StatsModel.find();
+
+        events.forEach(e => {
+            eventsDB.set(e.id, {
+                id: e.id,
+                name: e.name,
+                adminPassword: e.adminPassword,
+                rooms: e.rooms || [],
+                isActive: e.isActive,
+                logoUrl: e.logoUrl || "",
+                sponsorText: e.sponsorText || ""
+            });
+        });
+
+        stats.forEach(s => {
+            const parsedAnalytics = s.analytics || {};
+            const uniqueUsers = new Set(parsedAnalytics.uniqueUsers || []);
+            const uniqueByRoom = {};
+            for (const [r, arr] of Object.entries(parsedAnalytics.uniqueByRoom || {})) uniqueByRoom[r] = new Set(arr);
+            const uniqueByLang = {};
+            for (const [l, arr] of Object.entries(parsedAnalytics.uniqueByLang || {})) uniqueByLang[l] = new Set(arr);
+
+            statsDB.set(s.eventId, {
+                total: 0, // Se resetea a 0 porque los WebSockets se desconectan al reiniciar
+                langs: { es: 0, en: 0, de: 0, fr: 0, pt: 0 },
+                roomCounts: {},
+                analytics: {
+                    uniqueUsers: uniqueUsers,
+                    uniqueByRoom: uniqueByRoom,
+                    uniqueByLang: uniqueByLang,
+                    wordsByRoom: parsedAnalytics.wordsByRoom || {},
+                    timeByRoom: parsedAnalytics.timeByRoom || {}
+                }
+            });
+        });
+        console.log(`📦 Datos restaurados: ${events.length} eventos y ${stats.length} métricas históricas.`);
+    } catch (error) {
+        console.error("❌ Error conectando a MongoDB:", error);
+    }
+};
+connectDB();
+
+// Funciones Auxiliares de Sincronización DB
+const persistEvent = async (eventId) => {
+    if (!process.env.MONGO_URI) return;
+    const ev = eventsDB.get(eventId);
+    if (ev) {
+        await EventModel.findOneAndUpdate({ id: eventId }, ev, { upsert: true }).catch(e => console.error(e));
+    } else {
+        await EventModel.deleteOne({ id: eventId }).catch(e => console.error(e));
+    }
+};
+
+const persistStats = async (eventId) => {
+    if (!process.env.MONGO_URI) return;
+    const st = statsDB.get(eventId);
+    if (st) {
+        const serialized = {
+            eventId: eventId,
+            total: st.total,
+            langs: st.langs,
+            roomCounts: st.roomCounts,
+            analytics: {
+                uniqueUsers: Array.from(st.analytics.uniqueUsers),
+                uniqueByRoom: {},
+                uniqueByLang: {},
+                wordsByRoom: st.analytics.wordsByRoom,
+                timeByRoom: st.analytics.timeByRoom
+            }
+        };
+        for (const [r, set] of Object.entries(st.analytics.uniqueByRoom)) serialized.analytics.uniqueByRoom[r] = Array.from(set);
+        for (const [l, set] of Object.entries(st.analytics.uniqueByLang)) serialized.analytics.uniqueByLang[l] = Array.from(set);
+
+        await StatsModel.findOneAndUpdate({ eventId: eventId }, serialized, { upsert: true }).catch(e => console.error(e));
+    } else {
+        await StatsModel.deleteOne({ eventId: eventId }).catch(e => console.error(e));
+    }
+};
+// ----------------------------------------------
+
 const initEventStats = (eventId) => {
     if (!statsDB.has(eventId)) {
         statsDB.set(eventId, { 
@@ -53,6 +166,7 @@ const initEventStats = (eventId) => {
                 timeByRoom: {}
             }
         });
+        persistStats(eventId);
     }
 };
 
@@ -142,6 +256,7 @@ io.on('connection', (socket) => {
                 const eventRoomsMap = activeSpeakerRooms.get(data.id);
                 if (eventRoomsMap) eventRoomsMap.clear();
             }
+            persistEvent(data.id);
             emitMasterData();
             io.emit('event-status-changed', { eventId: data.id, status: data.status });
             callback({ success: true });
@@ -165,6 +280,7 @@ io.on('connection', (socket) => {
         };
         eventsDB.set(internalId, newEvent);
         initEventStats(internalId);
+        persistEvent(internalId);
         
         callback({ success: true, event: newEvent });
         emitMasterData();
@@ -174,6 +290,8 @@ io.on('connection', (socket) => {
         eventsDB.delete(id);
         statsDB.delete(id);
         activeSpeakerRooms.delete(id);
+        persistEvent(id);
+        persistStats(id);
         callback({ success: true });
         emitMasterData();
     });
@@ -187,6 +305,7 @@ io.on('connection', (socket) => {
                 if (!event.rooms) event.rooms = [];
                 event.rooms.push({ name: data.room, speakerPassword: speakerPwd, audienceCode: audienceCode });
             }
+            persistEvent(data.id);
             callback({ success: true });
             emitMasterData();
         } else {
@@ -202,6 +321,8 @@ io.on('connection', (socket) => {
             if (stats && stats.roomCounts && stats.roomCounts[data.room]) {
                 delete stats.roomCounts[data.room];
             }
+            persistEvent(data.id);
+            persistStats(data.id);
             callback({ success: true });
             emitMasterData();
         } else {
@@ -238,6 +359,7 @@ io.on('connection', (socket) => {
                 const eventRoomsMap = activeSpeakerRooms.get(data.eventId);
                 if (eventRoomsMap) eventRoomsMap.clear();
             }
+            persistEvent(data.eventId);
             emitMasterData();
             io.emit('event-status-changed', { eventId: data.eventId, status: data.status });
             callback({ success: true });
@@ -255,6 +377,7 @@ io.on('connection', (socket) => {
                 if (!event.rooms) event.rooms = [];
                 event.rooms.push({ name: data.room, speakerPassword: speakerPwd, audienceCode: audienceCode });
             }
+            persistEvent(data.eventId);
             callback({ success: true });
             emitMasterData();
         } else {
@@ -270,6 +393,8 @@ io.on('connection', (socket) => {
             if (stats && stats.roomCounts && stats.roomCounts[data.room]) {
                 delete stats.roomCounts[data.room];
             }
+            persistEvent(data.eventId);
+            persistStats(data.eventId);
             callback({ success: true });
             emitMasterData();
         } else {
@@ -339,6 +464,7 @@ io.on('connection', (socket) => {
             if (stats) {
                 if (!stats.analytics.wordsByRoom[roomName]) stats.analytics.wordsByRoom[roomName] = 0;
                 stats.analytics.wordsByRoom[roomName] += data.words;
+                persistStats(eventId);
             }
         }
     });
@@ -353,6 +479,7 @@ io.on('connection', (socket) => {
             if (stats) {
                 if (!stats.analytics.timeByRoom[roomName]) stats.analytics.timeByRoom[roomName] = 0;
                 stats.analytics.timeByRoom[roomName] += duration;
+                persistStats(eventId);
             }
 
             const eventRoomsMap = activeSpeakerRooms.get(eventId);
@@ -424,6 +551,7 @@ io.on('connection', (socket) => {
 
             io.to(isolatedRoom).emit('room-audience-count', stats.roomCounts[roomName]);
             emitMasterData(); 
+            persistStats(eventId);
         }
         
         socket.emit('event-info', { 
@@ -447,6 +575,7 @@ io.on('connection', (socket) => {
                 }
 
                 emitMasterData();
+                persistStats(eventId);
             }
         }
     });
@@ -464,6 +593,7 @@ io.on('connection', (socket) => {
                     io.to(`${eventId}_${roomName}`).emit('room-audience-count', stats.roomCounts[roomName]);
                 }
                 emitMasterData();
+                persistStats(eventId);
             }
             socketInstance.audienceData = null; 
         }
