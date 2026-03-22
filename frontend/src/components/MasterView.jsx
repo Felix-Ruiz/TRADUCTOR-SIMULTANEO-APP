@@ -377,12 +377,14 @@ const MasterView = () => {
                             </button>
                         </div>
                     </div>
-                    <button 
-                        onClick={() => copyToClipboard(`${window.location.origin}/event-admin`)}
+                    <a 
+                        href="/event-admin"
+                        target="_blank"
+                        rel="noreferrer"
                         className="w-full sm:w-auto bg-purple-500/10 hover:bg-purple-500 border border-purple-500/30 hover:border-purple-500 text-purple-500 hover:text-white px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-2"
                     >
-                        <ExternalLink className="w-3 h-3" /> Link Panel Cliente
-                    </button>
+                        <ExternalLink className="w-3 h-3" /> Abrir Panel Cliente
+                    </a>
                 </div>
 
                 <div>
@@ -437,30 +439,32 @@ const MasterView = () => {
                                 </div>
                             </div>
 
-                            {/* NUEVO: Enlaces directos a la sala (Audiencia y TV) */}
                             <div className="flex flex-wrap items-center gap-1.5 mb-3">
-                                <button 
-                                    onClick={() => copyToClipboard(`${window.location.origin}/?code=${roomObj.audienceCode}`)} 
-                                    className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white border border-gray-700 px-1 py-1.5 rounded text-[9px] font-bold uppercase tracking-wider transition-colors flex justify-center items-center gap-1"
+                                <a 
+                                    href={`/?code=${roomObj.audienceCode}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white border border-gray-700 px-1 py-1.5 rounded text-[9px] font-bold uppercase tracking-wider transition-colors flex justify-center items-center gap-1 text-center"
                                 >
-                                    {copiedText === `${window.location.origin}/?code=${roomObj.audienceCode}` ? <CheckCircle2 className="w-3 h-3 text-green-500" /> : <ExternalLink className="w-3 h-3" />} 
-                                    Link Audiencia
-                                </button>
-                                <button 
-                                    onClick={() => window.open(`${window.location.origin}/?code=${roomObj.audienceCode}&tv=true&lang=es`, '_blank')} 
-                                    className="flex-1 bg-gray-800 hover:bg-primary/20 text-gray-300 hover:text-primary border border-gray-700 hover:border-primary/50 px-1 py-1.5 rounded text-[9px] font-bold uppercase tracking-wider transition-colors flex justify-center items-center gap-1"
+                                    <ExternalLink className="w-3 h-3" /> 
+                                    Abrir Audiencia
+                                </a>
+                                <a 
+                                    href={`/?code=${roomObj.audienceCode}&tv=true&lang=es`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="flex-1 bg-gray-800 hover:bg-primary/20 text-gray-300 hover:text-primary border border-gray-700 hover:border-primary/50 px-1 py-1.5 rounded text-[9px] font-bold uppercase tracking-wider transition-colors flex justify-center items-center gap-1 text-center"
                                 >
                                     <MonitorPlay className="w-3 h-3" /> 
                                     TV (ES)
-                                </button>
+                                </a>
                             </div>
 
                             <div className="flex items-center justify-between mt-auto pt-1 border-t border-gray-800/50">
-                                {/* MEJORA: Contador de usuarios más explícito */}
                                 <span className="bg-green-500/10 border border-green-500/20 text-green-400 px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1.5 w-max">
                                     <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
                                     <Users className="w-3 h-3" />
-                                    {safeStats.roomCounts?.[roomObj.name] || 0} en línea
+                                    {safeStats.roomCounts?.[roomObj.name] || 0} Usuarios en línea
                                 </span>
                             </div>
 
