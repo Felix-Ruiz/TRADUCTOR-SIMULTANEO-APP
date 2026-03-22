@@ -140,7 +140,11 @@ const SpeakerView = () => {
         setAllTranslations(data.translations); 
       }
       if (data.type === 'final') {
-        setFullTranscription(prev => prev + data.original + " ");
+        const text = data.original;
+        setFullTranscription(prev => prev + text + " ");
+        // NUEVO: Enviamos silenciosamente las palabras al servidor
+        const wordsCount = text.trim().split(/\s+/).length;
+        if (wordsCount > 0) socket.emit('analytics-sync-words', { words: wordsCount });
       }
     });
 
@@ -165,7 +169,6 @@ const SpeakerView = () => {
       audioContextRef.current.close().catch(() => {});
     }
     if (streamRef.current) streamRef.current.getTracks().forEach(track => track.stop());
-    // FIX: Ya no reiniciamos a 0, queremos seguir viendo el conteo aunque apaguen el mic
   };
 
   const startRecording = async () => {
@@ -385,7 +388,6 @@ const SpeakerView = () => {
                 {isRecording ? `Transmitiendo en Vivo` : 'Sistema en espera'}
               </div>
               
-              {/* FIX: Ahora el widget de usuarios siempre es visible */}
               <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full transition-all duration-300 ${isRecording ? 'bg-green-500/10 border border-green-500/30 shadow-lg shadow-green-500/10' : 'bg-dark border border-gray-800 shadow-inner'}`}>
                   <div className={`w-1.5 h-1.5 rounded-full ${isRecording ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`}></div>
                   <Users className={`w-4 h-4 ${isRecording ? 'text-green-500' : 'text-gray-500'}`} />

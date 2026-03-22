@@ -34,12 +34,20 @@ let isSystemActive = false;
 const eventsDB = new Map();
 const statsDB = new Map(); 
 
+// NUEVO: Estructura de analíticas profundas
 const initEventStats = (eventId) => {
     if (!statsDB.has(eventId)) {
         statsDB.set(eventId, { 
             total: 0, 
             langs: { es: 0, en: 0, de: 0, fr: 0, pt: 0 },
-            roomCounts: {} 
+            roomCounts: {},
+            analytics: {
+                uniqueUsers: new Set(),
+                uniqueByRoom: {}, 
+                uniqueByLang: {}, 
+                wordsByRoom: {},
+                timeByRoom: {}
+            }
         });
     }
 };
@@ -47,11 +55,39 @@ const initEventStats = (eventId) => {
 const MASTER_PASSWORD = process.env.MASTER_PASSWORD || "superadmin123";
 const activeSpeakerRooms = new Map();
 
+// Función vital: Convierte los Set() a números para enviarlos por red sin crashear
+const getSerializedStats = (eventId) => {
+    const stats = statsDB.get(eventId);
+    if (!stats) return { total: 0, langs: {}, roomCounts: {}, analytics: {} };
+    
+    const serializedAnalytics = {
+        totalUnique: stats.analytics.uniqueUsers.size,
+        uniqueByRoom: {},
+        uniqueByLang: {},
+        wordsByRoom: stats.analytics.wordsByRoom,
+        timeByRoom: stats.analytics.timeByRoom
+    };
+
+    for (const [room, set] of Object.entries(stats.analytics.uniqueByRoom)) {
+        serializedAnalytics.uniqueByRoom[room] = set.size;
+    }
+    for (const [lang, set] of Object.entries(stats.analytics.uniqueByLang)) {
+        serializedAnalytics.uniqueByLang[lang] = set.size;
+    }
+
+    return {
+        total: stats.total,
+        langs: stats.langs,
+        roomCounts: stats.roomCounts,
+        analytics: serializedAnalytics
+    };
+};
+
 const emitMasterData = () => {
     const eventsArray = Array.from(eventsDB.values()).map(event => {
         const eventWithStats = {
             ...event,
-            stats: statsDB.get(event.id) || { total: 0, langs: { es: 0, en: 0, de: 0, fr: 0, pt: 0 }, roomCounts: {} }
+            stats: getSerializedStats(event.id)
         };
         io.to(`event_admin_${event.id}`).emit('event-admin-data-updated', eventWithStats);
         return eventWithStats;
@@ -81,7 +117,7 @@ io.on('connection', (socket) => {
     socket.on('master-get-data', (callback) => {
         const eventsArray = Array.from(eventsDB.values()).map(event => ({
             ...event,
-            stats: statsDB.get(event.id)
+            stats: getSerializedStats(event.id)
         }));
         callback({ isSystemActive, events: eventsArray });
     });
@@ -183,7 +219,7 @@ io.on('connection', (socket) => {
             callback({ 
                 success: true, 
                 isSystemActive,
-                event: { ...foundEvent, stats: statsDB.get(foundEvent.id) } 
+                event: { ...foundEvent, stats: getSerializedStats(foundEvent.id) } 
             });
         } else {
             callback({ success: false, message: "Clave de administrador de evento incorrecta." });
@@ -250,7 +286,6 @@ io.on('connection', (socket) => {
             }
         }
         if (foundEvent && foundRoom) {
-            // FIX: Unimos al orador a la sala inmediatamente al hacer login para telemetría
             const isolatedRoom = `${foundEvent.id}_${foundRoom.name}`;
             socket.join(isolatedRoom);
             
@@ -273,9 +308,10 @@ io.on('connection', (socket) => {
         const roomName = config.roomName;
         const isolatedRoom = `${eventId}_${roomName}`;
         
-        socket.join(isolatedRoom); // Por si acaso se desconectó y reconectó
-        socket.speakerEventId = eventId;
-        socket.speakerRoom = roomName;
+        socket.join(isolatedRoom); 
+        
+        // Cronómetro de Analíticas
+        socket.speakerSession = { eventId, roomName, startTimestamp: Date.now() };
 
         if (!activeSpeakerRooms.has(eventId)) activeSpeakerRooms.set(eventId, new Map());
         const eventRoomsMap = activeSpeakerRooms.get(eventId);
@@ -291,18 +327,38 @@ io.on('connection', (socket) => {
         if (translationService && isSystemActive) translationService.writeAudio(data);
     });
 
+    // Recibe los conteos de palabras desde el navegador del orador
+    socket.on('analytics-sync-words', (data) => {
+        if (socket.speakerSession) {
+            const { eventId, roomName } = socket.speakerSession;
+            const stats = statsDB.get(eventId);
+            if (stats) {
+                if (!stats.analytics.wordsByRoom[roomName]) stats.analytics.wordsByRoom[roomName] = 0;
+                stats.analytics.wordsByRoom[roomName] += data.words;
+            }
+        }
+    });
+
     const handleSpeakerStop = () => {
-        if (socket.speakerEventId && socket.speakerRoom) {
-            const eventId = socket.speakerEventId;
-            const roomName = socket.speakerRoom;
+        if (socket.speakerSession) {
+            const { eventId, roomName, startTimestamp } = socket.speakerSession;
+            
+            // Calculamos tiempo total
+            const duration = Date.now() - startTimestamp;
+            const stats = statsDB.get(eventId);
+            if (stats) {
+                if (!stats.analytics.timeByRoom[roomName]) stats.analytics.timeByRoom[roomName] = 0;
+                stats.analytics.timeByRoom[roomName] += duration;
+            }
+
             const eventRoomsMap = activeSpeakerRooms.get(eventId);
             if (eventRoomsMap) {
                 const count = eventRoomsMap.get(roomName) || 0;
                 if (count <= 1) eventRoomsMap.delete(roomName);
                 else eventRoomsMap.set(roomName, count - 1);
             }
-            socket.speakerEventId = null;
-            socket.speakerRoom = null;
+            socket.speakerSession = null;
+            emitMasterData(); // Actualiza a los masters
         }
     };
 
@@ -314,7 +370,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    // --- NUEVAS RUTAS AUDIENCIA DIRECTA A SALA ---
+    // --- RUTAS AUDIENCIA DIRECTA ---
     socket.on('check-audience-code', (code, callback) => {
         for (const event of eventsDB.values()) {
             const room = (event.rooms || []).find(r => r.audienceCode === code);
@@ -337,19 +393,31 @@ io.on('connection', (socket) => {
         const event = eventsDB.get(data.eventId);
         if (!event || !event.isActive) return;
 
-        const { eventId, roomName, language } = data;
+        const { eventId, roomName, language, deviceId } = data;
         const isolatedRoom = `${eventId}_${roomName}`;
         
         socket.join(isolatedRoom);
-        socket.audienceData = { eventId, roomName, language: language || 'es' };
+        socket.audienceData = { eventId, roomName, language: language || 'es', deviceId };
         
         const stats = statsDB.get(eventId);
         if (stats) {
+            // Estadísticas en Vivo (Entran y Salen)
             stats.total += 1;
             if (stats.langs[language] !== undefined) stats.langs[language] += 1;
             if (stats.roomCounts[roomName] === undefined) stats.roomCounts[roomName] = 0;
             stats.roomCounts[roomName] += 1;
             
+            // ANALÍTICAS HISTÓRICAS (Garantizan Usuarios Únicos)
+            if (deviceId) {
+                stats.analytics.uniqueUsers.add(deviceId);
+                
+                if (!stats.analytics.uniqueByRoom[roomName]) stats.analytics.uniqueByRoom[roomName] = new Set();
+                stats.analytics.uniqueByRoom[roomName].add(deviceId);
+
+                if (!stats.analytics.uniqueByLang[language]) stats.analytics.uniqueByLang[language] = new Set();
+                stats.analytics.uniqueByLang[language].add(deviceId);
+            }
+
             io.to(isolatedRoom).emit('room-audience-count', stats.roomCounts[roomName]);
             emitMasterData(); 
         }
@@ -361,12 +429,19 @@ io.on('connection', (socket) => {
 
     socket.on('audience-change-lang', (newLang) => {
         if (socket.audienceData) {
-            const { eventId, language: oldLang } = socket.audienceData;
+            const { eventId, language: oldLang, deviceId } = socket.audienceData;
             const stats = statsDB.get(eventId);
             if (stats) {
                 if (stats.langs[oldLang] > 0) stats.langs[oldLang] -= 1;
                 if (stats.langs[newLang] !== undefined) stats.langs[newLang] += 1;
                 socket.audienceData.language = newLang;
+                
+                // Actualiza unicidad en base a nuevo idioma
+                if (deviceId) {
+                    if (!stats.analytics.uniqueByLang[newLang]) stats.analytics.uniqueByLang[newLang] = new Set();
+                    stats.analytics.uniqueByLang[newLang].add(deviceId);
+                }
+
                 emitMasterData();
             }
         }
@@ -377,6 +452,7 @@ io.on('connection', (socket) => {
             const { eventId, language, roomName } = socketInstance.audienceData;
             const stats = statsDB.get(eventId);
             if (stats) {
+                // Solo reducimos los contadores "en vivo", los "únicos" se quedan en analytics
                 if (stats.total > 0) stats.total -= 1;
                 if (stats.langs[language] > 0) stats.langs[language] -= 1;
                 if (stats.roomCounts[roomName] > 0) {

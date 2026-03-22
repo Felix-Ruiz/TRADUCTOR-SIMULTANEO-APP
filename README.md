@@ -36,6 +36,4 @@ Integración profunda con **Microsoft Azure Cognitive Services**:
 
 3. Si estan hablando dos personas al tiempo o mas, y necesitamos que el sistema identifique y en los subtitulos coloque identificadores de que cada parte de los subtitulos es de personas diferentes hablando ?
 
-4. El boton de cambiar a texto o audio tiene un bug,  cuando selecciono texto y luego paso a audio, al intentar regresar a texto intenta hacerlo pero se queda en audio, pero si lo hago por segunda vez si funciona. revisas que esta sucediendo?
-
-5. En el panel de admin speaker solo muestra cuantas personas hay en audience cuando se enciende el boton de iniciar discurso, pero en realidad debemos mostrarlo incluso si no se ha iniciado discurso, eso nos ayuda a saber cuantos hay conectado esperando un trasmisión.
+4. voz

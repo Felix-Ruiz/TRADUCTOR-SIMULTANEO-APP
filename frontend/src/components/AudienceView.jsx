@@ -5,6 +5,16 @@ import { Scanner } from '@yudiel/react-qr-scanner';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001');
 
+// Generador de ID Único para Estadísticas SaaS
+const getDeviceId = () => {
+    let id = localStorage.getItem('audienceDeviceId');
+    if (!id) {
+        id = 'dev_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+        localStorage.setItem('audienceDeviceId', id);
+    }
+    return id;
+};
+
 const AudienceView = () => {
   const queryParams = new URLSearchParams(window.location.search);
   const isTvMode = queryParams.get('tv') === 'true';
@@ -126,7 +136,12 @@ const AudienceView = () => {
         setEventError('');
         sessionStorage.setItem('audienceCode', code);
         
-        socket.emit('join-direct-room-audience', { eventId: response.eventId, roomName: response.roomName, language: language });
+        socket.emit('join-direct-room-audience', { 
+            eventId: response.eventId, 
+            roomName: response.roomName, 
+            language: language,
+            deviceId: getDeviceId() // <-- Analiticas de Unicidad
+        });
         setHasJoinedEvent(true); 
       } else {
         setEventError('Código de sala inválido o evento finalizado.');
@@ -287,7 +302,6 @@ const AudienceView = () => {
     };
   }, [language, userMode, isTvMode, audienceCode, eventId, isSystemActive, isEventActive]); 
 
-  // FIX: Ajuste radical anti-race-conditions para los botones de cambio de modo
   const unlockAudioAndStart = async () => {
     setUserMode('audio'); 
     try {
@@ -316,7 +330,7 @@ const AudienceView = () => {
       try {
           if (audioPlayerRef.current) {
               audioPlayerRef.current.pause();
-              audioPlayerRef.current.removeAttribute('src'); // Forma nativa y segura de limpiar el reproductor
+              audioPlayerRef.current.removeAttribute('src'); 
           }
       } catch(e) {}
       requestWakeLock();

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
-import { Shield, Power, Plus, Trash2, Key, Activity, Copy, CheckCircle2, X, Users, AlertCircle, BarChart3, Image as ImageIcon, Briefcase, UserCog, ExternalLink, MonitorPlay, Mic } from 'lucide-react';
+import { Shield, Power, Plus, Trash2, Key, Activity, Copy, CheckCircle2, X, Users, AlertCircle, BarChart3, Image as ImageIcon, Briefcase, UserCog, ExternalLink, MonitorPlay, Mic, Download } from 'lucide-react';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001', { autoConnect: false });
 
@@ -114,7 +114,7 @@ const MasterView = () => {
   const handleDeleteEvent = (id) => {
     openDialog(
       "Eliminar Evento", 
-      "¿Deseas eliminar este evento y todas salas de forma permanente? Esta acción no se puede deshacer.", 
+      "¿Deseas eliminar este evento y todas sus salas de forma permanente? Esta acción no se puede deshacer.", 
       "confirm", 
       () => socket.emit('master-delete-event', id, () => {}),
       "bg-red-600 hover:bg-red-700 shadow-red-500/25"
@@ -149,6 +149,56 @@ const MasterView = () => {
     navigator.clipboard.writeText(text);
     setCopiedText(text);
     setTimeout(() => setCopiedText(null), 2000);
+  };
+
+  // NUEVO: Generador de Reporte SaaS
+  const downloadAnalytics = (event) => {
+    let report = `--- REPORTE DE ANALÍTICAS DEL EVENTO ---\n`;
+    report += `Evento: ${event.name}\n`;
+    report += `ID Interno: ${event.id}\n`;
+    report += `Fecha de Emisión: ${new Date().toLocaleDateString()} - ${new Date().toLocaleTimeString()}\n\n`;
+
+    const analytics = event.stats?.analytics || {};
+    report += `=== MÉTRICAS GLOBALES ===\n`;
+    report += `Total Salas Creadas: ${event.rooms.length}\n`;
+    report += `Total Oyentes Únicos (Global): ${analytics.totalUnique || 0}\n\n`;
+
+    report += `=== MÉTRICAS DETALLADAS POR SALA ===\n`;
+    if (event.rooms.length === 0) {
+        report += `(No se crearon salas)\n`;
+    }
+    
+    event.rooms.forEach(room => {
+        const rName = room.name;
+        const unique = analytics.uniqueByRoom?.[rName] || 0;
+        const words = analytics.wordsByRoom?.[rName] || 0;
+        const timeMs = analytics.timeByRoom?.[rName] || 0;
+        const mins = Math.floor(timeMs / 60000);
+        const secs = Math.floor((timeMs % 60000) / 1000);
+
+        report += `[Sala: ${rName}]\n`;
+        report += `  - Oyentes Únicos Conectados: ${unique}\n`;
+        report += `  - Palabras Procesadas/Traducidas: ${words}\n`;
+        report += `  - Tiempo Total de Transmisión: ${mins} minutos, ${secs} segundos\n\n`;
+    });
+
+    report += `=== PREFERENCIA DE IDIOMAS (Únicos por Idioma) ===\n`;
+    if (analytics.uniqueByLang && Object.keys(analytics.uniqueByLang).length > 0) {
+        Object.entries(analytics.uniqueByLang).forEach(([lang, count]) => {
+            report += `  - ${lang.toUpperCase()}: ${count} usuarios\n`;
+        });
+    } else {
+        report += `(No hay datos de idiomas)\n`;
+    }
+
+    const blob = new Blob([report], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Reporte_SaaS_${event.name.replace(/\s+/g, '_')}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   if (isFetchingData) {
@@ -329,6 +379,14 @@ const MasterView = () => {
                     >
                         <Power className="w-4 h-4" />
                     </button>
+                    {/* NUEVO BOTON DESCARGAR REPORTE */}
+                    <button 
+                        onClick={() => downloadAnalytics(event)}
+                        className="p-2 bg-blue-500/10 hover:bg-blue-500 text-blue-500 hover:text-white rounded-lg transition-colors"
+                        title="Descargar Reporte Analytics (TXT)"
+                    >
+                        <Download className="w-4 h-4" />
+                    </button>
                     <button 
                         onClick={() => handleDeleteEvent(event.id)}
                         className="p-2 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-lg transition-colors"
@@ -348,7 +406,7 @@ const MasterView = () => {
                         </div>
                         <div>
                             <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block">Audiencia Activa Total</span>
-                            <span className="text-2xl font-bold text-white leading-none">{safeStats.total || 0} <span className="text-sm font-medium text-gray-500">oyentes</span></span>
+                            <span className="text-2xl font-bold text-white leading-none">{safeStats.total || 0} <span className="text-sm font-medium text-gray-500">oyentes en vivo</span></span>
                         </div>
                     </div>
                     
@@ -473,7 +531,7 @@ const MasterView = () => {
                                 <span className="bg-green-500/10 border border-green-500/20 text-green-400 px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1.5 w-max">
                                     <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
                                     <Users className="w-3 h-3" />
-                                    {safeStats.roomCounts?.[roomObj.name] || 0} Usuarios en línea
+                                    {safeStats.roomCounts?.[roomObj.name] || 0} Usuarios en vivo
                                 </span>
                             </div>
 

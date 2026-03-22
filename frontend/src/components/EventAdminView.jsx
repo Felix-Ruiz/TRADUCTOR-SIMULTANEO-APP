@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
-import { Power, Plus, Trash2, Key, Copy, CheckCircle2, X, Users, AlertCircle, BarChart3, UserCog, LogOut, Activity, ExternalLink, MonitorPlay, Mic } from 'lucide-react';
+import { Power, Plus, Trash2, Key, Copy, CheckCircle2, X, Users, AlertCircle, BarChart3, UserCog, LogOut, Activity, ExternalLink, MonitorPlay, Mic, Download } from 'lucide-react';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001', { autoConnect: false });
 
@@ -145,6 +145,56 @@ const EventAdminView = () => {
     setTimeout(() => setCopiedText(null), 2000);
   };
 
+  // NUEVO: Generador de Reporte SaaS
+  const downloadAnalytics = (event) => {
+    let report = `--- REPORTE DE ANALÍTICAS DEL EVENTO ---\n`;
+    report += `Evento: ${event.name}\n`;
+    report += `ID Interno: ${event.id}\n`;
+    report += `Fecha de Emisión: ${new Date().toLocaleDateString()} - ${new Date().toLocaleTimeString()}\n\n`;
+
+    const analytics = event.stats?.analytics || {};
+    report += `=== MÉTRICAS GLOBALES ===\n`;
+    report += `Total Salas Creadas: ${event.rooms.length}\n`;
+    report += `Total Oyentes Únicos (Global): ${analytics.totalUnique || 0}\n\n`;
+
+    report += `=== MÉTRICAS DETALLADAS POR SALA ===\n`;
+    if (event.rooms.length === 0) {
+        report += `(No se crearon salas)\n`;
+    }
+    
+    event.rooms.forEach(room => {
+        const rName = room.name;
+        const unique = analytics.uniqueByRoom?.[rName] || 0;
+        const words = analytics.wordsByRoom?.[rName] || 0;
+        const timeMs = analytics.timeByRoom?.[rName] || 0;
+        const mins = Math.floor(timeMs / 60000);
+        const secs = Math.floor((timeMs % 60000) / 1000);
+
+        report += `[Sala: ${rName}]\n`;
+        report += `  - Oyentes Únicos Conectados: ${unique}\n`;
+        report += `  - Palabras Procesadas/Traducidas: ${words}\n`;
+        report += `  - Tiempo Total de Transmisión: ${mins} minutos, ${secs} segundos\n\n`;
+    });
+
+    report += `=== PREFERENCIA DE IDIOMAS (Únicos por Idioma) ===\n`;
+    if (analytics.uniqueByLang && Object.keys(analytics.uniqueByLang).length > 0) {
+        Object.entries(analytics.uniqueByLang).forEach(([lang, count]) => {
+            report += `  - ${lang.toUpperCase()}: ${count} usuarios\n`;
+        });
+    } else {
+        report += `(No hay datos de idiomas)\n`;
+    }
+
+    const blob = new Blob([report], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Reporte_SaaS_${event.name.replace(/\s+/g, '_')}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   if (isFetchingData) {
     return (
       <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-darker">
@@ -256,6 +306,16 @@ const EventAdminView = () => {
             <Power className="w-4 h-4" />
             {eventData.isActive ? 'Evento En Vivo' : 'Evento Pausado'}
             </button>
+
+            {/* NUEVO BOTON DESCARGAR REPORTE CLIENTE */}
+            <button 
+                onClick={() => downloadAnalytics(eventData)}
+                className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all shadow-lg w-full sm:w-auto bg-blue-500/10 text-blue-500 hover:bg-blue-500 hover:text-white border border-blue-500/20 hover:border-blue-500 shadow-blue-500/10"
+                title="Descargar Reporte Analytics (TXT)"
+            >
+                <Download className="w-4 h-4" />
+                <span className="hidden sm:inline">Reporte</span>
+            </button>
             
             <button onClick={handleLogout} className="p-2.5 bg-gray-800 text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-colors hidden md:block">
                 <LogOut className="w-5 h-5" />
@@ -273,7 +333,7 @@ const EventAdminView = () => {
                 </div>
                 <div>
                     <span className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-1">Audiencia Activa Total</span>
-                    <span className="text-4xl font-bold text-white leading-none">{safeStats.total || 0} <span className="text-base font-medium text-gray-500">conexiones</span></span>
+                    <span className="text-4xl font-bold text-white leading-none">{safeStats.total || 0} <span className="text-base font-medium text-gray-500">en vivo</span></span>
                 </div>
             </div>
             
@@ -376,7 +436,7 @@ const EventAdminView = () => {
                             className="flex-1 bg-gray-800 hover:bg-primary/20 text-gray-300 hover:text-primary border border-gray-700 hover:border-primary/50 px-2 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors flex justify-center items-center gap-1.5 text-center"
                         >
                             <MonitorPlay className="w-3 h-3" /> 
-                            TV (ES)
+                            Proyectar TV (ES)
                         </a>
                     </div>
 
