@@ -151,51 +151,144 @@ const MasterView = () => {
     setTimeout(() => setCopiedText(null), 2000);
   };
 
-  // NUEVO: Generador de Reporte SaaS
+  // REPORTE HTML PROFESIONAL LISTO PARA IMPRIMIR EN PDF
   const downloadAnalytics = (event) => {
-    let report = `--- REPORTE DE ANALÍTICAS DEL EVENTO ---\n`;
-    report += `Evento: ${event.name}\n`;
-    report += `ID Interno: ${event.id}\n`;
-    report += `Fecha de Emisión: ${new Date().toLocaleDateString()} - ${new Date().toLocaleTimeString()}\n\n`;
-
     const analytics = event.stats?.analytics || {};
-    report += `=== MÉTRICAS GLOBALES ===\n`;
-    report += `Total Salas Creadas: ${event.rooms.length}\n`;
-    report += `Total Oyentes Únicos (Global): ${analytics.totalUnique || 0}\n\n`;
-
-    report += `=== MÉTRICAS DETALLADAS POR SALA ===\n`;
-    if (event.rooms.length === 0) {
-        report += `(No se crearon salas)\n`;
-    }
+    const safeRooms = event.rooms || [];
     
-    event.rooms.forEach(room => {
-        const rName = room.name;
-        const unique = analytics.uniqueByRoom?.[rName] || 0;
-        const words = analytics.wordsByRoom?.[rName] || 0;
-        const timeMs = analytics.timeByRoom?.[rName] || 0;
-        const mins = Math.floor(timeMs / 60000);
-        const secs = Math.floor((timeMs % 60000) / 1000);
+    let roomsHtml = '';
+    if (safeRooms.length === 0) {
+        roomsHtml = '<tr><td colspan="4" style="text-align: center; color: #6b7280; font-style: italic;">No se crearon salas para este evento.</td></tr>';
+    } else {
+        safeRooms.forEach(room => {
+            const rName = room.name;
+            const unique = analytics.uniqueByRoom?.[rName] || 0;
+            const words = analytics.wordsByRoom?.[rName] || 0;
+            const timeMs = analytics.timeByRoom?.[rName] || 0;
+            const mins = Math.floor(timeMs / 60000);
+            const secs = Math.floor((timeMs % 60000) / 1000);
+            
+            roomsHtml += `
+                <tr>
+                    <td style="font-weight: 700; color: #2563eb;">${rName}</td>
+                    <td>${unique}</td>
+                    <td>${words}</td>
+                    <td>${mins} min ${secs} seg</td>
+                </tr>
+            `;
+        });
+    }
 
-        report += `[Sala: ${rName}]\n`;
-        report += `  - Oyentes Únicos Conectados: ${unique}\n`;
-        report += `  - Palabras Procesadas/Traducidas: ${words}\n`;
-        report += `  - Tiempo Total de Transmisión: ${mins} minutos, ${secs} segundos\n\n`;
-    });
-
-    report += `=== PREFERENCIA DE IDIOMAS (Únicos por Idioma) ===\n`;
+    let langsHtml = '';
     if (analytics.uniqueByLang && Object.keys(analytics.uniqueByLang).length > 0) {
         Object.entries(analytics.uniqueByLang).forEach(([lang, count]) => {
-            report += `  - ${lang.toUpperCase()}: ${count} usuarios\n`;
+            langsHtml += `
+                <div class="card text-center">
+                    <div class="card-title">${lang.toUpperCase()}</div>
+                    <div class="card-value">${count}</div>
+                </div>
+            `;
         });
     } else {
-        report += `(No hay datos de idiomas)\n`;
+        langsHtml = '<p style="color: #6b7280; font-size: 14px;">No hay registros de idiomas.</p>';
     }
 
-    const blob = new Blob([report], { type: 'text/plain;charset=utf-8' });
+    const htmlContent = `
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Reporte Analítico - ${event.name}</title>
+        <style>
+            body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1f2937; background-color: #f3f4f6; margin: 0; padding: 40px 20px; line-height: 1.5; }
+            .container { max-width: 900px; margin: 0 auto; background: #ffffff; padding: 40px; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+            .header { border-bottom: 2px solid #e5e7eb; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-end; }
+            .title { font-size: 28px; font-weight: 800; color: #111827; margin: 0 0 8px 0; letter-spacing: -0.5px; }
+            .subtitle { font-size: 13px; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
+            .badge { background: #eff6ff; color: #2563eb; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; border: 1px solid #bfdbfe; display: inline-block;}
+            .section-title { font-size: 18px; font-weight: 700; color: #374151; margin: 40px 0 20px 0; border-left: 4px solid #3b82f6; padding-left: 12px; }
+            .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
+            .card { background: #ffffff; padding: 24px; border-radius: 10px; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1); }
+            .card-title { font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: 700; margin-bottom: 8px; letter-spacing: 0.5px; }
+            .card-value { font-size: 32px; font-weight: 800; color: #111827; line-height: 1; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; background: #ffffff; border-radius: 8px; overflow: hidden; border: 1px solid #e5e7eb; }
+            th, td { padding: 16px 20px; text-align: left; }
+            th { background: #f9fafb; font-size: 12px; font-weight: 700; color: #4b5563; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #e5e7eb; }
+            td { border-bottom: 1px solid #f3f4f6; font-size: 14px; color: #374151; }
+            tr:last-child td { border-bottom: none; }
+            tr:hover { background-color: #f9fafb; }
+            .text-center { text-align: center; }
+            .footer { margin-top: 50px; text-align: center; font-size: 12px; color: #9ca3af; padding-top: 20px; border-top: 1px solid #e5e7eb; }
+            .print-btn { background: #3b82f6; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; display: block; margin: 0 auto 30px auto; font-size: 14px; box-shadow: 0 4px 6px rgba(59, 130, 246, 0.25); }
+            .print-btn:hover { background: #2563eb; }
+            @media print {
+                body { background: white; padding: 0; }
+                .container { box-shadow: none; border: none; padding: 0; max-width: 100%; }
+                .print-btn { display: none; }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <button class="print-btn" onclick="window.print()">Guardar como PDF / Imprimir</button>
+            <div class="header">
+                <div>
+                    <h1 class="title">${event.name}</h1>
+                    <div class="subtitle">Reporte Oficial de Analíticas</div>
+                </div>
+                <div style="text-align: right;">
+                    <div class="badge">ID: ${event.id}</div>
+                    <div style="font-size: 12px; color: #6b7280; margin-top: 8px;">Generado: ${new Date().toLocaleDateString()}</div>
+                </div>
+            </div>
+
+            <div class="section-title">Resumen de Impacto</div>
+            <div class="grid">
+                <div class="card">
+                    <div class="card-title">Oyentes Únicos Totales</div>
+                    <div class="card-value" style="color: #3b82f6;">${analytics.totalUnique || 0}</div>
+                </div>
+                <div class="card">
+                    <div class="card-title">Salas Creadas</div>
+                    <div class="card-value">${safeRooms.length}</div>
+                </div>
+            </div>
+
+            <div class="section-title">Métricas Detalladas por Sala</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Nombre de Sala</th>
+                        <th>Usuarios Únicos</th>
+                        <th>Palabras Procesadas</th>
+                        <th>Tiempo de Transmisión</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${roomsHtml}
+                </tbody>
+            </table>
+
+            <div class="section-title">Distribución por Idiomas</div>
+            <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));">
+                ${langsHtml}
+            </div>
+
+            <div class="footer">
+                Documento generado automáticamente por el Panel Master de Traducción Simultánea.<br>
+                Este reporte contiene datos consolidados de conexiones únicas.
+            </div>
+        </div>
+    </body>
+    </html>
+    `;
+
+    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `Reporte_SaaS_${event.name.replace(/\s+/g, '_')}.txt`;
+    link.download = `Reporte_${event.name.replace(/\s+/g, '_')}.html`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -379,14 +472,6 @@ const MasterView = () => {
                     >
                         <Power className="w-4 h-4" />
                     </button>
-                    {/* NUEVO BOTON DESCARGAR REPORTE */}
-                    <button 
-                        onClick={() => downloadAnalytics(event)}
-                        className="p-2 bg-blue-500/10 hover:bg-blue-500 text-blue-500 hover:text-white rounded-lg transition-colors"
-                        title="Descargar Reporte Analytics (TXT)"
-                    >
-                        <Download className="w-4 h-4" />
-                    </button>
                     <button 
                         onClick={() => handleDeleteEvent(event.id)}
                         className="p-2 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-lg transition-colors"
@@ -435,14 +520,22 @@ const MasterView = () => {
                             </button>
                         </div>
                     </div>
-                    <a 
-                        href="/event-admin"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="w-full sm:w-auto bg-purple-500/10 hover:bg-purple-500 border border-purple-500/30 hover:border-purple-500 text-purple-500 hover:text-white px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-2"
-                    >
-                        <ExternalLink className="w-3 h-3" /> Abrir Panel Cliente
-                    </a>
+                    <div className="flex flex-col gap-2 w-full sm:w-auto">
+                        <a 
+                            href="/event-admin"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="w-full bg-purple-500/10 hover:bg-purple-500 border border-purple-500/30 hover:border-purple-500 text-purple-500 hover:text-white px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-2"
+                        >
+                            <ExternalLink className="w-3 h-3" /> Panel Cliente
+                        </a>
+                        <button 
+                            onClick={() => downloadAnalytics(event)}
+                            className="w-full bg-blue-500/10 hover:bg-blue-500 border border-blue-500/30 hover:border-blue-500 text-blue-500 hover:text-white px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-2"
+                        >
+                            <Download className="w-3 h-3" /> Reporte PDF
+                        </button>
+                    </div>
                 </div>
 
                 <div>
@@ -531,7 +624,7 @@ const MasterView = () => {
                                 <span className="bg-green-500/10 border border-green-500/20 text-green-400 px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1.5 w-max">
                                     <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
                                     <Users className="w-3 h-3" />
-                                    {safeStats.roomCounts?.[roomObj.name] || 0} Usuarios en vivo
+                                    {safeStats.roomCounts?.[roomObj.name] || 0} Usuarios en línea
                                 </span>
                             </div>
 
