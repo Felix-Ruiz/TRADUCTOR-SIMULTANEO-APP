@@ -445,7 +445,8 @@ const SpeakerView = () => {
         </div>
         
         <div className="w-full lg:w-auto flex flex-row items-center gap-4 sm:gap-5 bg-darker p-3 sm:p-4 rounded-xl border border-gray-700 shadow-inner">
-          <div className="bg-white p-2 rounded-xl shrink-0 hidden xs:block">
+          {/* EL QR AHORA ES VISIBLE SIEMPRE. Quité la clase 'hidden xs:block' */}
+          <div className="bg-white p-2 rounded-xl shrink-0">
             <QRCodeSVG value={audienceUrl} size={64} />
           </div>
           <div className="flex flex-col flex-1 justify-center">
