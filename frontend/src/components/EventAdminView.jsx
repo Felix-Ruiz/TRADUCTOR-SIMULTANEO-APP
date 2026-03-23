@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
-import { Power, Plus, Trash2, Key, Copy, CheckCircle2, X, Users, AlertCircle, BarChart3, UserCog, LogOut, Activity, ExternalLink, MonitorPlay, Mic, Download } from 'lucide-react';
+import { Power, Plus, Trash2, Key, Copy, CheckCircle2, X, Users, AlertCircle, BarChart3, UserCog, LogOut, Activity, ExternalLink, MonitorPlay, Mic, Download, Scale } from 'lucide-react';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001', { autoConnect: false });
 
@@ -355,7 +355,6 @@ const EventAdminView = () => {
   return (
     <div className="flex flex-col h-screen w-full p-4 md:p-8 max-w-5xl mx-auto overflow-hidden bg-darker relative">
       
-      {/* MAGIA CSS INYECTADA PARA EFECTOS PREMIUM */}
       <style>
         {`
           @keyframes shine {
@@ -620,6 +619,12 @@ const EventAdminView = () => {
         </div>
 
       </main>
+
+      <div className="mt-4 mb-4 flex items-center justify-center gap-2 text-xs font-bold text-gray-600 tracking-widest uppercase opacity-60 shrink-0">
+          <Scale className="w-4 h-4" />
+          <span>© {new Date().getFullYear()} ACOFI TRANSLATOR • TODOS LOS DERECHOS RESERVADOS</span>
+      </div>
+
     </div>
   );
 };

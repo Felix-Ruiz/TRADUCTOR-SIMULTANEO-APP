@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
-import { Mic, Square, Radio, Globe, Download, Lock, AlertTriangle, AlertCircle, Users, Monitor, MonitorPlay, Copy, CheckCircle2 } from 'lucide-react';
+import { Mic, Square, Radio, Globe, Download, Lock, AlertTriangle, AlertCircle, Users, Monitor, MonitorPlay, Copy, CheckCircle2, Scale } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL, { autoConnect: false });
@@ -355,7 +355,6 @@ const SpeakerView = () => {
   return (
     <div className="flex flex-col h-screen w-full p-4 sm:p-6 md:p-8 max-w-6xl mx-auto overflow-hidden relative bg-darker">
       
-      {/* MAGIA CSS INYECTADA PARA EFECTOS PREMIUM */}
       <style>
         {`
           @keyframes shine {
@@ -613,7 +612,7 @@ const SpeakerView = () => {
         </div>
       </main>
 
-      <footer className="flex flex-col items-center gap-4 pt-4 border-t border-gray-800 shrink-0">
+      <footer className="flex flex-col items-center gap-4 pt-4 border-t border-gray-800 shrink-0 w-full">
         <div className="flex justify-center w-full sm:w-auto px-4 sm:px-0">
           {!isRecording ? (
             <button 
@@ -658,6 +657,11 @@ const SpeakerView = () => {
                 <span className="animate-metallic text-xs">{eventInfo.sponsorText}</span>
             </div>
         )}
+        
+        <div className="mt-4 flex items-center justify-center gap-1.5 text-[9px] font-bold text-gray-600 tracking-widest uppercase opacity-50 w-full text-center">
+            <Scale className="w-3 h-3" />
+            <span>© {new Date().getFullYear()} ACOFI TRANSLATOR • LICENCIA DE USO EXCLUSIVO</span>
+        </div>
       </footer>
     </div>
   );

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
-import { Shield, Power, Plus, Trash2, Key, Activity, Copy, CheckCircle2, X, Users, AlertCircle, BarChart3, Image as ImageIcon, Briefcase, UserCog, ExternalLink, MonitorPlay, Mic, Download, Cpu } from 'lucide-react';
+import { Shield, Power, Plus, Trash2, Key, Activity, Copy, CheckCircle2, X, Users, AlertCircle, BarChart3, Image as ImageIcon, Briefcase, UserCog, ExternalLink, MonitorPlay, Mic, Download, Cpu, Scale } from 'lucide-react';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001', { autoConnect: false });
 
@@ -107,7 +107,6 @@ const MasterView = () => {
     }
   };
 
-  // NUEVO: CONTROL GRANULAR DE SALA
   const toggleRoomStatus = (eventId, roomName, currentStatus) => {
       const newStatus = !currentStatus;
       if (!newStatus) {
@@ -412,7 +411,6 @@ const MasterView = () => {
           <div className="flex flex-col justify-center items-center sm:items-start">
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white uppercase">Panel Master</h1>
             
-            {/* BARRA DE MEMORIA RAM */}
             {isSystemActive && (
               <div className="flex flex-col gap-1 w-full sm:w-[200px] mt-2 bg-black/40 p-2 rounded-lg border border-gray-700">
                   <div className="flex justify-between items-center text-[9px] font-bold uppercase tracking-widest">
@@ -731,6 +729,12 @@ const MasterView = () => {
           )}
         </div>
       </main>
+
+      <div className="mt-4 mb-4 flex items-center justify-center gap-2 text-xs font-bold text-gray-600 tracking-widest uppercase opacity-60 shrink-0">
+          <Scale className="w-4 h-4" />
+          <span>© {new Date().getFullYear()} ACOFI TRANSLATOR • TODOS LOS DERECHOS RESERVADOS</span>
+      </div>
+
     </div>
   );
 };

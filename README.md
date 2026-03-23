@@ -30,5 +30,3 @@ Integración profunda con **Microsoft Azure Cognitive Services**:
 3. `npm install` en ambos directorios (frontend y backend).
 4. `npm run dev` para iniciar los entornos locales.
 ---------------------------------------
-
-6. costos
