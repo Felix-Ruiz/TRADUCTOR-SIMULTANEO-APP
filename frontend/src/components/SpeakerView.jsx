@@ -23,7 +23,7 @@ const SpeakerView = () => {
   const [eventInfo, setEventInfo] = useState(null);
   const [isSystemActive, setIsSystemActive] = useState(true);
   const [isEventActive, setIsEventActive] = useState(true); 
-  const [isRoomActive, setIsRoomActive] = useState(true); // NUEVO: Estado de la sala individual
+  const [isRoomActive, setIsRoomActive] = useState(true); 
 
   const [isRecording, setIsRecording] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
@@ -71,7 +71,7 @@ const SpeakerView = () => {
         setIsAuthenticated(true);
         setEventInfo(response.event);
         setIsEventActive(response.event.isActive); 
-        setIsRoomActive(true); // Si logró entrar, la sala está activa
+        setIsRoomActive(true); 
         setRoomName(response.roomName); 
         setAudienceCode(response.audienceCode); 
         sessionStorage.setItem('speakerPwd', pwd);
@@ -136,7 +136,6 @@ const SpeakerView = () => {
         }
     });
 
-    // NUEVO: Escuchador de pausa individual de sala
     socket.on('room-status-changed', (data) => {
         if (eventInfo && data.eventId === eventInfo.id && data.roomName === roomName) {
             setIsRoomActive(data.status);
@@ -339,7 +338,6 @@ const SpeakerView = () => {
     );
   }
 
-  // Modificado para incluir el bloqueo si la sala individual está pausada
   if (!isSystemActive || !isEventActive || !isRoomActive) {
     return (
       <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-black">
@@ -385,15 +383,23 @@ const SpeakerView = () => {
       <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-6 sm:mb-8 shrink-0 bg-dark p-4 sm:p-6 rounded-2xl border border-gray-800 shadow-xl">
         <div className="flex flex-col gap-4 sm:gap-5 w-full lg:w-auto">
           <div className="flex items-center gap-3 sm:gap-4">
-            <div className="bg-primary/10 p-2 sm:p-3 rounded-xl shrink-0">
-                <Globe className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
-            </div>
+            {eventInfo?.logoUrl ? (
+                <div className="bg-white/5 p-2 sm:p-2.5 rounded-xl shrink-0 w-12 h-12 sm:w-16 sm:h-16 flex items-center justify-center">
+                    <img src={eventInfo.logoUrl} alt="Logo" className="max-w-full max-h-full object-contain drop-shadow-md" onError={(e) => { e.target.style.display = 'none'; }} />
+                </div>
+            ) : (
+                <div className="bg-primary/10 p-2 sm:p-3 rounded-xl shrink-0">
+                    <Globe className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
+                </div>
+            )}
             <div className="flex flex-col overflow-hidden">
               <h1 className="text-lg sm:text-2xl font-bold tracking-tight text-white leading-tight break-words">
                 {eventInfo?.name || "Traducción Simultánea"}
               </h1>
               <span className="text-[10px] sm:text-xs text-gray-500 font-bold tracking-widest uppercase mt-1">
                 Panel de Orador: <span className="text-primary">{roomName}</span>
+                {eventInfo?.sponsorText && <span className="hidden sm:inline mx-2">•</span>}
+                {eventInfo?.sponsorText && <span className="text-primary/70 block sm:inline mt-1 sm:mt-0">{eventInfo.sponsorText}</span>}
               </span>
             </div>
           </div>

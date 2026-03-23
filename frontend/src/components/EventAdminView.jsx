@@ -113,7 +113,6 @@ const EventAdminView = () => {
     }
   };
 
-  // NUEVO: TOGGLE DE SALA INDIVIDUAL
   const toggleRoomStatus = (roomName, currentStatus) => {
     if (!eventData) return;
     const newStatus = !currentStatus;
@@ -383,13 +382,21 @@ const EventAdminView = () => {
 
       <header className="flex flex-col md:flex-row justify-between items-center md:items-start gap-4 mb-6 sm:mb-8 shrink-0 bg-dark p-4 sm:p-6 rounded-2xl border border-gray-800 shadow-xl text-center md:text-left">
         <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 w-full md:w-auto">
-          <div className="bg-purple-500/10 p-3 rounded-xl">
-            <UserCog className="w-8 h-8 text-purple-500" />
-          </div>
-          <div className="flex flex-col flex-1 w-full sm:w-auto overflow-hidden">
+          {eventData.logoUrl ? (
+             <div className="bg-white/5 p-2 rounded-xl flex items-center justify-center w-14 h-14 shrink-0">
+                <img src={eventData.logoUrl} alt="Logo" className="max-w-full max-h-full object-contain drop-shadow-md" onError={(e) => { e.target.style.display = 'none'; }} />
+             </div>
+          ) : (
+             <div className="bg-purple-500/10 p-3 rounded-xl shrink-0">
+               <UserCog className="w-8 h-8 text-purple-500" />
+             </div>
+          )}
+          <div className="flex flex-col flex-1 w-full sm:w-auto overflow-hidden text-center sm:text-left">
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white uppercase break-words">{eventData.name}</h1>
             <div className="text-xs text-gray-500 font-bold tracking-widest flex flex-col sm:flex-row items-center sm:items-start gap-2 sm:gap-3 mt-1.5 sm:mt-1 w-full justify-center md:justify-start">
                <span>PANEL ADMINISTRATIVO</span>
+               {eventData.sponsorText && <span className="hidden sm:inline">•</span>}
+               {eventData.sponsorText && <span className="text-purple-400/80">{eventData.sponsorText}</span>}
                {!isSystemActive && (
                    <span className="text-red-500 animate-pulse bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20 whitespace-nowrap">SISTEMA CENTRAL OFFLINE</span>
                )}
@@ -557,7 +564,6 @@ const EventAdminView = () => {
                         </span>
                     </div>
 
-                    {/* NUEVO: BOTONES DE PAUSA INDIVIDUAL Y ELIMINAR */}
                     {isSystemActive && eventData.isActive && (
                         <>
                             <button 

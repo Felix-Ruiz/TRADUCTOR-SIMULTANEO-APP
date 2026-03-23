@@ -31,5 +31,4 @@ Integración profunda con **Microsoft Azure Cognitive Services**:
 4. `npm run dev` para iniciar los entornos locales.
 ---------------------------------------
 
-5. mejorar los logos , iconos 
 6. costos
