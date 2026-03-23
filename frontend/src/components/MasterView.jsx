@@ -13,7 +13,6 @@ const MasterView = () => {
   const [isSystemActive, setIsSystemActive] = useState(false);
   const [events, setEvents] = useState([]);
   
-  // NUEVO: Estado de la RAM
   const [ramUsage, setRamUsage] = useState({ used: 0, max: 512, percent: 0 });
   
   const [newEventName, setNewEventName] = useState('');
@@ -42,7 +41,6 @@ const MasterView = () => {
     });
     socket.on('system-status', (status) => setIsSystemActive(status));
     socket.on('master-data-updated', (data) => {
-        // En el backend ahora mandamos un objeto { events, ram } pero nos protegemos por si manda array
         if (Array.isArray(data)) {
             setEvents(data);
         } else {
@@ -50,7 +48,6 @@ const MasterView = () => {
         }
     });
     
-    // Escuchador de los signos vitales del servidor
     socket.on('master-ram-update', (ramStats) => {
         setRamUsage(ramStats);
     });
@@ -110,6 +107,22 @@ const MasterView = () => {
     }
   };
 
+  // NUEVO: CONTROL GRANULAR DE SALA
+  const toggleRoomStatus = (eventId, roomName, currentStatus) => {
+      const newStatus = !currentStatus;
+      if (!newStatus) {
+        openDialog(
+            "Pausar Sala Específica",
+            `¿Seguro que deseas apagar la sala ${roomName}? La audiencia y el orador serán desconectados, pero las demás salas seguirán funcionando.`,
+            "confirm",
+            () => socket.emit('master-toggle-room', { eventId, roomName, status: newStatus }, () => {}),
+            "bg-red-600 hover:bg-red-700 shadow-red-500/25"
+        );
+      } else {
+          socket.emit('master-toggle-room', { eventId, roomName, status: newStatus }, () => {});
+      }
+  };
+
   const handleCreateEvent = (e) => {
     e.preventDefault();
     if (!newEventName.trim()) return;
@@ -161,7 +174,6 @@ const MasterView = () => {
     );
   };
 
-  // NUEVO: GATILLO DE EVACUACIÓN MANUAL
   const handleOptimizeRoom = (eventId, roomName) => {
     openDialog(
       "Optimizar Sala (Load Shedding)", 
@@ -610,8 +622,11 @@ const MasterView = () => {
 
                   <div className="grid grid-cols-1 gap-4">
                     {safeRooms.map(roomObj => (
-                        <div key={roomObj.name} className="flex flex-col bg-darker p-4 rounded-xl border border-gray-700 relative group transition-all">
-                            <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-3 pr-20 break-words leading-tight">{roomObj.name}</h3>
+                        <div key={roomObj.name} className={`flex flex-col bg-darker p-4 rounded-xl border border-gray-700 relative group transition-all ${roomObj.isActive === false ? 'opacity-60 grayscale border-red-900/50' : ''}`}>
+                            <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-3 pr-28 break-words leading-tight">
+                                {roomObj.name} 
+                                {roomObj.isActive === false && <span className="text-red-500 text-[10px] ml-2 bg-red-500/10 px-1.5 py-0.5 rounded border border-red-500/20">(PAUSADA)</span>}
+                            </h3>
                             
                             <div className="grid grid-cols-1 xs:grid-cols-2 gap-3 mb-4">
                                 <div className="bg-primary/10 border border-primary/20 rounded-lg p-2.5 flex flex-col justify-center">
@@ -672,9 +687,17 @@ const MasterView = () => {
                                 </span>
                             </div>
 
-                            {/* GATILLO DE EVACUACIÓN Y ELIMINAR */}
+                            {/* GATILLOS: PAUSAR SALA, EVACUACIÓN Y ELIMINAR */}
                             {isSystemActive && event.isActive && (
                                 <>
+                                    <button 
+                                    onClick={() => toggleRoomStatus(event.id, roomObj.name, roomObj.isActive)}
+                                    className={`absolute top-3 right-20 p-1.5 rounded-lg transition-colors bg-black/50 sm:bg-transparent sm:opacity-0 sm:group-hover:opacity-100 ${roomObj.isActive !== false ? 'text-green-500 hover:bg-green-500/10' : 'text-red-500 hover:text-white hover:bg-red-500/10'}`}
+                                    title={roomObj.isActive !== false ? "Pausar Sala Individual" : "Reactivar Sala Individual"}
+                                    >
+                                    <Power className="w-4 h-4" />
+                                    </button>
+
                                     <button 
                                     onClick={() => handleOptimizeRoom(event.id, roomObj.name)}
                                     className="absolute top-3 right-12 text-gray-500 hover:text-yellow-500 hover:bg-yellow-500/10 p-1.5 rounded-lg transition-colors bg-black/50 sm:bg-transparent sm:opacity-0 sm:group-hover:opacity-100"

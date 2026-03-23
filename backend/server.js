@@ -106,7 +106,6 @@ const getRamUsage = () => {
     return { used: usedMB, max: MAX_RAM_MB, percent };
 };
 
-// Transmite la RAM al panel Master cada 5 segundos
 setInterval(() => {
     if (isSystemActive) {
         io.emit('master-ram-update', getRamUsage());
@@ -153,8 +152,9 @@ const connectDB = async () => {
                 id: e.id,
                 name: e.name,
                 adminPassword: e.adminPassword,
-                rooms: e.rooms || [],
-                isActive: e.isActive,
+                // FIX: Restauramos las salas asegurando que tengan el estado de encendido por defecto si son viejas
+                rooms: (e.rooms || []).map(r => ({ ...r, isActive: r.isActive !== false })),
+                isActive: e.isActive !== false,
                 logoUrl: e.logoUrl || "",
                 sponsorText: e.sponsorText || ""
             });
@@ -247,7 +247,6 @@ const initEventStats = (eventId) => {
 const MASTER_PASSWORD = process.env.MASTER_PASSWORD || "superadmin123";
 const activeSpeakerRooms = new Map();
 
-// Función vital: Convierte los Set() a números para enviarlos por red sin crashear
 const getSerializedStats = (eventId) => {
     const stats = statsDB.get(eventId);
     if (!stats) return { total: 0, langs: {}, roomCounts: {}, analytics: {} };
@@ -346,6 +345,31 @@ io.on('connection', (socket) => {
         }
     });
 
+    // NUEVO: TOGGLE DE SALA INDIVIDUAL MASTER
+    socket.on('master-toggle-room', (data, callback) => {
+        const event = eventsDB.get(data.eventId);
+        if (event) {
+            const room = event.rooms.find(r => r.name === data.roomName);
+            if (room) {
+                room.isActive = data.status;
+                if (!room.isActive) {
+                    const eventRoomsMap = activeSpeakerRooms.get(data.eventId);
+                    if (eventRoomsMap && eventRoomsMap.has(data.roomName)) {
+                        eventRoomsMap.delete(data.roomName);
+                    }
+                }
+                persistEvent(data.eventId);
+                emitMasterData();
+                io.emit('room-status-changed', { eventId: data.eventId, roomName: data.roomName, status: data.status });
+                callback({ success: true });
+            } else {
+                callback({ success: false });
+            }
+        } else {
+            callback({ success: false });
+        }
+    });
+
     socket.on('master-create-event', (data, callback) => {
         const internalId = Math.random().toString(36).slice(-8).toUpperCase(); 
         const secretAdminPassword = Math.random().toString(36).slice(-8).toUpperCase(); 
@@ -384,7 +408,8 @@ io.on('connection', (socket) => {
                 const speakerPwd = Math.random().toString(36).slice(-6).toUpperCase();
                 const audienceCode = Math.random().toString(36).slice(-6).toUpperCase();
                 if (!event.rooms) event.rooms = [];
-                event.rooms.push({ name: data.room, speakerPassword: speakerPwd, audienceCode: audienceCode });
+                // Se crea encendida por defecto
+                event.rooms.push({ name: data.room, speakerPassword: speakerPwd, audienceCode: audienceCode, isActive: true });
             }
             persistEvent(data.id);
             callback({ success: true });
@@ -411,7 +436,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // --- NUEVO: BOTÓN DE PÁNICO (Load Shedding Manual) ---
     socket.on('master-optimize-room', async (data, callback) => {
         const { eventId, roomName } = data;
         const isolatedRoom = `${eventId}_${roomName}`;
@@ -420,18 +444,15 @@ io.on('connection', (socket) => {
             const sockets = await io.in(isolatedRoom).fetchSockets();
             let mobileCandidates = [];
             
-            // Filtramos a los VIP (Solo guardamos audiencia móvil)
             sockets.forEach(s => {
                 if (s.audienceData && !s.audienceData.isTv) {
                     mobileCandidates.push(s);
                 }
             });
 
-            // Evacuamos silenciosamente a la mitad de los móviles
             const kickCount = Math.floor(mobileCandidates.length / 2);
             for(let i=0; i<kickCount; i++) {
                 const s = mobileCandidates[i];
-                // Enviamos la orden secreta al celular
                 s.emit('graceful-pause', { message: "Optimizando calidad de transmisión..." });
                 removeAudienceFromStats(s);
                 s.leave(isolatedRoom);
@@ -488,6 +509,31 @@ io.on('connection', (socket) => {
         }
     });
 
+    // NUEVO: TOGGLE DE SALA INDIVIDUAL EVENT ADMIN
+    socket.on('event-admin-toggle-room', (data, callback) => {
+        const event = eventsDB.get(data.eventId);
+        if (event && event.adminPassword === data.adminPassword) {
+            const room = event.rooms.find(r => r.name === data.roomName);
+            if (room) {
+                room.isActive = data.status;
+                if (!room.isActive) {
+                    const eventRoomsMap = activeSpeakerRooms.get(data.eventId);
+                    if (eventRoomsMap && eventRoomsMap.has(data.roomName)) {
+                        eventRoomsMap.delete(data.roomName);
+                    }
+                }
+                persistEvent(data.eventId);
+                emitMasterData();
+                io.emit('room-status-changed', { eventId: data.eventId, roomName: data.roomName, status: data.status });
+                callback({ success: true });
+            } else {
+                callback({ success: false });
+            }
+        } else {
+            callback({ success: false });
+        }
+    });
+
     socket.on('event-admin-add-room', (data, callback) => {
         const event = eventsDB.get(data.eventId);
         if (event && event.adminPassword === data.adminPassword) {
@@ -495,7 +541,7 @@ io.on('connection', (socket) => {
                 const speakerPwd = Math.random().toString(36).slice(-6).toUpperCase();
                 const audienceCode = Math.random().toString(36).slice(-6).toUpperCase();
                 if (!event.rooms) event.rooms = [];
-                event.rooms.push({ name: data.room, speakerPassword: speakerPwd, audienceCode: audienceCode });
+                event.rooms.push({ name: data.room, speakerPassword: speakerPwd, audienceCode: audienceCode, isActive: true });
             }
             persistEvent(data.eventId);
             callback({ success: true });
@@ -538,6 +584,11 @@ io.on('connection', (socket) => {
             }
         }
         if (foundEvent && foundRoom) {
+            // Verificar si la sala individual está pausada
+            if (foundRoom.isActive === false) {
+                return callback({ success: false, message: "Esta sala específica se encuentra pausada por el administrador." });
+            }
+
             resetAttempts(clientIp);
             const isolatedRoom = `${foundEvent.id}_${foundRoom.name}`;
             socket.join(isolatedRoom);
@@ -557,6 +608,10 @@ io.on('connection', (socket) => {
         if (!isSystemActive) return;
         const event = eventsDB.get(config.eventId);
         if (!event || !event.isActive) return;
+        
+        // Bloqueo de seguridad si la sala individual está pausada
+        const room = event.rooms.find(r => r.name === config.roomName);
+        if (!room || room.isActive === false) return;
 
         const eventId = config.eventId;
         const roomName = config.roomName;
@@ -632,6 +687,11 @@ io.on('connection', (socket) => {
         for (const event of eventsDB.values()) {
             const room = (event.rooms || []).find(r => r.audienceCode === code);
             if (room) {
+                // Verificar si la sala individual está pausada
+                if (room.isActive === false) {
+                    return callback({ success: false, message: "Esta sala se encuentra temporalmente pausada." });
+                }
+
                 found = true;
                 resetAttempts(clientIp);
                 return callback({ 
@@ -656,25 +716,25 @@ io.on('connection', (socket) => {
         const event = eventsDB.get(data.eventId);
         if (!event || !event.isActive) return;
 
-        const { eventId, roomName, language, deviceId, isTv } = data; // Captura si es TV
+        // Doble verificación: que la sala individual siga activa
+        const roomDef = event.rooms.find(r => r.name === data.roomName);
+        if (!roomDef || roomDef.isActive === false) return;
+
+        const { eventId, roomName, language, deviceId, isTv } = data; 
         
-        // --- NUEVO: PEAJE AUTOMÁTICO (Auto Load Shedding) ---
         const currentRam = getRamUsage();
         const stats = statsDB.get(eventId);
         const currentRoomUsers = stats?.roomCounts?.[roomName] || 0;
-        const MAX_ROOM_USERS = 300; // Límite por seguridad de red
+        const MAX_ROOM_USERS = 300; 
 
-        // Si es un celular y los recursos están críticos, lo mandamos a pausa elegante al instante
         if (!isTv && (currentRam.percent >= 85 || currentRoomUsers >= MAX_ROOM_USERS)) {
             socket.emit('graceful-pause', { message: "Conectando al servidor secundario..." });
-            return; // Bloqueamos el acceso
+            return; 
         }
-        // ----------------------------------------------------
 
         const isolatedRoom = `${eventId}_${roomName}`;
         socket.join(isolatedRoom);
         
-        // Guardamos si es TV o Celular para darle inmunidad
         socket.audienceData = { eventId, roomName, language: language || 'es', deviceId, isTv: !!isTv };
         
         if (stats) {

@@ -113,6 +113,23 @@ const EventAdminView = () => {
     }
   };
 
+  // NUEVO: TOGGLE DE SALA INDIVIDUAL
+  const toggleRoomStatus = (roomName, currentStatus) => {
+    if (!eventData) return;
+    const newStatus = !currentStatus;
+    if (!newStatus) {
+      openDialog(
+          "Pausar Sala Específica",
+          `¿Seguro que deseas apagar la sala ${roomName}? La audiencia y el orador serán desconectados, pero las demás salas seguirán funcionando.`,
+          "confirm",
+          () => socket.emit('event-admin-toggle-room', { eventId: eventData.id, roomName, adminPassword: sessionStorage.getItem('eventAdminPwd'), status: newStatus }, () => {}),
+          "bg-red-600 hover:bg-red-700 shadow-red-500/25"
+      );
+    } else {
+        socket.emit('event-admin-toggle-room', { eventId: eventData.id, roomName, adminPassword: sessionStorage.getItem('eventAdminPwd'), status: newStatus }, () => {});
+    }
+  };
+
   const handleAddRoom = (e) => {
     e.preventDefault();
     if (!newRoomName.trim() || !eventData) return;
@@ -145,7 +162,6 @@ const EventAdminView = () => {
     setTimeout(() => setCopiedText(null), 2000);
   };
 
-  // REPORTE HTML PROFESIONAL LISTO PARA IMPRIMIR EN PDF
   const downloadAnalytics = (event) => {
     const analytics = event.stats?.analytics || {};
     const safeRooms = event.rooms || [];
@@ -473,8 +489,11 @@ const EventAdminView = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 overflow-y-auto pb-4">
             {safeRooms.map(roomObj => (
-                <div key={roomObj.name} className="flex flex-col bg-darker p-4 sm:p-5 rounded-xl border border-gray-700 relative group transition-all hover:border-gray-500 shadow-md">
-                    <h3 className="text-base font-bold text-white uppercase tracking-wider mb-3 sm:mb-4 pr-8 break-words leading-tight">{roomObj.name}</h3>
+                <div key={roomObj.name} className={`flex flex-col bg-darker p-4 sm:p-5 rounded-xl border border-gray-700 relative group transition-all hover:border-gray-500 shadow-md ${roomObj.isActive === false ? 'opacity-60 grayscale border-red-900/50' : ''}`}>
+                    <h3 className="text-base font-bold text-white uppercase tracking-wider mb-3 sm:mb-4 pr-16 break-words leading-tight">
+                        {roomObj.name}
+                        {roomObj.isActive === false && <span className="text-red-500 text-[10px] ml-2 bg-red-500/10 px-1.5 py-0.5 rounded border border-red-500/20">(PAUSADA)</span>}
+                    </h3>
                     
                     <div className="grid grid-cols-1 xs:grid-cols-2 gap-2 sm:gap-3 mb-4 sm:mb-5">
                         <div className="bg-primary/10 border border-primary/20 rounded-lg p-2.5 sm:p-3 flex flex-col justify-center shadow-inner">
@@ -538,14 +557,25 @@ const EventAdminView = () => {
                         </span>
                     </div>
 
+                    {/* NUEVO: BOTONES DE PAUSA INDIVIDUAL Y ELIMINAR */}
                     {isSystemActive && eventData.isActive && (
-                        <button 
-                        onClick={() => handleDeleteRoom(roomObj.name)}
-                        className="absolute top-3 right-3 sm:top-4 sm:right-4 text-gray-500 hover:text-red-500 hover:bg-red-500/10 p-1.5 sm:p-1.5 rounded-lg transition-colors bg-black/50 sm:bg-transparent sm:opacity-0 sm:group-hover:opacity-100"
-                        title="Eliminar Sala"
-                        >
-                        <Trash2 className="w-4 h-4" />
-                        </button>
+                        <>
+                            <button 
+                            onClick={() => toggleRoomStatus(roomObj.name, roomObj.isActive)}
+                            className={`absolute top-3 right-12 sm:top-4 sm:right-14 p-1.5 sm:p-1.5 rounded-lg transition-colors bg-black/50 sm:bg-transparent sm:opacity-0 sm:group-hover:opacity-100 ${roomObj.isActive !== false ? 'text-green-500 hover:bg-green-500/10' : 'text-red-500 hover:text-white hover:bg-red-500/10'}`}
+                            title={roomObj.isActive !== false ? "Pausar Sala Individual" : "Reactivar Sala Individual"}
+                            >
+                            <Power className="w-4 h-4" />
+                            </button>
+
+                            <button 
+                            onClick={() => handleDeleteRoom(roomObj.name)}
+                            className="absolute top-3 right-3 sm:top-4 sm:right-4 text-gray-500 hover:text-red-500 hover:bg-red-500/10 p-1.5 sm:p-1.5 rounded-lg transition-colors bg-black/50 sm:bg-transparent sm:opacity-0 sm:group-hover:opacity-100"
+                            title="Eliminar Sala"
+                            >
+                            <Trash2 className="w-4 h-4" />
+                            </button>
+                        </>
                     )}
                 </div>
             ))}

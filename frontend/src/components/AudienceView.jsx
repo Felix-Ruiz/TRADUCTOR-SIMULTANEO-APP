@@ -43,6 +43,7 @@ const AudienceView = () => {
 
   const [isSystemActive, setIsSystemActive] = useState(true);
   const [isEventActive, setIsEventActive] = useState(true); 
+  const [isRoomActive, setIsRoomActive] = useState(true); // NUEVO: Estado de la sala individual
   
   const [isVerifying, setIsVerifying] = useState(!!initialCode);
   const [hasJoinedEvent, setHasJoinedEvent] = useState(false);
@@ -50,7 +51,6 @@ const AudienceView = () => {
   const [isScanning, setIsScanning] = useState(false);
   const [legalModalContent, setLegalModalContent] = useState(null); 
 
-  // NUEVO: Estado para la expulsión silenciosa (Load Shedding)
   const [gracefulPauseMsg, setGracefulPauseMsg] = useState(null);
 
   const [dialogConfig, setDialogConfig] = useState({ isOpen: false, title: '', message: '', type: 'confirm', onConfirm: null, confirmStyle: '' });
@@ -104,7 +104,7 @@ const AudienceView = () => {
   }, [userMode]);
 
   const playNextInQueue = async () => {
-    if (isPlaying.current || audioQueue.current.length === 0 || !isSystemActive || !isEventActive) return;
+    if (isPlaying.current || audioQueue.current.length === 0 || !isSystemActive || !isEventActive || !isRoomActive) return;
     isPlaying.current = true;
     const nextAudioUrl = audioQueue.current.shift(); 
     if (audioPlayerRef.current) {
@@ -136,18 +136,18 @@ const AudienceView = () => {
         setEventLogo(response.logoUrl || '');
         setEventSponsor(response.sponsorText || '');
         setEventError('');
+        setIsRoomActive(true); // Si pudo entrar, la sala está activa
         sessionStorage.setItem('audienceCode', code);
         
-        // El Escudo de Inmunidad para las TVs se envía aquí
         socket.emit('join-direct-room-audience', { 
             eventId: response.eventId, 
             roomName: response.roomName, 
             language: language,
             deviceId: getDeviceId(),
-            isTv: isTvMode // Las TVs jamás serán expulsadas
+            isTv: isTvMode 
         });
         setHasJoinedEvent(true); 
-        setGracefulPauseMsg(null); // Limpiamos cualquier pausa anterior
+        setGracefulPauseMsg(null); 
       } else {
         setEventError(response.message || 'Código de sala inválido o evento finalizado.');
         if (code === audienceCode) {
@@ -253,6 +253,14 @@ const AudienceView = () => {
         }
     });
 
+    // NUEVO: Escuchador de pausa individual de sala
+    socket.on('room-status-changed', (data) => {
+        if (data.eventId === eventId && data.roomName === roomName) {
+            setIsRoomActive(data.status);
+            if (!data.status) stopPlaybackAndClear();
+        }
+    });
+
     socket.on('event-info', (data) => {
         setEventName(data.name);
         setIsEventActive(data.isActive); 
@@ -260,15 +268,13 @@ const AudienceView = () => {
         setEventSponsor(data.sponsorText || '');
     });
 
-    // NUEVO: Escuchador de la Expulsión Silenciosa (Load Shedding)
     socket.on('graceful-pause', () => {
         stopPlaybackAndClear();
-        // Mensaje sutil y profesional que no asusta al usuario
         setGracefulPauseMsg("Ajustando el canal de traducción en tiempo real para garantizar la mejor calidad en tu dispositivo.");
     });
     
     socket.on('translation-result', (data) => {
-      if (!isSystemActive || !isEventActive || gracefulPauseMsg) return; 
+      if (!isSystemActive || !isEventActive || !isRoomActive || gracefulPauseMsg) return; 
       
       if (isTvMode || userMode === 'text') {
         let currentText = '';
@@ -294,7 +300,7 @@ const AudienceView = () => {
     });
 
     socket.on('neural-audio', (data) => {
-      if (!isSystemActive || !isEventActive || gracefulPauseMsg) return; 
+      if (!isSystemActive || !isEventActive || !isRoomActive || gracefulPauseMsg) return; 
       if (!isTvMode && userMode === 'audio' && data.language === language && data.audioBuffer) {
         const blob = new Blob([data.audioBuffer], { type: 'audio/mp3' });
         const url = URL.createObjectURL(blob);
@@ -308,13 +314,14 @@ const AudienceView = () => {
       socket.off('disconnect');
       socket.off('event-info');
       socket.off('event-status-changed');
+      socket.off('room-status-changed');
       socket.off('translation-result');
       socket.off('neural-audio');
       socket.off('system-status');
       socket.off('graceful-pause');
       releaseWakeLock();
     };
-  }, [language, userMode, isTvMode, audienceCode, eventId, isSystemActive, isEventActive, gracefulPauseMsg]); 
+  }, [language, userMode, isTvMode, audienceCode, eventId, roomName, isSystemActive, isEventActive, isRoomActive, gracefulPauseMsg]); 
 
   const unlockAudioAndStart = async () => {
     setUserMode('audio'); 
@@ -492,7 +499,8 @@ const AudienceView = () => {
     );
   }
 
-  if (!isSystemActive || (audienceCode && !isEventActive)) {
+  // Modificado para incluir el bloqueo si la sala individual está pausada
+  if (!isSystemActive || (audienceCode && (!isEventActive || !isRoomActive))) {
     return (
       <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-black relative overflow-hidden">
         
@@ -528,7 +536,7 @@ const AudienceView = () => {
           </div>
           <h2 className="text-3xl font-bold text-white mb-3 text-center tracking-tight">Sala Pausada</h2>
           <p className="text-gray-400 text-base text-center leading-relaxed max-w-xs mb-8">
-            La plataforma de traducción se encuentra inactiva en este momento. Por favor, espera a que se reanude.
+            El sistema o esta sala se encuentra inactiva en este momento. Por favor, espera a que se reanude.
           </p>
           <button 
             onClick={handleExitEvent}

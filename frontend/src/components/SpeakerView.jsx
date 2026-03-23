@@ -23,6 +23,7 @@ const SpeakerView = () => {
   const [eventInfo, setEventInfo] = useState(null);
   const [isSystemActive, setIsSystemActive] = useState(true);
   const [isEventActive, setIsEventActive] = useState(true); 
+  const [isRoomActive, setIsRoomActive] = useState(true); // NUEVO: Estado de la sala individual
 
   const [isRecording, setIsRecording] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
@@ -70,6 +71,7 @@ const SpeakerView = () => {
         setIsAuthenticated(true);
         setEventInfo(response.event);
         setIsEventActive(response.event.isActive); 
+        setIsRoomActive(true); // Si logró entrar, la sala está activa
         setRoomName(response.roomName); 
         setAudienceCode(response.audienceCode); 
         sessionStorage.setItem('speakerPwd', pwd);
@@ -133,6 +135,17 @@ const SpeakerView = () => {
             }
         }
     });
+
+    // NUEVO: Escuchador de pausa individual de sala
+    socket.on('room-status-changed', (data) => {
+        if (eventInfo && data.eventId === eventInfo.id && data.roomName === roomName) {
+            setIsRoomActive(data.status);
+            if (!data.status && isRecording) {
+                stopRecordingLocally();
+                openDialog("Sala Pausada", "El administrador ha pausado temporalmente tu sala. La transmisión se ha detenido.", "alert", null, "bg-red-600 hover:bg-red-700 shadow-red-500/25");
+            }
+        }
+    });
     
     socket.on('translation-result', (data) => {
       setTranscription(data.original);
@@ -156,10 +169,11 @@ const SpeakerView = () => {
       socket.off('disconnect');
       socket.off('system-status');
       socket.off('event-status-changed');
+      socket.off('room-status-changed');
       socket.off('translation-result');
       socket.off('room-audience-count');
     };
-  }, [isAuthenticated, isRecording, eventInfo]);
+  }, [isAuthenticated, isRecording, eventInfo, roomName]);
 
   const stopRecordingLocally = () => {
     setIsRecording(false);
@@ -172,7 +186,7 @@ const SpeakerView = () => {
 
   const startRecording = async () => {
     try {
-      if (!roomName) return;
+      if (!roomName || !isRoomActive) return;
 
       const stream = await navigator.mediaDevices.getUserMedia({ 
           audio: { 
@@ -225,7 +239,7 @@ const SpeakerView = () => {
       processorRef.current = workletNode;
 
       workletNode.port.onmessage = (event) => {
-        if (socket.connected && isSystemActive && isEventActive) {
+        if (socket.connected && isSystemActive && isEventActive && isRoomActive) {
           socket.emit('audio-stream', event.data);
         }
       };
@@ -325,14 +339,15 @@ const SpeakerView = () => {
     );
   }
 
-  if (!isSystemActive || !isEventActive) {
+  // Modificado para incluir el bloqueo si la sala individual está pausada
+  if (!isSystemActive || !isEventActive || !isRoomActive) {
     return (
       <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-black">
         <div className="w-full max-w-md flex flex-col items-center">
           <AlertTriangle className="w-16 h-16 text-yellow-500 mb-6 animate-pulse" />
           <h2 className="text-xl sm:text-2xl font-bold text-white mb-3 text-center">Transmisión Pausada</h2>
           <p className="text-gray-400 text-sm sm:text-base text-center leading-relaxed px-4">
-            El administrador ha pausado el sistema o este evento. Espera instrucciones para reanudar.
+            El administrador ha pausado el sistema o esta sala. Espera instrucciones para reanudar.
           </p>
         </div>
       </div>

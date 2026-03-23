@@ -31,12 +31,5 @@ Integración profunda con **Microsoft Azure Cognitive Services**:
 4. `npm run dev` para iniciar los entornos locales.
 ---------------------------------------
 
-2. Hay manera de mejorar la entrada del audio, que sea mas claro, que no reciba voces extra a la principal, dado que si hay personas hablando en el auditorio el sistema puede escuchar y traducir eso también.  O que debemos hacer para que solo reconozca a la voz principal al speaker e ignore el resto?  
-
-3. Si estan hablando dos personas al tiempo o mas, y necesitamos que el sistema identifique y en los subtitulos coloque identificadores de que cada parte de los subtitulos es de personas diferentes hablando ?
-
-4. lentitud de carga pwa
 5. mejorar los logos , iconos 
 6. costos
-7. cantidad de user, crear solucion si se conectan muchos.
-8. Cron job
