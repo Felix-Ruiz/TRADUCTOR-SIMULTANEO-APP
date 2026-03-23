@@ -355,6 +355,32 @@ const EventAdminView = () => {
   return (
     <div className="flex flex-col h-screen w-full p-4 md:p-8 max-w-5xl mx-auto overflow-hidden bg-darker relative">
       
+      {/* MAGIA CSS INYECTADA PARA EFECTOS PREMIUM */}
+      <style>
+        {`
+          @keyframes shine {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+          }
+          @keyframes logo-glow {
+            0%, 100% { filter: drop-shadow(0 0 8px rgba(168,85,247,0.5)); transform: scale(1); }
+            50% { filter: drop-shadow(0 0 20px rgba(59,130,246,0.9)); transform: scale(1.03); }
+          }
+          .animate-metallic {
+            background: linear-gradient(90deg, #d97743, #60a5fa, #e7e5e4, #d97743);
+            background-size: 300% auto;
+            color: transparent;
+            -webkit-background-clip: text;
+            background-clip: text;
+            animation: shine 4s linear infinite;
+          }
+          .animate-logo-pulse {
+            animation: logo-glow 3s ease-in-out infinite;
+          }
+        `}
+      </style>
+
       {dialogConfig.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity">
           <div className="bg-darker border border-gray-700 p-6 rounded-3xl shadow-[0_0_40px_rgba(0,0,0,0.5)] max-w-sm w-full flex flex-col gap-2 transform transition-all scale-100">
@@ -383,8 +409,8 @@ const EventAdminView = () => {
       <header className="flex flex-col md:flex-row justify-between items-center md:items-start gap-4 mb-6 sm:mb-8 shrink-0 bg-dark p-4 sm:p-6 rounded-2xl border border-gray-800 shadow-xl text-center md:text-left">
         <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4 w-full md:w-auto">
           {eventData.logoUrl ? (
-             <div className="bg-white/5 p-2 rounded-xl flex items-center justify-center w-14 h-14 shrink-0">
-                <img src={eventData.logoUrl} alt="Logo" className="max-w-full max-h-full object-contain drop-shadow-md" onError={(e) => { e.target.style.display = 'none'; }} />
+             <div className="bg-white/5 p-2 sm:p-2.5 rounded-xl flex items-center justify-center w-14 h-14 shrink-0">
+                <img src={eventData.logoUrl} alt="Logo" className="max-w-full max-h-full object-contain animate-logo-pulse" onError={(e) => { e.target.style.display = 'none'; }} />
              </div>
           ) : (
              <div className="bg-purple-500/10 p-3 rounded-xl shrink-0">
@@ -396,7 +422,7 @@ const EventAdminView = () => {
             <div className="text-xs text-gray-500 font-bold tracking-widest flex flex-col sm:flex-row items-center sm:items-start gap-2 sm:gap-3 mt-1.5 sm:mt-1 w-full justify-center md:justify-start">
                <span>PANEL ADMINISTRATIVO</span>
                {eventData.sponsorText && <span className="hidden sm:inline">•</span>}
-               {eventData.sponsorText && <span className="text-purple-400/80">{eventData.sponsorText}</span>}
+               {eventData.sponsorText && <span className="animate-metallic font-extrabold tracking-widest drop-shadow-md text-sm">{eventData.sponsorText}</span>}
                {!isSystemActive && (
                    <span className="text-red-500 animate-pulse bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20 whitespace-nowrap">SISTEMA CENTRAL OFFLINE</span>
                )}

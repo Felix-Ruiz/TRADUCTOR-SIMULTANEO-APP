@@ -355,6 +355,32 @@ const SpeakerView = () => {
   return (
     <div className="flex flex-col h-screen w-full p-4 sm:p-6 md:p-8 max-w-6xl mx-auto overflow-hidden relative bg-darker">
       
+      {/* MAGIA CSS INYECTADA PARA EFECTOS PREMIUM */}
+      <style>
+        {`
+          @keyframes shine {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+          }
+          @keyframes logo-glow {
+            0%, 100% { filter: drop-shadow(0 0 8px rgba(168,85,247,0.5)); transform: scale(1); }
+            50% { filter: drop-shadow(0 0 20px rgba(59,130,246,0.9)); transform: scale(1.03); }
+          }
+          .animate-metallic {
+            background: linear-gradient(90deg, #d97743, #60a5fa, #e7e5e4, #d97743);
+            background-size: 300% auto;
+            color: transparent;
+            -webkit-background-clip: text;
+            background-clip: text;
+            animation: shine 4s linear infinite;
+          }
+          .animate-logo-pulse {
+            animation: logo-glow 3s ease-in-out infinite;
+          }
+        `}
+      </style>
+
       {dialogConfig.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity">
           <div className="bg-darker border border-gray-700 p-6 rounded-3xl shadow-[0_0_40px_rgba(0,0,0,0.5)] max-w-sm w-full flex flex-col gap-2 transform transition-all scale-100">
@@ -385,7 +411,7 @@ const SpeakerView = () => {
           <div className="flex items-center gap-3 sm:gap-4">
             {eventInfo?.logoUrl ? (
                 <div className="bg-white/5 p-2 sm:p-2.5 rounded-xl shrink-0 w-12 h-12 sm:w-16 sm:h-16 flex items-center justify-center">
-                    <img src={eventInfo.logoUrl} alt="Logo" className="max-w-full max-h-full object-contain drop-shadow-md" onError={(e) => { e.target.style.display = 'none'; }} />
+                    <img src={eventInfo.logoUrl} alt="Logo" className="max-w-full max-h-full object-contain animate-logo-pulse" onError={(e) => { e.target.style.display = 'none'; }} />
                 </div>
             ) : (
                 <div className="bg-primary/10 p-2 sm:p-3 rounded-xl shrink-0">
@@ -398,8 +424,8 @@ const SpeakerView = () => {
               </h1>
               <span className="text-[10px] sm:text-xs text-gray-500 font-bold tracking-widest uppercase mt-1">
                 Panel de Orador: <span className="text-primary">{roomName}</span>
-                {eventInfo?.sponsorText && <span className="hidden sm:inline mx-2">•</span>}
-                {eventInfo?.sponsorText && <span className="text-primary/70 block sm:inline mt-1 sm:mt-0">{eventInfo.sponsorText}</span>}
+                {eventInfo?.sponsorText && <span className="hidden sm:inline mx-2 text-gray-600">•</span>}
+                {eventInfo?.sponsorText && <span className="animate-metallic font-extrabold block sm:inline mt-1 sm:mt-0 drop-shadow-md text-sm">{eventInfo.sponsorText}</span>}
               </span>
             </div>
           </div>
@@ -625,6 +651,12 @@ const SpeakerView = () => {
               <span>Acta de Resumen</span>
             </button>
           </div>
+        )}
+
+        {eventInfo?.sponsorText && (
+            <div className="mt-4 text-[10px] font-bold tracking-widest uppercase text-center w-full">
+                <span className="animate-metallic text-xs">{eventInfo.sponsorText}</span>
+            </div>
         )}
       </footer>
     </div>
