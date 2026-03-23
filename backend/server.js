@@ -42,7 +42,7 @@ const statsDB = new Map();
 // --- ESCUDO ANTI-BOTS (Rate Limiting en Memoria) ---
 const loginAttempts = new Map();
 const MAX_FAILED_ATTEMPTS = 5;
-const LOCKOUT_DURATION_MS = 15 * 60 * 1000; // 15 minutos
+const LOCKOUT_DURATION_MS = 15 * 60 * 1000;
 
 const checkRateLimit = (ip) => {
     const record = loginAttempts.get(ip);
@@ -54,7 +54,7 @@ const checkRateLimit = (ip) => {
     }
     
     if (record.lockedUntil && Date.now() >= record.lockedUntil) {
-        loginAttempts.delete(ip); // El castigo terminó
+        loginAttempts.delete(ip); 
         return { allowed: true };
     }
     
@@ -66,8 +66,6 @@ const registerFailedAttempt = (ip) => {
     const record = loginAttempts.get(ip) || { attempts: 0, lockedUntil: null };
     record.attempts += 1;
     
-    console.log(`[Seguridad] Intento fallido ${record.attempts}/${MAX_FAILED_ATTEMPTS} para IP: ${ip}`);
-
     if (record.attempts >= MAX_FAILED_ATTEMPTS) {
         record.lockedUntil = Date.now() + LOCKOUT_DURATION_MS;
         console.warn(`[🛡️ SEGURIDAD] IP Bloqueada por fuerza bruta: ${ip}`);
@@ -92,14 +90,10 @@ setInterval(() => {
             deletedCount++;
         }
     }
-    if (deletedCount > 0) {
-        console.log(`[🧹 Garbage Collector] Se limpiaron ${deletedCount} registros de IPs de la memoria RAM.`);
-    }
 }, LOCKOUT_DURATION_MS); 
-// ---------------------------------------------------
 
 // --- MONITOR DE SIGNOS VITALES (RAM) ---
-const MAX_RAM_MB = 512; // Límite típico de Render Starter/Free
+const MAX_RAM_MB = 512; 
 const getRamUsage = () => {
     const usedMB = Math.round(process.memoryUsage().rss / 1024 / 1024);
     const percent = Math.min(100, Math.round((usedMB / MAX_RAM_MB) * 100));
@@ -111,7 +105,6 @@ setInterval(() => {
         io.emit('master-ram-update', getRamUsage());
     }
 }, 5000);
-// ---------------------------------------
 
 // --- MONGODB SETUP (Bóveda de Persistencia) ---
 const eventSchema = new mongoose.Schema({
@@ -137,10 +130,7 @@ const StatsModel = mongoose.model('Stats', statsSchema);
 const connectDB = async () => {
     try {
         const uri = process.env.MONGO_URI;
-        if (!uri) {
-            console.warn("⚠️ MONGO_URI no definida. El servidor funcionará solo en memoria RAM (Riesgo de pérdida de datos).");
-            return;
-        }
+        if (!uri) return;
         await mongoose.connect(uri);
         console.log("✅ Conectado a Bóveda MongoDB Atlas");
 
@@ -152,7 +142,6 @@ const connectDB = async () => {
                 id: e.id,
                 name: e.name,
                 adminPassword: e.adminPassword,
-                // FIX: Restauramos las salas asegurando que tengan el estado de encendido por defecto si son viejas
                 rooms: (e.rooms || []).map(r => ({ ...r, isActive: r.isActive !== false })),
                 isActive: e.isActive !== false,
                 logoUrl: e.logoUrl || "",
@@ -181,50 +170,62 @@ const connectDB = async () => {
                 }
             });
         });
-        console.log(`📦 Datos restaurados: ${events.length} eventos y ${stats.length} métricas históricas.`);
+        console.log(`📦 Datos restaurados: ${events.length} eventos y ${stats.length} métricas.`);
     } catch (error) {
         console.error("❌ Error conectando a MongoDB:", error);
     }
 };
 connectDB();
 
-// Funciones Auxiliares de Sincronización DB
-const persistEvent = async (eventId) => {
-    if (!process.env.MONGO_URI) return;
-    const ev = eventsDB.get(eventId);
-    if (ev) {
-        await EventModel.findOneAndUpdate({ id: eventId }, ev, { upsert: true }).catch(e => console.error(e));
-    } else {
-        await EventModel.deleteOne({ id: eventId }).catch(e => console.error(e));
-    }
-};
+// --- NUEVO: SISTEMA ANTI-COLAPSO DE MONGODB (Batch Processing) ---
+// En lugar de guardar cada vez que alguien entra, anotamos qué evento cambió y guardamos en bloque.
+const pendingEventUpdates = new Set();
+const pendingStatsUpdates = new Set();
 
-const persistStats = async (eventId) => {
-    if (!process.env.MONGO_URI) return;
-    const st = statsDB.get(eventId);
-    if (st) {
-        const serialized = {
-            eventId: eventId,
-            total: st.total,
-            langs: st.langs,
-            roomCounts: st.roomCounts,
-            analytics: {
-                uniqueUsers: Array.from(st.analytics.uniqueUsers),
-                uniqueByRoom: {},
-                uniqueByLang: {},
-                wordsByRoom: st.analytics.wordsByRoom,
-                timeByRoom: st.analytics.timeByRoom
-            }
-        };
-        for (const [r, set] of Object.entries(st.analytics.uniqueByRoom)) serialized.analytics.uniqueByRoom[r] = Array.from(set);
-        for (const [l, set] of Object.entries(st.analytics.uniqueByLang)) serialized.analytics.uniqueByLang[l] = Array.from(set);
+const markEventDirty = (eventId) => pendingEventUpdates.add(eventId);
+const markStatsDirty = (eventId) => pendingStatsUpdates.add(eventId);
 
-        await StatsModel.findOneAndUpdate({ eventId: eventId }, serialized, { upsert: true }).catch(e => console.error(e));
-    } else {
-        await StatsModel.deleteOne({ eventId: eventId }).catch(e => console.error(e));
+// El "repartidor" que pasa cada 10 segundos guardando todo de un golpe
+setInterval(async () => {
+    if (!process.env.MONGO_URI) return;
+
+    for (const eventId of pendingEventUpdates) {
+        const ev = eventsDB.get(eventId);
+        if (ev) {
+            await EventModel.findOneAndUpdate({ id: eventId }, ev, { upsert: true }).catch(()=>{});
+        } else {
+            await EventModel.deleteOne({ id: eventId }).catch(()=>{});
+        }
+        pendingEventUpdates.delete(eventId);
     }
-};
-// ----------------------------------------------
+
+    for (const eventId of pendingStatsUpdates) {
+        const st = statsDB.get(eventId);
+        if (st) {
+            const serialized = {
+                eventId: eventId,
+                total: st.total,
+                langs: st.langs,
+                roomCounts: st.roomCounts,
+                analytics: {
+                    uniqueUsers: Array.from(st.analytics.uniqueUsers),
+                    uniqueByRoom: {},
+                    uniqueByLang: {},
+                    wordsByRoom: st.analytics.wordsByRoom,
+                    timeByRoom: st.analytics.timeByRoom
+                }
+            };
+            for (const [r, set] of Object.entries(st.analytics.uniqueByRoom)) serialized.analytics.uniqueByRoom[r] = Array.from(set);
+            for (const [l, set] of Object.entries(st.analytics.uniqueByLang)) serialized.analytics.uniqueByLang[l] = Array.from(set);
+
+            await StatsModel.findOneAndUpdate({ eventId: eventId }, serialized, { upsert: true }).catch(()=>{});
+        } else {
+            await StatsModel.deleteOne({ eventId: eventId }).catch(()=>{});
+        }
+        pendingStatsUpdates.delete(eventId);
+    }
+}, 10000); // 10 segundos de protección (Debounce)
+// -----------------------------------------------------------------
 
 const initEventStats = (eventId) => {
     if (!statsDB.has(eventId)) {
@@ -240,7 +241,7 @@ const initEventStats = (eventId) => {
                 timeByRoom: {}
             }
         });
-        persistStats(eventId);
+        markStatsDirty(eventId);
     }
 };
 
@@ -287,7 +288,7 @@ const emitMasterData = () => {
 };
 
 app.get('/api/status', (req, res) => {
-    res.status(200).json({ status: 'online', message: 'Servidor SaaS activo, blindado y analítico.' });
+    res.status(200).json({ status: 'online', message: 'Servidor SaaS activo y optimizado.' });
 });
 
 io.on('connection', (socket) => {
@@ -298,7 +299,6 @@ io.on('connection', (socket) => {
 
     let translationService = null;
 
-    // --- RUTAS MASTER ---
     socket.on('master-login', (pwd, callback) => {
         const rateLimit = checkRateLimit(clientIp);
         if (!rateLimit.allowed) return callback({ success: false, message: rateLimit.message });
@@ -336,7 +336,7 @@ io.on('connection', (socket) => {
                 const eventRoomsMap = activeSpeakerRooms.get(data.id);
                 if (eventRoomsMap) eventRoomsMap.clear();
             }
-            persistEvent(data.id);
+            markEventDirty(data.id);
             emitMasterData();
             io.emit('event-status-changed', { eventId: data.id, status: data.status });
             callback({ success: true });
@@ -345,7 +345,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // NUEVO: TOGGLE DE SALA INDIVIDUAL MASTER
     socket.on('master-toggle-room', (data, callback) => {
         const event = eventsDB.get(data.eventId);
         if (event) {
@@ -358,7 +357,7 @@ io.on('connection', (socket) => {
                         eventRoomsMap.delete(data.roomName);
                     }
                 }
-                persistEvent(data.eventId);
+                markEventDirty(data.eventId);
                 emitMasterData();
                 io.emit('room-status-changed', { eventId: data.eventId, roomName: data.roomName, status: data.status });
                 callback({ success: true });
@@ -385,7 +384,7 @@ io.on('connection', (socket) => {
         };
         eventsDB.set(internalId, newEvent);
         initEventStats(internalId);
-        persistEvent(internalId);
+        markEventDirty(internalId);
         
         callback({ success: true, event: newEvent });
         emitMasterData();
@@ -395,8 +394,8 @@ io.on('connection', (socket) => {
         eventsDB.delete(id);
         statsDB.delete(id);
         activeSpeakerRooms.delete(id);
-        persistEvent(id);
-        persistStats(id);
+        markEventDirty(id);
+        markStatsDirty(id);
         callback({ success: true });
         emitMasterData();
     });
@@ -408,10 +407,9 @@ io.on('connection', (socket) => {
                 const speakerPwd = Math.random().toString(36).slice(-6).toUpperCase();
                 const audienceCode = Math.random().toString(36).slice(-6).toUpperCase();
                 if (!event.rooms) event.rooms = [];
-                // Se crea encendida por defecto
                 event.rooms.push({ name: data.room, speakerPassword: speakerPwd, audienceCode: audienceCode, isActive: true });
             }
-            persistEvent(data.id);
+            markEventDirty(data.id);
             callback({ success: true });
             emitMasterData();
         } else {
@@ -427,8 +425,8 @@ io.on('connection', (socket) => {
             if (stats && stats.roomCounts && stats.roomCounts[data.room]) {
                 delete stats.roomCounts[data.room];
             }
-            persistEvent(data.id);
-            persistStats(data.id);
+            markEventDirty(data.id);
+            markStatsDirty(data.id);
             callback({ success: true });
             emitMasterData();
         } else {
@@ -459,14 +457,11 @@ io.on('connection', (socket) => {
             }
             
             if (callback) callback({ success: true, kicked: kickCount });
-            console.log(`[⚡ Load Shedding] Expulsados ${kickCount} oyentes móviles de ${roomName} para liberar RAM.`);
         } catch (error) {
-            console.error("Error en optimización manual:", error);
             if (callback) callback({ success: false });
         }
     });
 
-    // --- RUTAS EVENT ADMIN ---
     socket.on('event-admin-login', (pwd, callback) => {
         const rateLimit = checkRateLimit(clientIp);
         if (!rateLimit.allowed) return callback({ success: false, message: rateLimit.message });
@@ -500,7 +495,7 @@ io.on('connection', (socket) => {
                 const eventRoomsMap = activeSpeakerRooms.get(data.eventId);
                 if (eventRoomsMap) eventRoomsMap.clear();
             }
-            persistEvent(data.eventId);
+            markEventDirty(data.eventId);
             emitMasterData();
             io.emit('event-status-changed', { eventId: data.eventId, status: data.status });
             callback({ success: true });
@@ -509,7 +504,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // NUEVO: TOGGLE DE SALA INDIVIDUAL EVENT ADMIN
     socket.on('event-admin-toggle-room', (data, callback) => {
         const event = eventsDB.get(data.eventId);
         if (event && event.adminPassword === data.adminPassword) {
@@ -522,7 +516,7 @@ io.on('connection', (socket) => {
                         eventRoomsMap.delete(data.roomName);
                     }
                 }
-                persistEvent(data.eventId);
+                markEventDirty(data.eventId);
                 emitMasterData();
                 io.emit('room-status-changed', { eventId: data.eventId, roomName: data.roomName, status: data.status });
                 callback({ success: true });
@@ -543,7 +537,7 @@ io.on('connection', (socket) => {
                 if (!event.rooms) event.rooms = [];
                 event.rooms.push({ name: data.room, speakerPassword: speakerPwd, audienceCode: audienceCode, isActive: true });
             }
-            persistEvent(data.eventId);
+            markEventDirty(data.eventId);
             callback({ success: true });
             emitMasterData();
         } else {
@@ -559,8 +553,8 @@ io.on('connection', (socket) => {
             if (stats && stats.roomCounts && stats.roomCounts[data.room]) {
                 delete stats.roomCounts[data.room];
             }
-            persistEvent(data.eventId);
-            persistStats(data.eventId);
+            markEventDirty(data.eventId);
+            markStatsDirty(data.eventId);
             callback({ success: true });
             emitMasterData();
         } else {
@@ -568,7 +562,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // --- RUTAS SPEAKER ---
     socket.on('speaker-login', (password, callback) => {
         const rateLimit = checkRateLimit(clientIp);
         if (!rateLimit.allowed) return callback({ success: false, message: rateLimit.message });
@@ -584,7 +577,6 @@ io.on('connection', (socket) => {
             }
         }
         if (foundEvent && foundRoom) {
-            // Verificar si la sala individual está pausada
             if (foundRoom.isActive === false) {
                 return callback({ success: false, message: "Esta sala específica se encuentra pausada por el administrador." });
             }
@@ -609,7 +601,6 @@ io.on('connection', (socket) => {
         const event = eventsDB.get(config.eventId);
         if (!event || !event.isActive) return;
         
-        // Bloqueo de seguridad si la sala individual está pausada
         const room = event.rooms.find(r => r.name === config.roomName);
         if (!room || room.isActive === false) return;
 
@@ -642,7 +633,7 @@ io.on('connection', (socket) => {
             if (stats) {
                 if (!stats.analytics.wordsByRoom[roomName]) stats.analytics.wordsByRoom[roomName] = 0;
                 stats.analytics.wordsByRoom[roomName] += data.words;
-                persistStats(eventId);
+                markStatsDirty(eventId);
             }
         }
     });
@@ -656,7 +647,7 @@ io.on('connection', (socket) => {
             if (stats) {
                 if (!stats.analytics.timeByRoom[roomName]) stats.analytics.timeByRoom[roomName] = 0;
                 stats.analytics.timeByRoom[roomName] += duration;
-                persistStats(eventId);
+                markStatsDirty(eventId);
             }
 
             const eventRoomsMap = activeSpeakerRooms.get(eventId);
@@ -678,7 +669,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // --- RUTAS AUDIENCIA DIRECTA ---
     socket.on('check-audience-code', (code, callback) => {
         const rateLimit = checkRateLimit(clientIp);
         if (!rateLimit.allowed) return callback({ success: false, message: rateLimit.message });
@@ -687,7 +677,6 @@ io.on('connection', (socket) => {
         for (const event of eventsDB.values()) {
             const room = (event.rooms || []).find(r => r.audienceCode === code);
             if (room) {
-                // Verificar si la sala individual está pausada
                 if (room.isActive === false) {
                     return callback({ success: false, message: "Esta sala se encuentra temporalmente pausada." });
                 }
@@ -716,7 +705,6 @@ io.on('connection', (socket) => {
         const event = eventsDB.get(data.eventId);
         if (!event || !event.isActive) return;
 
-        // Doble verificación: que la sala individual siga activa
         const roomDef = event.rooms.find(r => r.name === data.roomName);
         if (!roomDef || roomDef.isActive === false) return;
 
@@ -755,7 +743,7 @@ io.on('connection', (socket) => {
 
             io.to(isolatedRoom).emit('room-audience-count', stats.roomCounts[roomName]);
             emitMasterData(); 
-            persistStats(eventId);
+            markStatsDirty(eventId);
         }
         
         socket.emit('event-info', { 
@@ -778,7 +766,7 @@ io.on('connection', (socket) => {
                 }
 
                 emitMasterData();
-                persistStats(eventId);
+                markStatsDirty(eventId);
             }
         }
     });
@@ -795,7 +783,7 @@ io.on('connection', (socket) => {
                     io.to(`${eventId}_${roomName}`).emit('room-audience-count', stats.roomCounts[roomName]);
                 }
                 emitMasterData();
-                persistStats(eventId);
+                markStatsDirty(eventId);
             }
             socketInstance.audienceData = null; 
         }
