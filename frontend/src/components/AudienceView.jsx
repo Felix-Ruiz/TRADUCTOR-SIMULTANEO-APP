@@ -373,7 +373,6 @@ const AudienceView = () => {
   return (
     <div className="flex flex-col h-screen w-full relative">
       
-      {/* MAGIA CSS INYECTADA PARA EFECTOS PREMIUM EN AUDIENCIA */}
       <style>
         {`
           @keyframes shine {
@@ -399,8 +398,32 @@ const AudienceView = () => {
         `}
       </style>
 
-      {/* RENDERIZADO CONDICIONAL DE VISTAS */}
-      
+      {/* FIX CRÍTICO: EL MODAL AHORA ESTÁ EN LA RAÍZ Y CUBRE TODAS LAS VISTAS */}
+      {dialogConfig.isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity">
+          <div className="bg-darker border border-gray-700 p-6 rounded-3xl shadow-[0_0_40px_rgba(0,0,0,0.5)] max-w-sm w-full flex flex-col gap-2 transform transition-all scale-100">
+            <div className="flex items-center gap-3 mb-2">
+               <AlertCircle className={`w-7 h-7 ${dialogConfig.type === 'alert' ? 'text-yellow-500' : 'text-red-500'}`} />
+               <h3 className="text-xl font-bold text-white tracking-wide">{dialogConfig.title}</h3>
+            </div>
+            <p className="text-gray-400 text-sm leading-relaxed mb-4">{dialogConfig.message}</p>
+            <div className="flex justify-end gap-3 mt-2">
+              {dialogConfig.type === 'confirm' && (
+                <button onClick={closeDialog} className="px-5 py-2.5 rounded-xl text-gray-400 hover:bg-gray-800 hover:text-white transition-colors text-sm font-bold tracking-wide">
+                  Cancelar
+                </button>
+              )}
+              <button 
+                onClick={() => { if(dialogConfig.onConfirm) dialogConfig.onConfirm(); closeDialog(); }} 
+                className={`px-5 py-2.5 rounded-xl text-white text-sm font-bold tracking-wide transition-all shadow-lg ${dialogConfig.confirmStyle}`}
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isVerifying ? (
         <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-darker">
           <div className="flex flex-col items-center gap-6 animate-pulse">
@@ -514,30 +537,6 @@ const AudienceView = () => {
         </div>
       ) : !isSystemActive || (audienceCode && (!isEventActive || !isRoomActive)) ? (
         <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-black relative overflow-hidden">
-          {dialogConfig.isOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity">
-              <div className="bg-darker border border-gray-700 p-6 rounded-3xl shadow-[0_0_40px_rgba(0,0,0,0.5)] max-w-sm w-full flex flex-col gap-2 transform transition-all scale-100">
-                <div className="flex items-center gap-3 mb-2">
-                   <AlertCircle className={`w-7 h-7 ${dialogConfig.type === 'alert' ? 'text-yellow-500' : 'text-red-500'}`} />
-                   <h3 className="text-xl font-bold text-white tracking-wide">{dialogConfig.title}</h3>
-                </div>
-                <p className="text-gray-400 text-sm leading-relaxed mb-4">{dialogConfig.message}</p>
-                <div className="flex justify-end gap-3 mt-2">
-                  {dialogConfig.type === 'confirm' && (
-                    <button onClick={closeDialog} className="px-5 py-2.5 rounded-xl text-gray-400 hover:bg-gray-800 hover:text-white transition-colors text-sm font-bold tracking-wide">
-                      Cancelar
-                    </button>
-                  )}
-                  <button 
-                    onClick={() => { if(dialogConfig.onConfirm) dialogConfig.onConfirm(); closeDialog(); }} 
-                    className={`px-5 py-2.5 rounded-xl text-white text-sm font-bold tracking-wide transition-all shadow-lg ${dialogConfig.confirmStyle}`}
-                  >
-                    Confirmar
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
           <div className="absolute inset-0 bg-darker/80 z-0"></div>
           <div className="w-full max-w-sm flex flex-col items-center z-10">
             <div className="bg-red-500/10 p-6 rounded-full mb-8">
@@ -559,7 +558,6 @@ const AudienceView = () => {
       ) : !audienceCode ? (
         <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-darker">
           <div className="w-full max-w-sm flex flex-col items-center">
-            {/* LOGO INICIAL CON ANIMACION */}
             <img src={eventLogo || "/logo.png"} alt="Logo" className="h-14 w-auto object-contain mb-6 drop-shadow-lg animate-logo-pulse" onError={(e) => { e.target.style.display = 'none'; }} />
             
             <h2 className="text-2xl font-bold text-white mb-2 text-center tracking-tight">Traducción en Vivo</h2>
@@ -598,7 +596,6 @@ const AudienceView = () => {
               </button>
             </form>
 
-            {/* TEXTO PATROCINADOR INICIAL CON EFECTO METALICO */}
             {eventSponsor && (
                <div className="mt-8 text-xs font-semibold tracking-wider uppercase text-center w-full">
                    <span className="animate-metallic">{eventSponsor}</span>
@@ -657,7 +654,6 @@ const AudienceView = () => {
             <div ref={messagesEndRef} />
           </div>
           
-          {/* MARCA BLANCA EN MODO TV */}
           {(eventLogo || eventSponsor) && (
               <div className="absolute bottom-8 left-8 z-10 flex items-center gap-4 opacity-70">
                   {eventLogo && <img src={eventLogo} alt="Sponsor Logo" className="h-12 w-auto object-contain animate-logo-pulse" onError={(e) => { e.target.style.display = 'none'; }} />}
@@ -676,7 +672,6 @@ const AudienceView = () => {
           </button>
 
           <div className="w-full max-w-sm flex flex-col items-center mt-6">
-            {/* LOGO EN MODO DE SELECCION */}
             <img src={eventLogo || "/logo.png"} alt="Event Logo" className="h-16 w-auto object-contain mb-6 drop-shadow-lg animate-logo-pulse" onError={(e) => { e.target.src = '/logo.png'; }} />
             
             <h2 className="text-xl font-bold text-gray-400 mb-1 text-center tracking-tight">{eventName}</h2>
@@ -710,7 +705,6 @@ const AudienceView = () => {
               </button>
             </div>
             
-            {/* SPONSOR EN MODO SELECCION */}
             {eventSponsor && (
                <div className="mt-8 text-xs font-semibold tracking-wider uppercase text-center w-full">
                    <span className="animate-metallic">{eventSponsor}</span>
@@ -726,7 +720,6 @@ const AudienceView = () => {
 
           <header className="flex justify-between items-center mb-6 pb-4 border-b border-gray-800 shrink-0">
             <div className="flex items-center gap-3">
-              {/* LOGO EN LA SALA YA ACTIVA */}
               <img src={eventLogo || "/logo.png"} alt="Event Logo" className="h-8 w-auto object-contain animate-logo-pulse" onError={(e) => { e.target.src = '/logo.png'; }} />
               <div className="flex flex-col">
                 <h1 className="text-base font-bold text-white leading-tight truncate max-w-[150px]">{eventName}</h1>
@@ -831,7 +824,6 @@ const AudienceView = () => {
               )}
             </button>
 
-            {/* TEXTO PATROCINADOR EN LA SALA ACTIVA */}
             {eventSponsor && (
                 <div className="mt-4 text-[10px] font-bold tracking-widest uppercase text-center w-full">
                     <span className="animate-metallic">{eventSponsor}</span>
