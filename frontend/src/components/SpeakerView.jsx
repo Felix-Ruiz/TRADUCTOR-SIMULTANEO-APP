@@ -66,11 +66,11 @@ const SpeakerView = () => {
   };
 
   const attemptLogin = (pwd) => {
-    console.log("[🔌 CLIENT] Conectando socket e intentando login de orador...");
+    console.warn("[🔌 CLIENT] Conectando socket e intentando login de orador...");
     socket.connect();
     socket.emit('speaker-login', pwd, (response) => {
       if (response.success) {
-        console.log("[✅ CLIENT] Autenticación de sala exitosa:", response.roomName);
+        console.warn("[✅ CLIENT] Autenticación de sala exitosa:", response.roomName);
         setIsAuthenticated(true);
         setEventInfo(response.event);
         setIsEventActive(response.event.isActive); 
@@ -116,7 +116,7 @@ const SpeakerView = () => {
     if (!isAuthenticated) return; 
 
     socket.on('connect', () => {
-      console.log("[📡 SOCKET] Conexión establecida con el servidor backend.");
+      console.warn("[📡 SOCKET] Conexión establecida con el servidor backend.");
       setIsConnected(true);
     });
     
@@ -183,7 +183,7 @@ const SpeakerView = () => {
   }, [isAuthenticated, isRecording, eventInfo, roomName]);
 
   const stopRecordingLocally = () => {
-    console.log("[🎤 CLIENT] Deteniendo captura de hardware local de audio.");
+    console.warn("[🎤 CLIENT] Deteniendo captura de hardware local de audio.");
     setIsRecording(false);
     if (processorRef.current) processorRef.current.disconnect();
     if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
@@ -193,10 +193,10 @@ const SpeakerView = () => {
   };
 
   const startRecording = async () => {
-    console.log("\n=== [🚀 SENSOR CLIENTE: INICIAR DISCURSO] ===");
-    console.log("-> Estado de la sala (roomName):", roomName);
-    console.log("-> ¿Sala activa internamente? (isRoomActive):", isRoomActive);
-    console.log("-> ¿Socket conectado globalmente? (socket.connected):", socket.connected);
+    console.warn("\n=== [🚀 SENSOR CLIENTE: INICIAR DISCURSO] ===");
+    console.warn("-> Estado de la sala (roomName):", roomName);
+    console.warn("-> ¿Sala activa internamente? (isRoomActive):", isRoomActive);
+    console.warn("-> ¿Socket conectado globalmente? (socket.connected):", socket.connected);
 
     try {
       if (!roomName || !isRoomActive) {
@@ -204,7 +204,7 @@ const SpeakerView = () => {
         return;
       }
 
-      console.log("[🎤 SENSOR] Solicitando permisos de hardware para getUserMedia...");
+      console.warn("[🎤 SENSOR] Solicitando permisos de hardware para getUserMedia...");
       const stream = await navigator.mediaDevices.getUserMedia({ 
           audio: { 
               echoCancellation: true, 
@@ -213,9 +213,9 @@ const SpeakerView = () => {
           } 
       });
       streamRef.current = stream;
-      console.log("[🎤 SENSOR] Permiso de micrófono CONCEDIDO por el usuario.");
+      console.warn("[🎤 SENSOR] Permiso de micrófono CONCEDIDO por el usuario.");
       
-      console.log("[📡 SENSOR] Emitiendo evento WebSocket 'start-translation' hacia Render...");
+      console.warn("[📡 SENSOR] Emitiendo evento WebSocket 'start-translation' hacia Render...");
       socket.emit('start-translation', { 
         fromLanguage: inputLanguage, 
         toLanguages: ['es', 'en', 'pt', 'fr', 'de'],
@@ -270,7 +270,7 @@ const SpeakerView = () => {
       gainNode.connect(audioContext.destination);
 
       setIsRecording(true);
-      console.log("[✅ SENSOR] Captura iniciada y transmitiendo flujo binario PCM16 con éxito.");
+      console.warn("[✅ SENSOR] Captura iniciada y transmitiendo flujo binario PCM16 con éxito.");
     } catch (error) {
       console.error('[❌ SENSOR CRÍTICO] Excepción atrapada en startRecording:', error);
       openDialog("Permiso Denegado", "Por favor, permite el acceso al micrófono en tu navegador para poder transmitir.", "alert");
@@ -506,7 +506,7 @@ const SpeakerView = () => {
                 </select>
                 <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-primary">
                   <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.777 6.586 4.343 8z"/>
+                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
                   </svg>
                 </div>
               </div>
