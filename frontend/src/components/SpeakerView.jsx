@@ -3,7 +3,8 @@ import { io } from 'socket.io-client';
 import { Mic, Square, Radio, Globe, Download, Lock, AlertTriangle, AlertCircle, Users, Monitor, MonitorPlay, Copy, CheckCircle2, Scale } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
-const socket = io(import.meta.env.VITE_BACKEND_URL, { autoConnect: false });
+// FIX: Se añade el fallback de URL para evitar conexiones caídas o indefinidas
+const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001', { autoConnect: false });
 
 const langNames = {
   'es': 'Español',
@@ -65,9 +66,11 @@ const SpeakerView = () => {
   };
 
   const attemptLogin = (pwd) => {
+    console.log("[🔌 CLIENT] Conectando socket e intentando login de orador...");
     socket.connect();
     socket.emit('speaker-login', pwd, (response) => {
       if (response.success) {
+        console.log("[✅ CLIENT] Autenticación de sala exitosa:", response.roomName);
         setIsAuthenticated(true);
         setEventInfo(response.event);
         setIsEventActive(response.event.isActive); 
@@ -77,6 +80,7 @@ const SpeakerView = () => {
         sessionStorage.setItem('speakerPwd', pwd);
         setLoginError('');
       } else {
+        console.warn("[⚠️ CLIENT] Error en la autenticación de sala:", response.message);
         setLoginError(response.message || 'Contraseña de sala incorrecta.');
         setPasswordInput('');
         sessionStorage.removeItem('speakerPwd');
@@ -111,9 +115,13 @@ const SpeakerView = () => {
   useEffect(() => {
     if (!isAuthenticated) return; 
 
-    socket.on('connect', () => setIsConnected(true));
+    socket.on('connect', () => {
+      console.log("[📡 SOCKET] Conexión establecida con el servidor backend.");
+      setIsConnected(true);
+    });
     
     socket.on('disconnect', () => {
+      console.warn("[📡 SOCKET] Conexión perdida con el servidor backend.");
       setIsConnected(false);
       stopRecordingLocally();
     });
@@ -175,6 +183,7 @@ const SpeakerView = () => {
   }, [isAuthenticated, isRecording, eventInfo, roomName]);
 
   const stopRecordingLocally = () => {
+    console.log("[🎤 CLIENT] Deteniendo captura de hardware local de audio.");
     setIsRecording(false);
     if (processorRef.current) processorRef.current.disconnect();
     if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
@@ -184,9 +193,18 @@ const SpeakerView = () => {
   };
 
   const startRecording = async () => {
-    try {
-      if (!roomName || !isRoomActive) return;
+    console.log("\n=== [🚀 SENSOR CLIENTE: INICIAR DISCURSO] ===");
+    console.log("-> Estado de la sala (roomName):", roomName);
+    console.log("-> ¿Sala activa internamente? (isRoomActive):", isRoomActive);
+    console.log("-> ¿Socket conectado globalmente? (socket.connected):", socket.connected);
 
+    try {
+      if (!roomName || !isRoomActive) {
+        console.error("[❌ SENSOR] Cancelado: El nombre de la sala no es válido o está pausada en la interfaz.");
+        return;
+      }
+
+      console.log("[🎤 SENSOR] Solicitando permisos de hardware para getUserMedia...");
       const stream = await navigator.mediaDevices.getUserMedia({ 
           audio: { 
               echoCancellation: true, 
@@ -195,7 +213,9 @@ const SpeakerView = () => {
           } 
       });
       streamRef.current = stream;
+      console.log("[🎤 SENSOR] Permiso de micrófono CONCEDIDO por el usuario.");
       
+      console.log("[📡 SENSOR] Emitiendo evento WebSocket 'start-translation' hacia Render...");
       socket.emit('start-translation', { 
         fromLanguage: inputLanguage, 
         toLanguages: ['es', 'en', 'pt', 'fr', 'de'],
@@ -250,8 +270,9 @@ const SpeakerView = () => {
       gainNode.connect(audioContext.destination);
 
       setIsRecording(true);
+      console.log("[✅ SENSOR] Captura iniciada y transmitiendo flujo binario PCM16 con éxito.");
     } catch (error) {
-      console.error('Error accediendo al micrófono:', error);
+      console.error('[❌ SENSOR CRÍTICO] Excepción atrapada en startRecording:', error);
       openDialog("Permiso Denegado", "Por favor, permite el acceso al micrófono en tu navegador para poder transmitir.", "alert");
     }
   };
@@ -445,7 +466,6 @@ const SpeakerView = () => {
         </div>
         
         <div className="w-full lg:w-auto flex flex-row items-center gap-4 sm:gap-5 bg-darker p-3 sm:p-4 rounded-xl border border-gray-700 shadow-inner">
-          {/* EL QR AHORA ES VISIBLE SIEMPRE. Quité la clase 'hidden xs:block' */}
           <div className="bg-white p-2 rounded-xl shrink-0">
             <QRCodeSVG value={audienceUrl} size={64} />
           </div>
@@ -455,7 +475,7 @@ const SpeakerView = () => {
               Abrir enlace de sala ↗
             </a>
             <div className="flex items-center justify-between sm:justify-start gap-2 bg-black/30 p-1.5 rounded-lg sm:bg-transparent sm:p-0">
-                <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Cód:</span>
+                <span className="text-[10px] text-gray-500 font-bold tracking-widest">Cód:</span>
                 <span className="bg-gray-800 text-white px-2 py-0.5 rounded text-xs font-mono tracking-widest">{audienceCode}</span>
                 <button onClick={() => copyToClipboard(audienceCode)} className="text-gray-400 hover:text-white transition-colors p-1 sm:p-0" title="Copiar código">
                     {copiedText === audienceCode ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
@@ -486,7 +506,7 @@ const SpeakerView = () => {
                 </select>
                 <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-primary">
                   <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.777 6.586 4.343 8z"/>
                   </svg>
                 </div>
               </div>
@@ -626,7 +646,7 @@ const SpeakerView = () => {
           ) : (
             <button 
               onClick={stopRecording}
-              className="w-full sm:w-auto flex items-center justify-center gap-3 bg-red-500 hover:bg-red-600 text-white px-6 sm:px-8 py-4 sm:py-4 rounded-full font-semibold transition-all shadow-lg hover:shadow-red-500/25"
+              className="w-full sm:w-auto flex items-center justify-center gap-3 bg-red-500 hover:bg-red-600 text-white px-6 sm:px-8 py-4 sm:py-4 rounded-full font-semibold transition-all shadow-lg hover:shadow-blue-500/25"
             >
               <Square className="w-5 h-5 sm:w-6 sm:h-6 fill-current shrink-0" />
               <span className="text-sm sm:text-base">Detener Transmisión</span>
@@ -654,9 +674,9 @@ const SpeakerView = () => {
         )}
 
         {eventInfo?.sponsorText && (
-            <div className="mt-4 text-[10px] font-bold tracking-widest uppercase text-center w-full">
-                <span className="animate-metallic text-xs">{eventInfo.sponsorText}</span>
-            </div>
+          <div className="mt-4 text-[10px] font-bold tracking-widest uppercase text-center w-full">
+              <span className="animate-metallic text-xs">{eventInfo.sponsorText}</span>
+          </div>
         )}
         
         <div className="mt-4 flex items-center justify-center gap-1.5 text-[9px] font-bold text-gray-600 tracking-widest uppercase opacity-50 w-full text-center">
