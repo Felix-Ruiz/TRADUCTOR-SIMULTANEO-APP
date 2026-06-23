@@ -245,7 +245,7 @@ const initEventStats = (eventId) => {
     }
 };
 
-const MASTER_PASSWORD = process.env.MASTER_PASSWORD || "superadmin123";
+const MASTER_PASSWORD = "acofi";
 const activeSpeakerRooms = new Map();
 
 const getSerializedStats = (eventId) => {
@@ -300,6 +300,8 @@ io.on('connection', (socket) => {
     let translationService = null;
 
     socket.on('master-login', (pwd, callback) => {
+        console.log(`[DEBUG] Clave esperada: '${MASTER_PASSWORD}' | Clave recibida del frontend: '${pwd}'`);
+        
         const rateLimit = checkRateLimit(clientIp);
         if (!rateLimit.allowed) return callback({ success: false, message: rateLimit.message });
 
