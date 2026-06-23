@@ -599,13 +599,35 @@ io.on('connection', (socket) => {
     });
 
     socket.on('start-translation', (config) => {
-        if (!isSystemActive) return;
+        console.log(`\n[🎤 DEBUG] Petición de transmisión recibida: Sala '${config.roomName}' | Evento '${config.eventId}'`);
+        
+        if (!isSystemActive) {
+            console.log(`[❌ DEBUG] Bloqueado: La Central de Sistema está APAGADA.`);
+            return;
+        }
+        
         const event = eventsDB.get(config.eventId);
-        if (!event || !event.isActive) return;
+        if (!event) {
+            console.log(`[❌ DEBUG] Bloqueado: El evento '${config.eventId}' NO EXISTE en memoria.`);
+            return;
+        }
+        if (!event.isActive) {
+            console.log(`[❌ DEBUG] Bloqueado: El evento '${event.name}' está PAUSADO.`);
+            return;
+        }
         
         const room = event.rooms.find(r => r.name === config.roomName);
-        if (!room || room.isActive === false) return;
+        if (!room) {
+            console.log(`[❌ DEBUG] Bloqueado: La sala '${config.roomName}' NO EXISTE en este evento.`);
+            return;
+        }
+        if (room.isActive === false) {
+            console.log(`[❌ DEBUG] Bloqueado: La sala '${config.roomName}' está PAUSADA.`);
+            return;
+        }
 
+        console.log(`[✅ DEBUG] Validación exitosa. Conectando con Microsoft Azure...`);
+        
         const eventId = config.eventId;
         const roomName = config.roomName;
         const isolatedRoom = `${eventId}_${roomName}`;
@@ -625,6 +647,8 @@ io.on('connection', (socket) => {
     });
 
     socket.on('audio-stream', (data) => {
+        // Descomenta la siguiente línea SOLO si quieres ver una locura de logs (cientos por segundo)
+        // console.log(`[🌊 AUDIO] Paquete de audio recibido...`);
         if (translationService && isSystemActive) translationService.writeAudio(data);
     });
 
