@@ -178,14 +178,12 @@ const connectDB = async () => {
 connectDB();
 
 // --- NUEVO: SISTEMA ANTI-COLAPSO DE MONGODB (Batch Processing) ---
-// En lugar de guardar cada vez que alguien entra, anotamos qué evento cambió y guardamos en bloque.
 const pendingEventUpdates = new Set();
 const pendingStatsUpdates = new Set();
 
 const markEventDirty = (eventId) => pendingEventUpdates.add(eventId);
 const markStatsDirty = (eventId) => pendingStatsUpdates.add(eventId);
 
-// El "repartidor" que pasa cada 10 segundos guardando todo de un golpe
 setInterval(async () => {
     if (!process.env.MONGO_URI) return;
 
@@ -224,8 +222,7 @@ setInterval(async () => {
         }
         pendingStatsUpdates.delete(eventId);
     }
-}, 10000); // 10 segundos de protección (Debounce)
-// -----------------------------------------------------------------
+}, 10000); 
 
 const initEventStats = (eventId) => {
     if (!statsDB.has(eventId)) {
@@ -294,6 +291,9 @@ app.get('/api/status', (req, res) => {
 io.on('connection', (socket) => {
     const rawIp = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address || "unknown_ip";
     const clientIp = rawIp.split(',')[0].trim();
+    
+    // RADAR DE CONEXIÓN
+    console.log(`\n[🔗 NUEVA CONEXIÓN] Un cliente acaba de abrir la página. IP: ${clientIp} | ID: ${socket.id}`);
     
     socket.emit('system-status', isSystemActive);
 
@@ -565,6 +565,9 @@ io.on('connection', (socket) => {
     });
 
     socket.on('speaker-login', (password, callback) => {
+        // RADAR DE LOGIN DE ORADOR
+        console.log(`[🔐 SENSOR] Alguien intentó entrar como Orador con la clave: ${password}`);
+
         const rateLimit = checkRateLimit(clientIp);
         if (!rateLimit.allowed) return callback({ success: false, message: rateLimit.message });
 
@@ -591,6 +594,7 @@ io.on('connection', (socket) => {
             const currentCount = stats?.roomCounts?.[foundRoom.name] || 0;
             socket.emit('room-audience-count', currentCount);
 
+            console.log(`[✅ SENSOR] Orador autenticado exitosamente en la sala: ${foundRoom.name}`);
             callback({ success: true, event: foundEvent, roomName: foundRoom.name, audienceCode: foundRoom.audienceCode });
         } else {
             registerFailedAttempt(clientIp);
@@ -647,8 +651,9 @@ io.on('connection', (socket) => {
     });
 
     socket.on('audio-stream', (data) => {
-        // Descomenta la siguiente línea SOLO si quieres ver una locura de logs (cientos por segundo)
-        // console.log(`[🌊 AUDIO] Paquete de audio recibido...`);
+        // RADAR DE AUDIO EN VIVO
+        console.log(`[🌊 AUDIO] Paquete de audio recibido... tamaño: ${data.byteLength || data.length}`);
+        
         if (translationService && isSystemActive) translationService.writeAudio(data);
     });
 
@@ -688,6 +693,7 @@ io.on('connection', (socket) => {
     };
 
     socket.on('stop-translation', () => {
+        console.log(`[🛑 SENSOR] Petición de detener transmisión recibida.`);
         handleSpeakerStop();
         if (translationService) {
             translationService.stop();
@@ -823,6 +829,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', () => {
+        console.log(`[❌ DESCONEXIÓN] Un cliente se ha ido. ID: ${socket.id}`);
         handleSpeakerStop();
         if (translationService) {
             try { translationService.stop(); } catch(e) {}
