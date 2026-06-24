@@ -34,7 +34,8 @@ process.on('unhandledRejection', (reason, promise) => {
     console.error('[!] ALERTA CRÍTICA: Promesa rechazada bloqueada:', reason);
 });
 
-let isSystemActive = false; 
+// FIX: Encendido automático por defecto para evitar que el sistema se apague en reinicios de Render
+let isSystemActive = true; 
 
 const eventsDB = new Map();
 const statsDB = new Map(); 
@@ -292,7 +293,6 @@ io.on('connection', (socket) => {
     const rawIp = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address || "unknown_ip";
     const clientIp = rawIp.split(',')[0].trim();
     
-    // RADAR DE CONEXIÓN
     console.log(`\n[🔗 NUEVA CONEXIÓN] Un cliente acaba de abrir la página. IP: ${clientIp} | ID: ${socket.id}`);
     
     socket.emit('system-status', isSystemActive);
@@ -565,7 +565,6 @@ io.on('connection', (socket) => {
     });
 
     socket.on('speaker-login', (password, callback) => {
-        // RADAR DE LOGIN DE ORADOR
         console.log(`[🔐 SENSOR] Alguien intentó entrar como Orador con la clave: ${password}`);
 
         const rateLimit = checkRateLimit(clientIp);
@@ -651,8 +650,8 @@ io.on('connection', (socket) => {
     });
 
     socket.on('audio-stream', (data) => {
-        // RADAR DE AUDIO EN VIVO
-        console.log(`[🌊 AUDIO] Paquete de audio recibido... tamaño: ${data.byteLength || data.length}`);
+        // RADAR DE AUDIO APAGADO: Para no saturar los logs de Render
+        // console.log(`[🌊 AUDIO] Paquete de audio recibido... tamaño: ${data.byteLength || data.length}`);
         
         if (translationService && isSystemActive) translationService.writeAudio(data);
     });
