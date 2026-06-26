@@ -412,6 +412,7 @@ const AudienceView = () => {
           .animate-logo-pulse {
             animation: logo-glow 3s ease-in-out infinite;
           }
+          /* MODIFICACIÓN DE VELOCIDAD: Cambiado de 40s a 90s para máxima legibilidad */
           .animate-scroll-left {
             animation: scroll-left 90s linear infinite;
           }
@@ -671,7 +672,8 @@ const AudienceView = () => {
             </button>
           </div>
 
-          <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col justify-end gap-6 overflow-hidden relative z-0 pb-8 md:pb-12">
+          {/* MODIFICACIÓN CRÍTICA DE ALTURA: pb-2 md:pb-4 para dejar bajar los puntos suspensivos al máximo */}
+          <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col justify-end gap-6 overflow-hidden relative z-0 pb-2 md:pb-4">
             {finalTexts.map((text, idx) => (
               <p key={idx} className="text-4xl md:text-5xl lg:text-6xl font-medium text-white/50 text-left leading-normal tracking-wide drop-shadow-2xl transition-all duration-300">
                 {text}
