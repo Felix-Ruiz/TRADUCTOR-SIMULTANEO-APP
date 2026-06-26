@@ -115,7 +115,7 @@ const eventSchema = new mongoose.Schema({
     rooms: Array,
     isActive: Boolean,
     logoUrl: String,
-    logos: Array, // Soporte para múltiples logos con configuración móvil
+    logos: Array, 
     sponsorText: String
 });
 const EventModel = mongoose.model('Event', eventSchema);
@@ -395,6 +395,36 @@ io.on('connection', (socket) => {
         emitMasterData();
     });
 
+    // NUEVO: Evento para editar el evento sin borrarlo
+    socket.on('master-edit-event', (data, callback) => {
+        const event = eventsDB.get(data.id);
+        if (event) {
+            event.name = data.name || event.name;
+            event.logos = data.logos || event.logos;
+            event.logoUrl = data.logos && data.logos.length > 0 ? data.logos[0].url : '';
+            event.sponsorText = data.sponsorText !== undefined ? data.sponsorText : event.sponsorText;
+            
+            markEventDirty(data.id);
+            emitMasterData();
+            
+            // Avisar a todas las salas de este evento para que se actualice la UI en vivo
+            if (event.rooms) {
+                event.rooms.forEach(room => {
+                    io.to(`${event.id}_${room.name}`).emit('event-info', { 
+                        name: event.name, 
+                        isActive: event.isActive, 
+                        logoUrl: event.logoUrl, 
+                        logos: event.logos, 
+                        sponsorText: event.sponsorText 
+                    });
+                });
+            }
+            callback({ success: true });
+        } else {
+            callback({ success: false, message: "Evento no encontrado" });
+        }
+    });
+
     socket.on('master-delete-event', (id, callback) => {
         eventsDB.delete(id);
         statsDB.delete(id);
@@ -653,9 +683,6 @@ io.on('connection', (socket) => {
     });
 
     socket.on('audio-stream', (data) => {
-        // RADAR DE AUDIO APAGADO: Para no saturar los logs de Render
-        // console.log(`[🌊 AUDIO] Paquete de audio recibido... tamaño: ${data.byteLength || data.length}`);
-        
         if (translationService && isSystemActive) translationService.writeAudio(data);
     });
 

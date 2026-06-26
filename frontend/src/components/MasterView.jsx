@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
-import { Shield, Power, Plus, Trash2, Key, Activity, Copy, CheckCircle2, X, Users, AlertCircle, BarChart3, Image as ImageIcon, Briefcase, UserCog, ExternalLink, MonitorPlay, Mic, Download, Cpu, Scale } from 'lucide-react';
+import { Shield, Power, Plus, Trash2, Key, Activity, Copy, CheckCircle2, X, Users, AlertCircle, BarChart3, Image as ImageIcon, Briefcase, UserCog, ExternalLink, MonitorPlay, Mic, Download, Cpu, Scale, Edit } from 'lucide-react';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001', { autoConnect: false });
 
@@ -19,6 +19,9 @@ const MasterView = () => {
   const [newLogos, setNewLogos] = useState([{ url: '', showOnMobile: false }]);
   const [newSponsorText, setNewSponsorText] = useState('');
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
+
+  // NUEVO: Estado para el evento que se está editando
+  const [editingEvent, setEditingEvent] = useState(null);
 
   const [newRoomName, setNewRoomName] = useState('');
   const [selectedEventId, setSelectedEventId] = useState(null);
@@ -122,31 +125,84 @@ const MasterView = () => {
       }
   };
 
+  // LOGICA DE LOGOS (Para creación)
   const handleLogoChange = (index, value) => {
       const updated = [...newLogos];
       updated[index].url = value;
       setNewLogos(updated);
   };
-
   const toggleMobileLogo = (index) => {
       const updated = [...newLogos];
       const currentMobileCount = updated.filter(l => l.showOnMobile).length;
-      if (!updated[index].showOnMobile && currentMobileCount >= 3) {
-          return;
-      }
+      if (!updated[index].showOnMobile && currentMobileCount >= 3) return;
       updated[index].showOnMobile = !updated[index].showOnMobile;
       setNewLogos(updated);
   };
-
   const addLogoField = () => {
-      if (newLogos.length < 10) {
-          setNewLogos([...newLogos, { url: '', showOnMobile: false }]);
-      }
+      if (newLogos.length < 10) setNewLogos([...newLogos, { url: '', showOnMobile: false }]);
+  };
+  const removeLogoField = (index) => {
+      setNewLogos(newLogos.filter((_, i) => i !== index));
   };
 
-  const removeLogoField = (index) => {
-      const updated = newLogos.filter((_, i) => i !== index);
-      setNewLogos(updated);
+  // LOGICA DE LOGOS (Para edición)
+  const handleEditLogoChange = (index, value) => {
+      const updated = [...editingEvent.logos];
+      updated[index].url = value;
+      setEditingEvent({ ...editingEvent, logos: updated });
+  };
+  const toggleEditMobileLogo = (index) => {
+      const updated = [...editingEvent.logos];
+      const currentMobileCount = updated.filter(l => l.showOnMobile).length;
+      if (!updated[index].showOnMobile && currentMobileCount >= 3) return;
+      updated[index].showOnMobile = !updated[index].showOnMobile;
+      setEditingEvent({ ...editingEvent, logos: updated });
+  };
+  const addEditLogoField = () => {
+      if (editingEvent.logos.length < 10) {
+          setEditingEvent({ ...editingEvent, logos: [...editingEvent.logos, { url: '', showOnMobile: false }] });
+      }
+  };
+  const removeEditLogoField = (index) => {
+      const updated = editingEvent.logos.filter((_, i) => i !== index);
+      setEditingEvent({ ...editingEvent, logos: updated });
+  };
+
+  const openEditModal = (eventObj) => {
+      // Normalizar logos viejos para el modal
+      let normalizedLogos = [];
+      if (eventObj.logos && eventObj.logos.length > 0) {
+          normalizedLogos = JSON.parse(JSON.stringify(eventObj.logos));
+      } else if (eventObj.logoUrl) {
+          normalizedLogos = [{ url: eventObj.logoUrl, showOnMobile: true }];
+      } else {
+          normalizedLogos = [{ url: '', showOnMobile: false }];
+      }
+
+      setEditingEvent({
+          id: eventObj.id,
+          name: eventObj.name,
+          sponsorText: eventObj.sponsorText || '',
+          logos: normalizedLogos
+      });
+  };
+
+  const handleSaveEdit = (e) => {
+      e.preventDefault();
+      if (!editingEvent.name.trim()) return;
+
+      const validLogos = editingEvent.logos.filter(l => l.url.trim() !== '');
+
+      socket.emit('master-edit-event', {
+          id: editingEvent.id,
+          name: editingEvent.name,
+          logos: validLogos,
+          sponsorText: editingEvent.sponsorText
+      }, (response) => {
+          if (response.success) {
+              setEditingEvent(null);
+          }
+      });
   };
 
   const handleCreateEvent = (e) => {
@@ -410,7 +466,7 @@ const MasterView = () => {
     <div className="flex flex-col h-screen w-full p-4 sm:p-6 md:p-8 max-w-6xl mx-auto overflow-hidden bg-darker relative">
       
       {dialogConfig.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity">
           <div className="bg-darker border border-gray-700 p-6 rounded-3xl shadow-[0_0_40px_rgba(0,0,0,0.5)] max-w-sm w-full flex flex-col gap-2 transform transition-all scale-100">
             <div className="flex items-center gap-3 mb-2">
                <AlertCircle className={`w-7 h-7 ${dialogConfig.type === 'alert' ? 'text-yellow-500' : 'text-red-500'}`} />
@@ -430,6 +486,100 @@ const MasterView = () => {
                 {dialogConfig.type === 'alert' ? 'Entendido' : 'Confirmar'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE EDICIÓN DE EVENTO */}
+      {editingEvent && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity">
+          <div className="bg-dark border border-gray-700 p-6 rounded-3xl shadow-[0_0_50px_rgba(0,0,0,0.7)] max-w-2xl w-full flex flex-col gap-4 transform transition-all scale-100 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-2 border-b border-gray-800 pb-4">
+               <h3 className="text-xl font-bold text-white tracking-wide flex items-center gap-2">
+                   <Edit className="w-5 h-5 text-primary" /> Editar Evento
+               </h3>
+               <button onClick={() => setEditingEvent(null)} className="text-gray-500 hover:text-white transition-colors">
+                   <X className="w-6 h-6" />
+               </button>
+            </div>
+            
+            <form onSubmit={handleSaveEdit} className="flex flex-col gap-5 mt-2">
+                <div>
+                    <label className="flex items-center gap-2 text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider">Nombre del Cliente</label>
+                    <input 
+                        type="text" 
+                        value={editingEvent.name} 
+                        onChange={(e) => setEditingEvent({...editingEvent, name: e.target.value})} 
+                        className="w-full bg-darker border border-gray-700 text-white text-base rounded-xl p-3 focus:ring-2 focus:ring-primary focus:outline-none transition-all" 
+                    />
+                </div>
+
+                <div className="bg-black/30 p-4 rounded-xl border border-gray-800">
+                    <label className="flex items-center justify-between text-xs font-bold text-gray-500 mb-3 uppercase tracking-wider">
+                        <span className="flex items-center gap-2"><ImageIcon className="w-3 h-3"/> Logos Patrocinadores (Máx 10)</span>
+                        <span className="text-gray-600 text-[9px]">* Máx 3 para móvil</span>
+                    </label>
+                    <div className="flex flex-col gap-2 max-h-48 overflow-y-auto pr-1 mb-3">
+                        {editingEvent.logos.map((logo, index) => (
+                            <div key={index} className="flex items-center gap-2">
+                                <input 
+                                    type="text" 
+                                    value={logo.url} 
+                                    onChange={(e) => handleEditLogoChange(index, e.target.value)} 
+                                    placeholder="https://ejemplo.com/logo.png" 
+                                    className="flex-1 bg-darker border border-gray-700 text-gray-300 text-sm rounded-lg p-2.5 focus:ring-1 focus:ring-primary focus:outline-none transition-all" 
+                                />
+                                <button 
+                                    type="button" 
+                                    onClick={() => toggleEditMobileLogo(index)} 
+                                    disabled={!logo.showOnMobile && editingEvent.logos.filter(l => l.showOnMobile).length >= 3} 
+                                    className={`p-2.5 rounded-lg text-sm transition-colors border ${logo.showOnMobile ? 'bg-primary/20 border-primary text-primary' : 'bg-darker border-gray-700 text-gray-500 hover:text-gray-300'}`} 
+                                    title={logo.showOnMobile ? "Visible en Móvil" : "Destacar en Móvil"}
+                                >
+                                    📱
+                                </button>
+                                <button 
+                                    type="button" 
+                                    onClick={() => removeEditLogoField(index)} 
+                                    className="p-2.5 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-lg transition-colors border border-red-500/20"
+                                    title="Eliminar logo"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                    {editingEvent.logos.length < 10 && (
+                        <button 
+                            type="button" 
+                            onClick={addEditLogoField} 
+                            className="w-full bg-darker border border-gray-700 hover:bg-gray-800 text-gray-400 text-xs font-bold py-2 rounded-lg transition-colors uppercase tracking-widest"
+                        >
+                            + Añadir otro logo
+                        </button>
+                    )}
+                </div>
+
+                <div>
+                    <label className="flex items-center gap-2 text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider"><Briefcase className="w-3 h-3"/> Texto de Patrocinador</label>
+                    <input 
+                        type="text" 
+                        value={editingEvent.sponsorText} 
+                        onChange={(e) => setEditingEvent({...editingEvent, sponsorText: e.target.value})} 
+                        placeholder="Patrocinado por..." 
+                        className="w-full bg-darker border border-gray-700 text-gray-300 text-sm rounded-lg p-3 focus:ring-1 focus:ring-primary focus:outline-none transition-all" 
+                    />
+                </div>
+
+                <div className="flex flex-col sm:flex-row justify-end gap-3 mt-4 pt-4 border-t border-gray-800">
+                    <button type="button" onClick={() => setEditingEvent(null)} className="px-6 py-3 rounded-xl text-gray-400 hover:bg-gray-800 hover:text-white transition-colors text-sm font-bold tracking-wide">
+                        Cancelar
+                    </button>
+                    <button type="submit" disabled={!editingEvent.name.trim()} className="px-6 py-3 rounded-xl text-white bg-primary hover:bg-blue-600 transition-all shadow-lg hover:shadow-blue-500/25 text-sm font-bold tracking-wide disabled:opacity-50">
+                        Guardar Cambios
+                    </button>
+                </div>
+            </form>
           </div>
         </div>
       )}
@@ -589,6 +739,20 @@ const MasterView = () => {
                     </span>
                 </div>
                 <div className="flex items-center gap-2 w-full sm:w-auto justify-end shrink-0">
+                    {/* BOTÓN EDITAR */}
+                    <button 
+                        onClick={() => openEditModal(event)}
+                        disabled={!isSystemActive}
+                        className={`p-2.5 rounded-lg transition-colors flex-1 sm:flex-none flex justify-center ${
+                          !isSystemActive 
+                            ? 'opacity-30 cursor-not-allowed' 
+                            : 'bg-blue-500/10 hover:bg-blue-500 text-blue-500 hover:text-white'
+                        }`}
+                        title="Editar Evento"
+                    >
+                        <Edit className="w-5 h-5 sm:w-4 sm:h-4" />
+                    </button>
+                    
                     <button 
                         onClick={() => toggleEventStatus(event.id, event.isActive)}
                         disabled={!isSystemActive}
