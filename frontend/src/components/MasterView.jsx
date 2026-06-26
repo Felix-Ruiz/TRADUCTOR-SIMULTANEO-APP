@@ -29,9 +29,7 @@ const MasterView = () => {
 
   const [dialogConfig, setDialogConfig] = useState({ isOpen: false, title: '', message: '', type: 'confirm', onConfirm: null, confirmStyle: '' });
 
-  const openDialog = (title, message, type = 'confirm', onConfirm = null, confirmStyle = 'bg-primary hover:bg-blue-600 shadow-blue-500/25') => {
-    setDialogConfig({ isOpen: true, title, message, type, onConfirm, confirmStyle });
-  };
+  const openDialog = (title, message, type = 'confirm', onConfirm = null, confirmStyle = 'bg-primary hover:bg-blue-600 shadow-blue-500/25');
   const closeDialog = () => setDialogConfig(prev => ({ ...prev, isOpen: false }));
 
   useEffect(() => {
@@ -138,7 +136,7 @@ const MasterView = () => {
       setNewLogos(updated);
   };
   const addLogoField = () => {
-      if (newLogos.length < 10) setNewLogos([...newLogos, { url: '', showOnMobile: false }]);
+      setNewLogos([...newLogos, { url: '', showOnMobile: false }]);
   };
   const removeLogoField = (index) => {
       setNewLogos(newLogos.filter((_, i) => i !== index));
@@ -157,9 +155,7 @@ const MasterView = () => {
       setEditingEvent({ ...editingEvent, logos: updated });
   };
   const addEditLogoField = () => {
-      if (editingEvent.logos.length < 10) {
-          setEditingEvent({ ...editingEvent, logos: [...editingEvent.logos, { url: '', showOnMobile: false }] });
-      }
+      setEditingEvent({ ...editingEvent, logos: [...editingEvent.logos, { url: '', showOnMobile: false }] });
   };
   const removeEditLogoField = (index) => {
       const updated = editingEvent.logos.filter((_, i) => i !== index);
@@ -503,7 +499,7 @@ const MasterView = () => {
         </div>
       )}
 
-      {/* MODAL DE EDICIÓN DE EVENTO BLINDADO */}
+      {/* MODAL DE EDICIÓN DE EVENTO BLINDADO (CAPACIDAD ILIMITADA DE LOGOS) */}
       {editingEvent && (
         <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity">
           <div className="bg-dark border border-gray-700 p-6 rounded-3xl shadow-[0_0_50px_rgba(0,0,0,0.7)] max-w-2xl w-full flex flex-col gap-4 transform transition-all scale-100 max-h-[90vh] overflow-y-auto">
@@ -529,7 +525,7 @@ const MasterView = () => {
 
                 <div className="bg-black/30 p-4 rounded-xl border border-gray-800">
                     <label className="flex items-center justify-between text-xs font-bold text-gray-500 mb-3 uppercase tracking-wider">
-                        <span className="flex items-center gap-2"><ImageIcon className="w-3 h-3"/> Logos Patrocinadores (Máx 10)</span>
+                        <span className="flex items-center gap-2"><ImageIcon className="w-3 h-3"/> Logos Patrocinadores</span>
                         <span className="text-gray-600 text-[9px]">* Máx 3 para móvil</span>
                     </label>
                     <div className="flex flex-col gap-2 max-h-48 overflow-y-auto pr-1 mb-3">
@@ -562,15 +558,13 @@ const MasterView = () => {
                             </div>
                         ))}
                     </div>
-                    {editingEvent.logos.length < 10 && (
-                        <button 
-                            type="button" 
-                            onClick={addEditLogoField} 
-                            className="w-full bg-darker border border-gray-700 hover:bg-gray-800 text-gray-400 text-xs font-bold py-2 rounded-lg transition-colors uppercase tracking-widest"
-                        >
-                            + Añadir otro logo
-                        </button>
-                    )}
+                    <button 
+                        type="button" 
+                        onClick={addEditLogoField} 
+                        className="mt-3 w-full bg-dark border border-gray-700 hover:bg-gray-800 text-gray-400 text-xs font-bold py-2 rounded-lg transition-colors uppercase tracking-widest"
+                    >
+                        + Añadir otro logo
+                    </button>
                     <div className="flex items-center justify-between bg-black/40 p-3 rounded-lg border border-gray-700 mt-4">
                         <span className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
                             <MonitorPlay className="w-4 h-4"/> Activar Carrusel (Solo TV)
@@ -686,7 +680,7 @@ const MasterView = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2 p-4 bg-black/30 rounded-xl border border-gray-800">
                     <div>
                         <label className="flex items-center justify-between text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider">
-                            <span className="flex items-center gap-2"><ImageIcon className="w-3 h-3"/> Logos Patrocinadores (Máx 10)</span>
+                            <span className="flex items-center gap-2"><ImageIcon className="w-3 h-3"/> Logos Patrocinadores</span>
                             <span className="text-gray-600 text-[9px]">* Máx 3 para móvil</span>
                         </label>
                         <div className="flex flex-col gap-2 max-h-48 overflow-y-auto pr-1">
@@ -712,7 +706,7 @@ const MasterView = () => {
                                     {newLogos.length > 1 && (
                                         <button 
                                             type="button" 
-                                            onClick={() => removeLogoField(index)} 
+                                            onClick={removeLogoField(index)} 
                                             disabled={!isSystemActive} 
                                             className="p-2.5 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-lg transition-colors border border-red-500/20"
                                             title="Eliminar logo"
@@ -723,16 +717,14 @@ const MasterView = () => {
                                 </div>
                             ))}
                         </div>
-                        {newLogos.length < 10 && (
-                            <button 
-                                type="button" 
-                                onClick={addLogoField} 
-                                disabled={!isSystemActive} 
-                                className="mt-3 w-full bg-dark border border-gray-700 hover:bg-gray-800 text-gray-400 text-xs font-bold py-2 rounded-lg transition-colors uppercase tracking-widest"
-                            >
-                                + Añadir otro logo
-                            </button>
-                        )}
+                        <button 
+                            type="button" 
+                            onClick={addLogoField} 
+                            disabled={!isSystemActive} 
+                            className="mt-3 w-full bg-dark border border-gray-700 hover:bg-gray-800 text-gray-400 text-xs font-bold py-2 rounded-lg transition-colors uppercase tracking-widest"
+                        >
+                            + Añadir otro logo
+                        </button>
                         <div className="flex items-center justify-between bg-black/40 p-3 rounded-lg border border-gray-700 mt-4">
                             <span className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
                                 <MonitorPlay className="w-4 h-4"/> Activar Carrusel (Solo TV)
@@ -962,7 +954,6 @@ const MasterView = () => {
                                 </span>
                             </div>
 
-                            {/* GATILLOS: PAUSAR SALA, EVACUACIÓN Y ELIMINAR */}
                             {isSystemActive && event.isActive && (
                                 <>
                                     <button 

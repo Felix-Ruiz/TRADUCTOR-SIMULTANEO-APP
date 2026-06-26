@@ -412,8 +412,9 @@ const AudienceView = () => {
           .animate-logo-pulse {
             animation: logo-glow 3s ease-in-out infinite;
           }
+          /* MODIFICACIÓN DE VELOCIDAD: Cambiado de 40s a 90s para máxima legibilidad */
           .animate-scroll-left {
-            animation: scroll-left 40s linear infinite;
+            animation: scroll-left 90s linear infinite;
           }
           .mask-edges {
             -webkit-mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
@@ -671,7 +672,8 @@ const AudienceView = () => {
             </button>
           </div>
 
-          <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col justify-end gap-6 overflow-hidden relative z-0 pb-20 md:pb-28">
+          {/* MODIFICACIÓN CRÍTICA DE ALTURA: pb-2 md:pb-4 para dejar bajar los puntos suspensivos al máximo */}
+          <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col justify-end gap-6 overflow-hidden relative z-0 pb-2 md:pb-4">
             {finalTexts.map((text, idx) => (
               <p key={idx} className="text-4xl md:text-5xl lg:text-6xl font-medium text-white/50 text-left leading-normal tracking-wide drop-shadow-2xl transition-all duration-300">
                 {text}
@@ -688,7 +690,6 @@ const AudienceView = () => {
                   {animateLogos && computedLogos.length > 0 ? (
                       <div className="flex-1 overflow-hidden mask-edges flex">
                           <div className="flex w-max animate-scroll-left gap-8 md:gap-12 pr-8 md:pr-12">
-                              {/* El arreglo se repite múltipes veces para garantizar el loop infinito perfecto sin importar el tamaño de la pantalla */}
                               {[...computedLogos, ...computedLogos, ...computedLogos, ...computedLogos, ...computedLogos, ...computedLogos, ...computedLogos, ...computedLogos].map((logo, idx) => (
                                   <img key={idx} src={logo.url} alt={`Sponsor`} className="h-16 md:h-20 lg:h-24 w-auto max-w-[150px] object-contain drop-shadow-2xl" onError={(e) => { e.target.style.display = 'none'; }} />
                               ))}
