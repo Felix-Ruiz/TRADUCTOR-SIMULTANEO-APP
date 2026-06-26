@@ -16,7 +16,7 @@ const MasterView = () => {
   const [ramUsage, setRamUsage] = useState({ used: 0, max: 512, percent: 0 });
   
   const [newEventName, setNewEventName] = useState('');
-  const [newLogoUrl, setNewLogoUrl] = useState('');
+  const [newLogos, setNewLogos] = useState([{ url: '', showOnMobile: false }]);
   const [newSponsorText, setNewSponsorText] = useState('');
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
 
@@ -122,17 +122,48 @@ const MasterView = () => {
       }
   };
 
+  const handleLogoChange = (index, value) => {
+      const updated = [...newLogos];
+      updated[index].url = value;
+      setNewLogos(updated);
+  };
+
+  const toggleMobileLogo = (index) => {
+      const updated = [...newLogos];
+      const currentMobileCount = updated.filter(l => l.showOnMobile).length;
+      if (!updated[index].showOnMobile && currentMobileCount >= 3) {
+          return;
+      }
+      updated[index].showOnMobile = !updated[index].showOnMobile;
+      setNewLogos(updated);
+  };
+
+  const addLogoField = () => {
+      if (newLogos.length < 10) {
+          setNewLogos([...newLogos, { url: '', showOnMobile: false }]);
+      }
+  };
+
+  const removeLogoField = (index) => {
+      const updated = newLogos.filter((_, i) => i !== index);
+      setNewLogos(updated);
+  };
+
   const handleCreateEvent = (e) => {
     e.preventDefault();
     if (!newEventName.trim()) return;
+    
+    const validLogos = newLogos.filter(l => l.url.trim() !== '');
+
     socket.emit('master-create-event', { 
         name: newEventName,
-        logoUrl: newLogoUrl,
+        logoUrl: validLogos.length > 0 ? validLogos[0].url : '', 
+        logos: validLogos, 
         sponsorText: newSponsorText
     }, (response) => {
       if (response.success) {
           setNewEventName('');
-          setNewLogoUrl('');
+          setNewLogos([{ url: '', showOnMobile: false }]);
           setNewSponsorText('');
           setIsAdvancedOpen(false);
       }
@@ -479,8 +510,54 @@ const MasterView = () => {
             {isAdvancedOpen && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2 p-4 bg-black/30 rounded-xl border border-gray-800">
                     <div>
-                        <label className="flex items-center gap-2 text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider"><ImageIcon className="w-3 h-3"/> URL Logo Personalizado</label>
-                        <input type="text" value={newLogoUrl} onChange={(e) => setNewLogoUrl(e.target.value)} placeholder="https://ejemplo.com/logo-empresa.png" disabled={!isSystemActive} className="w-full bg-darker border border-gray-700 text-gray-300 text-sm rounded-lg p-3 focus:ring-1 focus:ring-primary focus:outline-none transition-all" />
+                        <label className="flex items-center justify-between text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider">
+                            <span className="flex items-center gap-2"><ImageIcon className="w-3 h-3"/> Logos Patrocinadores (Máx 10)</span>
+                            <span className="text-gray-600 text-[9px]">* Máx 3 para móvil</span>
+                        </label>
+                        <div className="flex flex-col gap-2 max-h-48 overflow-y-auto pr-1">
+                            {newLogos.map((logo, index) => (
+                                <div key={index} className="flex items-center gap-2">
+                                    <input 
+                                        type="text" 
+                                        value={logo.url} 
+                                        onChange={(e) => handleLogoChange(index, e.target.value)} 
+                                        placeholder="https://ejemplo.com/logo.png" 
+                                        disabled={!isSystemActive} 
+                                        className="flex-1 bg-darker border border-gray-700 text-gray-300 text-sm rounded-lg p-2.5 focus:ring-1 focus:ring-primary focus:outline-none transition-all" 
+                                    />
+                                    <button 
+                                        type="button" 
+                                        onClick={() => toggleMobileLogo(index)} 
+                                        disabled={!isSystemActive || (!logo.showOnMobile && newLogos.filter(l => l.showOnMobile).length >= 3)} 
+                                        className={`p-2.5 rounded-lg text-sm transition-colors border ${logo.showOnMobile ? 'bg-primary/20 border-primary text-primary' : 'bg-darker border-gray-700 text-gray-500 hover:text-gray-300'}`} 
+                                        title={logo.showOnMobile ? "Visible en Móvil" : "Destacar en Móvil"}
+                                    >
+                                        📱
+                                    </button>
+                                    {newLogos.length > 1 && (
+                                        <button 
+                                            type="button" 
+                                            onClick={() => removeLogoField(index)} 
+                                            disabled={!isSystemActive} 
+                                            className="p-2.5 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-lg transition-colors border border-red-500/20"
+                                            title="Eliminar logo"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                        {newLogos.length < 10 && (
+                            <button 
+                                type="button" 
+                                onClick={addLogoField} 
+                                disabled={!isSystemActive} 
+                                className="mt-3 w-full bg-dark border border-gray-700 hover:bg-gray-800 text-gray-400 text-xs font-bold py-2 rounded-lg transition-colors uppercase tracking-widest"
+                            >
+                                + Añadir otro logo
+                            </button>
+                        )}
                     </div>
                     <div>
                         <label className="flex items-center gap-2 text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider"><Briefcase className="w-3 h-3"/> Texto de Patrocinador</label>

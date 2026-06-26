@@ -115,6 +115,7 @@ const eventSchema = new mongoose.Schema({
     rooms: Array,
     isActive: Boolean,
     logoUrl: String,
+    logos: Array, // Soporte para múltiples logos con configuración móvil
     sponsorText: String
 });
 const EventModel = mongoose.model('Event', eventSchema);
@@ -146,6 +147,7 @@ const connectDB = async () => {
                 rooms: (e.rooms || []).map(r => ({ ...r, isActive: r.isActive !== false })),
                 isActive: e.isActive !== false,
                 logoUrl: e.logoUrl || "",
+                logos: e.logos || [],
                 sponsorText: e.sponsorText || ""
             });
         });
@@ -382,6 +384,7 @@ io.on('connection', (socket) => {
             rooms: [], 
             isActive: true,
             logoUrl: data.logoUrl || "",
+            logos: data.logos || [],
             sponsorText: data.sponsorText || ""
         };
         eventsDB.set(internalId, newEvent);
@@ -719,7 +722,8 @@ io.on('connection', (socket) => {
                     eventId: event.id,
                     eventName: event.name,
                     roomName: room.name,
-                    logoUrl: event.logoUrl, 
+                    logoUrl: event.logoUrl,
+                    logos: event.logos || [],
                     sponsorText: event.sponsorText 
                 });
             }
@@ -778,7 +782,7 @@ io.on('connection', (socket) => {
         }
         
         socket.emit('event-info', { 
-            name: event.name, isActive: event.isActive, logoUrl: event.logoUrl, sponsorText: event.sponsorText 
+            name: event.name, isActive: event.isActive, logoUrl: event.logoUrl, logos: event.logos || [], sponsorText: event.sponsorText 
         });
     });
 

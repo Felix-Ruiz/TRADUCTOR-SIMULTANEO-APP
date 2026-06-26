@@ -29,6 +29,7 @@ const AudienceView = () => {
   const [eventName, setEventName] = useState('Traducción en Vivo');
 
   const [eventLogo, setEventLogo] = useState('');
+  const [eventLogos, setEventLogos] = useState([]); // NUEVO: Arreglo de múltiples logos
   const [eventSponsor, setEventSponsor] = useState('');
 
   const [roomName, setRoomName] = useState('');
@@ -66,6 +67,13 @@ const AudienceView = () => {
   const messagesEndRef = useRef(null);
 
   const wakeLockRef = useRef(null);
+
+  // LÓGICA DE PROCESAMIENTO DE LOGOS
+  const computedLogos = eventLogos.length > 0 ? eventLogos : (eventLogo ? [{ url: eventLogo, showOnMobile: true }] : []);
+  let mobileLogos = computedLogos.filter(l => l.showOnMobile).slice(0, 3);
+  if (mobileLogos.length === 0 && computedLogos.length > 0) {
+      mobileLogos = [computedLogos[0]];
+  }
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -134,6 +142,7 @@ const AudienceView = () => {
         setRoomName(response.roomName);
         setEventName(response.eventName);
         setEventLogo(response.logoUrl || '');
+        setEventLogos(response.logos || []); // Recepción del nuevo arreglo de logos
         setEventSponsor(response.sponsorText || '');
         setEventError('');
         setIsRoomActive(true); 
@@ -205,7 +214,7 @@ const AudienceView = () => {
         setFinalTexts([]);
         setPartialText('');
         setEventLogo('');
-        setEventSponsor('');
+        setEventLogos([]);
         setHasJoinedEvent(false); 
         setGracefulPauseMsg(null);
         audioQueue.current = [];
@@ -264,6 +273,7 @@ const AudienceView = () => {
         setEventName(data.name);
         setIsEventActive(data.isActive); 
         setEventLogo(data.logoUrl || '');
+        setEventLogos(data.logos || []);
         setEventSponsor(data.sponsorText || '');
     });
 
@@ -558,7 +568,13 @@ const AudienceView = () => {
       ) : !audienceCode ? (
         <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-darker">
           <div className="w-full max-w-sm flex flex-col items-center">
-            <img src={eventLogo || "/logo.png"} alt="Logo" className="h-14 w-auto object-contain mb-6 drop-shadow-lg animate-logo-pulse" onError={(e) => { e.target.style.display = 'none'; }} />
+            
+            <div className="flex flex-wrap justify-center items-center gap-6 mb-6">
+                {mobileLogos.map((logo, idx) => (
+                    <img key={idx} src={logo.url} alt="Logo" className="h-14 md:h-16 w-auto max-w-[120px] object-contain drop-shadow-lg animate-logo-pulse" onError={(e) => { e.target.style.display = 'none'; }} />
+                ))}
+                {mobileLogos.length === 0 && <img src="/logo.png" alt="Logo" className="h-14 w-auto object-contain drop-shadow-lg animate-logo-pulse" onError={(e) => { e.target.style.display = 'none'; }} />}
+            </div>
             
             <h2 className="text-2xl font-bold text-white mb-2 text-center tracking-tight">Traducción en Vivo</h2>
             <p className="text-gray-400 text-sm text-center mb-8 leading-relaxed">
@@ -654,10 +670,14 @@ const AudienceView = () => {
             <div ref={messagesEndRef} />
           </div>
           
-          {(eventLogo || eventSponsor) && (
-              <div className="absolute bottom-8 left-8 z-10 flex items-center gap-4 opacity-70">
-                  {eventLogo && <img src={eventLogo} alt="Sponsor Logo" className="h-12 w-auto object-contain animate-logo-pulse" onError={(e) => { e.target.style.display = 'none'; }} />}
-                  {eventSponsor && <span className="text-sm font-semibold tracking-wider"><span className="animate-metallic">{eventSponsor}</span></span>}
+          {(computedLogos.length > 0 || eventSponsor) && (
+              <div className="absolute bottom-8 left-8 right-8 z-10 flex items-end justify-between gap-6 opacity-80 pointer-events-none">
+                  <div className="flex flex-wrap items-center gap-8 md:gap-12">
+                      {computedLogos.map((logo, idx) => (
+                          <img key={idx} src={logo.url} alt={`Sponsor ${idx+1}`} className="h-16 md:h-20 lg:h-24 w-auto max-w-[200px] object-contain animate-logo-pulse drop-shadow-2xl" onError={(e) => { e.target.style.display = 'none'; }} />
+                      ))}
+                  </div>
+                  {eventSponsor && <span className="text-lg md:text-xl font-semibold tracking-wider text-right max-w-sm"><span className="animate-metallic">{eventSponsor}</span></span>}
               </div>
           )}
         </div>
@@ -672,7 +692,13 @@ const AudienceView = () => {
           </button>
 
           <div className="w-full max-w-sm flex flex-col items-center mt-6">
-            <img src={eventLogo || "/logo.png"} alt="Event Logo" className="h-16 w-auto object-contain mb-6 drop-shadow-lg animate-logo-pulse" onError={(e) => { e.target.src = '/logo.png'; }} />
+            
+            <div className="flex flex-wrap justify-center items-center gap-6 mb-6">
+                {mobileLogos.map((logo, idx) => (
+                    <img key={idx} src={logo.url} alt="Event Logo" className="h-16 w-auto max-w-[120px] object-contain drop-shadow-lg animate-logo-pulse" onError={(e) => { e.target.style.display = 'none'; }} />
+                ))}
+                {mobileLogos.length === 0 && <img src="/logo.png" alt="Event Logo" className="h-16 w-auto object-contain drop-shadow-lg animate-logo-pulse" onError={(e) => { e.target.style.display = 'none'; }} />}
+            </div>
             
             <h2 className="text-xl font-bold text-gray-400 mb-1 text-center tracking-tight">{eventName}</h2>
             <h1 className="text-2xl font-black text-white mb-8 text-center uppercase tracking-widest bg-gray-800 px-4 py-2 rounded-lg border border-gray-700">{roomName}</h1>
@@ -720,7 +746,7 @@ const AudienceView = () => {
 
           <header className="flex justify-between items-center mb-6 pb-4 border-b border-gray-800 shrink-0">
             <div className="flex items-center gap-3">
-              <img src={eventLogo || "/logo.png"} alt="Event Logo" className="h-8 w-auto object-contain animate-logo-pulse" onError={(e) => { e.target.src = '/logo.png'; }} />
+              <img src={(mobileLogos.length > 0 ? mobileLogos[0].url : '') || "/logo.png"} alt="Event Logo" className="h-8 w-auto max-w-[100px] object-contain animate-logo-pulse" onError={(e) => { e.target.style.display = 'none'; }} />
               <div className="flex flex-col">
                 <h1 className="text-base font-bold text-white leading-tight truncate max-w-[150px]">{eventName}</h1>
                 <span className="text-xs text-primary font-bold tracking-widest">{roomName}</span>
