@@ -20,7 +20,6 @@ const MasterView = () => {
   const [newSponsorText, setNewSponsorText] = useState('');
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
 
-  // NUEVO: Estado para el evento que se está editando
   const [editingEvent, setEditingEvent] = useState(null);
 
   const [newRoomName, setNewRoomName] = useState('');
@@ -125,7 +124,6 @@ const MasterView = () => {
       }
   };
 
-  // LOGICA DE LOGOS (Para creación)
   const handleLogoChange = (index, value) => {
       const updated = [...newLogos];
       updated[index].url = value;
@@ -145,17 +143,16 @@ const MasterView = () => {
       setNewLogos(newLogos.filter((_, i) => i !== index));
   };
 
-  // LOGICA DE LOGOS (Para edición)
   const handleEditLogoChange = (index, value) => {
       const updated = [...editingEvent.logos];
-      updated[index].url = value;
+      updated[index] = { ...updated[index], url: value };
       setEditingEvent({ ...editingEvent, logos: updated });
   };
   const toggleEditMobileLogo = (index) => {
       const updated = [...editingEvent.logos];
       const currentMobileCount = updated.filter(l => l.showOnMobile).length;
       if (!updated[index].showOnMobile && currentMobileCount >= 3) return;
-      updated[index].showOnMobile = !updated[index].showOnMobile;
+      updated[index] = { ...updated[index], showOnMobile: !updated[index].showOnMobile };
       setEditingEvent({ ...editingEvent, logos: updated });
   };
   const addEditLogoField = () => {
@@ -169,7 +166,6 @@ const MasterView = () => {
   };
 
   const openEditModal = (eventObj) => {
-      // Normalizar logos viejos para el modal
       let normalizedLogos = [];
       if (eventObj.logos && eventObj.logos.length > 0) {
           normalizedLogos = JSON.parse(JSON.stringify(eventObj.logos));
@@ -191,7 +187,16 @@ const MasterView = () => {
       e.preventDefault();
       if (!editingEvent.name.trim()) return;
 
-      const validLogos = editingEvent.logos.filter(l => l.url.trim() !== '');
+      const validLogos = editingEvent.logos.filter(l => l && l.url && l.url.trim() !== '');
+
+      let serverResponded = false;
+
+      // Detector de inactividad del servidor (Timeout de 3 segundos)
+      const timeoutId = setTimeout(() => {
+          if (!serverResponded) {
+              alert("⚠️ El servidor no respondió al cambio. Es posible que Render aún se esté actualizando o reiniciando. Por favor, intenta de nuevo en 30 segundos.");
+          }
+      }, 3000);
 
       socket.emit('master-edit-event', {
           id: editingEvent.id,
@@ -199,8 +204,12 @@ const MasterView = () => {
           logos: validLogos,
           sponsorText: editingEvent.sponsorText
       }, (response) => {
-          if (response.success) {
+          serverResponded = true;
+          clearTimeout(timeoutId);
+          if (response && response.success) {
               setEditingEvent(null);
+          } else {
+              alert("Ocurrió un error al intentar guardar: " + (response?.message || "Desconocido."));
           }
       });
   };
@@ -209,7 +218,7 @@ const MasterView = () => {
     e.preventDefault();
     if (!newEventName.trim()) return;
     
-    const validLogos = newLogos.filter(l => l.url.trim() !== '');
+    const validLogos = newLogos.filter(l => l && l.url && l.url.trim() !== '');
 
     socket.emit('master-create-event', { 
         name: newEventName,
@@ -490,7 +499,7 @@ const MasterView = () => {
         </div>
       )}
 
-      {/* MODAL DE EDICIÓN DE EVENTO */}
+      {/* MODAL DE EDICIÓN DE EVENTO BLINDADO */}
       {editingEvent && (
         <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity">
           <div className="bg-dark border border-gray-700 p-6 rounded-3xl shadow-[0_0_50px_rgba(0,0,0,0.7)] max-w-2xl w-full flex flex-col gap-4 transform transition-all scale-100 max-h-[90vh] overflow-y-auto">
@@ -739,7 +748,6 @@ const MasterView = () => {
                     </span>
                 </div>
                 <div className="flex items-center gap-2 w-full sm:w-auto justify-end shrink-0">
-                    {/* BOTÓN EDITAR */}
                     <button 
                         onClick={() => openEditModal(event)}
                         disabled={!isSystemActive}
