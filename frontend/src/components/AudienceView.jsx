@@ -29,7 +29,7 @@ const AudienceView = () => {
   const [eventName, setEventName] = useState('Traducción en Vivo');
 
   const [eventLogo, setEventLogo] = useState('');
-  const [eventLogos, setEventLogos] = useState([]); // NUEVO: Arreglo de múltiples logos
+  const [eventLogos, setEventLogos] = useState([]); 
   const [eventSponsor, setEventSponsor] = useState('');
 
   const [roomName, setRoomName] = useState('');
@@ -68,7 +68,6 @@ const AudienceView = () => {
 
   const wakeLockRef = useRef(null);
 
-  // LÓGICA DE PROCESAMIENTO DE LOGOS
   const computedLogos = eventLogos.length > 0 ? eventLogos : (eventLogo ? [{ url: eventLogo, showOnMobile: true }] : []);
   let mobileLogos = computedLogos.filter(l => l.showOnMobile).slice(0, 3);
   if (mobileLogos.length === 0 && computedLogos.length > 0) {
@@ -142,7 +141,7 @@ const AudienceView = () => {
         setRoomName(response.roomName);
         setEventName(response.eventName);
         setEventLogo(response.logoUrl || '');
-        setEventLogos(response.logos || []); // Recepción del nuevo arreglo de logos
+        setEventLogos(response.logos || []);
         setEventSponsor(response.sponsorText || '');
         setEventError('');
         setIsRoomActive(true); 
@@ -658,7 +657,7 @@ const AudienceView = () => {
             </button>
           </div>
 
-          <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col justify-end gap-6 overflow-hidden relative z-0">
+          <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col justify-end gap-6 overflow-hidden relative z-0 pb-28 md:pb-36">
             {finalTexts.map((text, idx) => (
               <p key={idx} className="text-4xl md:text-5xl lg:text-6xl font-medium text-white/50 text-left leading-normal tracking-wide drop-shadow-2xl transition-all duration-300">
                 {text}
