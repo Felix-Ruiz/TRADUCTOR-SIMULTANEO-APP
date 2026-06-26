@@ -30,6 +30,7 @@ const AudienceView = () => {
 
   const [eventLogo, setEventLogo] = useState('');
   const [eventLogos, setEventLogos] = useState([]); 
+  const [animateLogos, setAnimateLogos] = useState(false);
   const [eventSponsor, setEventSponsor] = useState('');
 
   const [roomName, setRoomName] = useState('');
@@ -142,6 +143,7 @@ const AudienceView = () => {
         setEventName(response.eventName);
         setEventLogo(response.logoUrl || '');
         setEventLogos(response.logos || []);
+        setAnimateLogos(response.animateLogos || false);
         setEventSponsor(response.sponsorText || '');
         setEventError('');
         setIsRoomActive(true); 
@@ -214,6 +216,7 @@ const AudienceView = () => {
         setPartialText('');
         setEventLogo('');
         setEventLogos([]);
+        setAnimateLogos(false);
         setHasJoinedEvent(false); 
         setGracefulPauseMsg(null);
         audioQueue.current = [];
@@ -273,6 +276,7 @@ const AudienceView = () => {
         setIsEventActive(data.isActive); 
         setEventLogo(data.logoUrl || '');
         setEventLogos(data.logos || []);
+        setAnimateLogos(data.animateLogos || false);
         setEventSponsor(data.sponsorText || '');
     });
 
@@ -393,6 +397,10 @@ const AudienceView = () => {
             0%, 100% { filter: drop-shadow(0 0 8px rgba(168,85,247,0.5)); transform: scale(1); }
             50% { filter: drop-shadow(0 0 20px rgba(59,130,246,0.9)); transform: scale(1.03); }
           }
+          @keyframes scroll-left {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+          }
           .animate-metallic {
             background: linear-gradient(90deg, #d97743, #60a5fa, #e7e5e4, #d97743);
             background-size: 300% auto;
@@ -404,10 +412,16 @@ const AudienceView = () => {
           .animate-logo-pulse {
             animation: logo-glow 3s ease-in-out infinite;
           }
+          .animate-scroll-left {
+            animation: scroll-left 40s linear infinite;
+          }
+          .mask-edges {
+            -webkit-mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
+            mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
+          }
         `}
       </style>
 
-      {/* MODAL GLOBAL */}
       {dialogConfig.isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity">
           <div className="bg-darker border border-gray-700 p-6 rounded-3xl shadow-[0_0_40px_rgba(0,0,0,0.5)] max-w-sm w-full flex flex-col gap-2 transform transition-all scale-100">
@@ -657,8 +671,7 @@ const AudienceView = () => {
             </button>
           </div>
 
-          {/* AJUSTE 1: Se redujo el padding inferior de pb-36 a pb-20 para que el texto baje y no flote tanto */}
-          <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col justify-end gap-6 overflow-hidden relative z-0 pb-20 md:pb-24">
+          <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col justify-end gap-6 overflow-hidden relative z-0 pb-20 md:pb-28">
             {finalTexts.map((text, idx) => (
               <p key={idx} className="text-4xl md:text-5xl lg:text-6xl font-medium text-white/50 text-left leading-normal tracking-wide drop-shadow-2xl transition-all duration-300">
                 {text}
@@ -670,15 +683,25 @@ const AudienceView = () => {
             <div ref={messagesEndRef} />
           </div>
           
-          {/* AJUSTE 2: Nuevo contenedor dinámico w-full con justify-evenly para repartir espacio perfecto entre logos */}
           {(computedLogos.length > 0 || eventSponsor) && (
-              <div className="absolute bottom-6 left-6 right-6 z-10 flex flex-col justify-end items-center gap-4 opacity-80 pointer-events-none">
-                  <div className="w-full flex flex-wrap items-center justify-evenly gap-x-4 gap-y-6">
-                      {computedLogos.map((logo, idx) => (
-                          <img key={idx} src={logo.url} alt={`Sponsor ${idx+1}`} className="h-16 md:h-20 lg:h-24 w-auto max-w-[120px] md:max-w-[180px] object-contain animate-logo-pulse drop-shadow-2xl" onError={(e) => { e.target.style.display = 'none'; }} />
-                      ))}
-                  </div>
-                  {eventSponsor && <span className="text-lg md:text-xl font-semibold tracking-wider text-center mt-2"><span className="animate-metallic">{eventSponsor}</span></span>}
+              <div className="absolute bottom-8 left-8 right-8 z-10 flex items-center justify-between gap-6 opacity-80 pointer-events-none">
+                  {animateLogos && computedLogos.length > 0 ? (
+                      <div className="flex-1 overflow-hidden mask-edges flex">
+                          <div className="flex w-max animate-scroll-left gap-8 md:gap-12 pr-8 md:pr-12">
+                              {/* El arreglo se repite múltipes veces para garantizar el loop infinito perfecto sin importar el tamaño de la pantalla */}
+                              {[...computedLogos, ...computedLogos, ...computedLogos, ...computedLogos, ...computedLogos, ...computedLogos, ...computedLogos, ...computedLogos].map((logo, idx) => (
+                                  <img key={idx} src={logo.url} alt={`Sponsor`} className="h-16 md:h-20 lg:h-24 w-auto max-w-[150px] object-contain drop-shadow-2xl" onError={(e) => { e.target.style.display = 'none'; }} />
+                              ))}
+                          </div>
+                      </div>
+                  ) : (
+                      <div className="flex-1 flex flex-wrap items-center justify-evenly gap-4 md:gap-8 w-full">
+                          {computedLogos.map((logo, idx) => (
+                              <img key={idx} src={logo.url} alt={`Sponsor ${idx+1}`} className="h-16 md:h-20 lg:h-24 w-auto max-w-[150px] object-contain animate-logo-pulse drop-shadow-2xl" onError={(e) => { e.target.style.display = 'none'; }} />
+                          ))}
+                      </div>
+                  )}
+                  {eventSponsor && <span className="text-lg md:text-xl font-semibold tracking-wider text-right shrink-0 max-w-[250px]"><span className="animate-metallic">{eventSponsor}</span></span>}
               </div>
           )}
         </div>

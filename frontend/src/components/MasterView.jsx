@@ -17,6 +17,7 @@ const MasterView = () => {
   
   const [newEventName, setNewEventName] = useState('');
   const [newLogos, setNewLogos] = useState([{ url: '', showOnMobile: false }]);
+  const [newAnimateLogos, setNewAnimateLogos] = useState(false);
   const [newSponsorText, setNewSponsorText] = useState('');
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
 
@@ -179,7 +180,8 @@ const MasterView = () => {
           id: eventObj.id,
           name: eventObj.name,
           sponsorText: eventObj.sponsorText || '',
-          logos: normalizedLogos
+          logos: normalizedLogos,
+          animateLogos: eventObj.animateLogos || false
       });
   };
 
@@ -191,7 +193,6 @@ const MasterView = () => {
 
       let serverResponded = false;
 
-      // Detector de inactividad del servidor (Timeout de 3 segundos)
       const timeoutId = setTimeout(() => {
           if (!serverResponded) {
               alert("⚠️ El servidor no respondió al cambio. Es posible que Render aún se esté actualizando o reiniciando. Por favor, intenta de nuevo en 30 segundos.");
@@ -202,6 +203,7 @@ const MasterView = () => {
           id: editingEvent.id,
           name: editingEvent.name,
           logos: validLogos,
+          animateLogos: editingEvent.animateLogos,
           sponsorText: editingEvent.sponsorText
       }, (response) => {
           serverResponded = true;
@@ -224,11 +226,13 @@ const MasterView = () => {
         name: newEventName,
         logoUrl: validLogos.length > 0 ? validLogos[0].url : '', 
         logos: validLogos, 
+        animateLogos: newAnimateLogos,
         sponsorText: newSponsorText
     }, (response) => {
       if (response.success) {
           setNewEventName('');
           setNewLogos([{ url: '', showOnMobile: false }]);
+          setNewAnimateLogos(false);
           setNewSponsorText('');
           setIsAdvancedOpen(false);
       }
@@ -567,6 +571,18 @@ const MasterView = () => {
                             + Añadir otro logo
                         </button>
                     )}
+                    <div className="flex items-center justify-between bg-black/40 p-3 rounded-lg border border-gray-700 mt-4">
+                        <span className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                            <MonitorPlay className="w-4 h-4"/> Activar Carrusel (Solo TV)
+                        </span>
+                        <button 
+                            type="button" 
+                            onClick={() => setEditingEvent({...editingEvent, animateLogos: !editingEvent.animateLogos})} 
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${editingEvent.animateLogos ? 'bg-primary' : 'bg-gray-600'}`}
+                        >
+                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${editingEvent.animateLogos ? 'translate-x-6' : 'translate-x-1'}`} />
+                        </button>
+                    </div>
                 </div>
 
                 <div>
@@ -717,6 +733,18 @@ const MasterView = () => {
                                 + Añadir otro logo
                             </button>
                         )}
+                        <div className="flex items-center justify-between bg-black/40 p-3 rounded-lg border border-gray-700 mt-4">
+                            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                                <MonitorPlay className="w-4 h-4"/> Activar Carrusel (Solo TV)
+                            </span>
+                            <button 
+                                type="button" 
+                                onClick={() => setNewAnimateLogos(!newAnimateLogos)} 
+                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${newAnimateLogos ? 'bg-primary' : 'bg-gray-600'}`}
+                            >
+                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${newAnimateLogos ? 'translate-x-6' : 'translate-x-1'}`} />
+                            </button>
+                        </div>
                     </div>
                     <div>
                         <label className="flex items-center gap-2 text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider"><Briefcase className="w-3 h-3"/> Texto de Patrocinador</label>
@@ -973,7 +1001,7 @@ const MasterView = () => {
           {(events || []).length === 0 && (
             <div className="col-span-full py-12 flex flex-col items-center justify-center text-gray-500 border-2 border-dashed border-gray-800 rounded-2xl mx-2 sm:mx-0">
               <Shield className="w-12 h-12 mb-4 opacity-20" />
-              <p className="text-base sm:text-lg font-medium text-center px-4">No hay instancias activas en el servidor..</p>
+              <p className="text-base sm:text-lg font-medium text-center px-4">No hay instancias activas en el servidor.</p>
             </div>
           )}
         </div>

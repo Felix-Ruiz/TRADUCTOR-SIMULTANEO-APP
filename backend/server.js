@@ -116,6 +116,7 @@ const eventSchema = new mongoose.Schema({
     isActive: Boolean,
     logoUrl: String,
     logos: Array, 
+    animateLogos: Boolean,
     sponsorText: String
 });
 const EventModel = mongoose.model('Event', eventSchema);
@@ -148,6 +149,7 @@ const connectDB = async () => {
                 isActive: e.isActive !== false,
                 logoUrl: e.logoUrl || "",
                 logos: e.logos || [],
+                animateLogos: e.animateLogos || false,
                 sponsorText: e.sponsorText || ""
             });
         });
@@ -385,6 +387,7 @@ io.on('connection', (socket) => {
             isActive: true,
             logoUrl: data.logoUrl || "",
             logos: data.logos || [],
+            animateLogos: data.animateLogos || false,
             sponsorText: data.sponsorText || ""
         };
         eventsDB.set(internalId, newEvent);
@@ -395,19 +398,18 @@ io.on('connection', (socket) => {
         emitMasterData();
     });
 
-    // NUEVO: Evento para editar el evento sin borrarlo
     socket.on('master-edit-event', (data, callback) => {
         const event = eventsDB.get(data.id);
         if (event) {
             event.name = data.name || event.name;
             event.logos = data.logos || event.logos;
             event.logoUrl = data.logos && data.logos.length > 0 ? data.logos[0].url : '';
+            event.animateLogos = data.animateLogos !== undefined ? data.animateLogos : event.animateLogos;
             event.sponsorText = data.sponsorText !== undefined ? data.sponsorText : event.sponsorText;
             
             markEventDirty(data.id);
             emitMasterData();
             
-            // Avisar a todas las salas de este evento para que se actualice la UI en vivo
             if (event.rooms) {
                 event.rooms.forEach(room => {
                     io.to(`${event.id}_${room.name}`).emit('event-info', { 
@@ -415,6 +417,7 @@ io.on('connection', (socket) => {
                         isActive: event.isActive, 
                         logoUrl: event.logoUrl, 
                         logos: event.logos, 
+                        animateLogos: event.animateLogos,
                         sponsorText: event.sponsorText 
                     });
                 });
@@ -751,6 +754,7 @@ io.on('connection', (socket) => {
                     roomName: room.name,
                     logoUrl: event.logoUrl,
                     logos: event.logos || [],
+                    animateLogos: event.animateLogos || false,
                     sponsorText: event.sponsorText 
                 });
             }
@@ -809,7 +813,12 @@ io.on('connection', (socket) => {
         }
         
         socket.emit('event-info', { 
-            name: event.name, isActive: event.isActive, logoUrl: event.logoUrl, logos: event.logos || [], sponsorText: event.sponsorText 
+            name: event.name, 
+            isActive: event.isActive, 
+            logoUrl: event.logoUrl, 
+            logos: event.logos || [], 
+            animateLogos: event.animateLogos || false,
+            sponsorText: event.sponsorText 
         });
     });
 
