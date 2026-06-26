@@ -407,7 +407,7 @@ const AudienceView = () => {
         `}
       </style>
 
-      {/* FIX CRÍTICO: EL MODAL AHORA ESTÁ EN LA RAÍZ Y CUBRE TODAS LAS VISTAS */}
+      {/* MODAL GLOBAL */}
       {dialogConfig.isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity">
           <div className="bg-darker border border-gray-700 p-6 rounded-3xl shadow-[0_0_40px_rgba(0,0,0,0.5)] max-w-sm w-full flex flex-col gap-2 transform transition-all scale-100">
@@ -657,7 +657,8 @@ const AudienceView = () => {
             </button>
           </div>
 
-          <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col justify-end gap-6 overflow-hidden relative z-0 pb-28 md:pb-36">
+          {/* AJUSTE 1: Se redujo el padding inferior de pb-36 a pb-20 para que el texto baje y no flote tanto */}
+          <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col justify-end gap-6 overflow-hidden relative z-0 pb-20 md:pb-24">
             {finalTexts.map((text, idx) => (
               <p key={idx} className="text-4xl md:text-5xl lg:text-6xl font-medium text-white/50 text-left leading-normal tracking-wide drop-shadow-2xl transition-all duration-300">
                 {text}
@@ -669,14 +670,15 @@ const AudienceView = () => {
             <div ref={messagesEndRef} />
           </div>
           
+          {/* AJUSTE 2: Nuevo contenedor dinámico w-full con justify-evenly para repartir espacio perfecto entre logos */}
           {(computedLogos.length > 0 || eventSponsor) && (
-              <div className="absolute bottom-8 left-8 right-8 z-10 flex items-end justify-between gap-6 opacity-80 pointer-events-none">
-                  <div className="flex flex-wrap items-center gap-8 md:gap-12">
+              <div className="absolute bottom-6 left-6 right-6 z-10 flex flex-col justify-end items-center gap-4 opacity-80 pointer-events-none">
+                  <div className="w-full flex flex-wrap items-center justify-evenly gap-x-4 gap-y-6">
                       {computedLogos.map((logo, idx) => (
-                          <img key={idx} src={logo.url} alt={`Sponsor ${idx+1}`} className="h-16 md:h-20 lg:h-24 w-auto max-w-[200px] object-contain animate-logo-pulse drop-shadow-2xl" onError={(e) => { e.target.style.display = 'none'; }} />
+                          <img key={idx} src={logo.url} alt={`Sponsor ${idx+1}`} className="h-16 md:h-20 lg:h-24 w-auto max-w-[120px] md:max-w-[180px] object-contain animate-logo-pulse drop-shadow-2xl" onError={(e) => { e.target.style.display = 'none'; }} />
                       ))}
                   </div>
-                  {eventSponsor && <span className="text-lg md:text-xl font-semibold tracking-wider text-right max-w-sm"><span className="animate-metallic">{eventSponsor}</span></span>}
+                  {eventSponsor && <span className="text-lg md:text-xl font-semibold tracking-wider text-center mt-2"><span className="animate-metallic">{eventSponsor}</span></span>}
               </div>
           )}
         </div>
