@@ -29,7 +29,7 @@ const MasterView = () => {
 
   const [dialogConfig, setDialogConfig] = useState({ isOpen: false, title: '', message: '', type: 'confirm', onConfirm: null, confirmStyle: '' });
 
-  const openDialog = (title, message, type = 'confirm', onConfirm = null, confirmStyle = 'bg-primary hover:bg-blue-600 shadow-blue-500/25');
+  const openDialog = (title, message, type = 'confirm', onConfirm = null, confirmStyle = 'bg-primary hover:bg-blue-600 shadow-blue-500/25') => setDialogConfig({ isOpen: true, title, message, type, onConfirm, confirmStyle });
   const closeDialog = () => setDialogConfig(prev => ({ ...prev, isOpen: false }));
 
   useEffect(() => {
