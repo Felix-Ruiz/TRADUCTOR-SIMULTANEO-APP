@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
-import { Mic, Square, Radio, Globe, Download, Lock, AlertTriangle, AlertCircle, Users, Monitor, MonitorPlay, Copy, CheckCircle2, Scale } from 'lucide-react';
+import { Mic, Square, Radio, Globe, Download, Lock, AlertTriangle, AlertCircle, Users, Monitor, MonitorPlay, Copy, CheckCircle2, Scale, User } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
 // FIX: Se añade el fallback de URL para evitar conexiones caídas o indefinidas
@@ -45,6 +45,9 @@ const SpeakerView = () => {
   const [fullTranscription, setFullTranscription] = useState('');
   const [audienceCount, setAudienceCount] = useState(0);
   const [copiedText, setCopiedText] = useState(null);
+
+  // NUEVO: Estado para Preguntas del Público
+  const [activeQuestion, setActiveQuestion] = useState(null);
 
   const audioContextRef = useRef(null);
   const processorRef = useRef(null);
@@ -154,15 +157,37 @@ const SpeakerView = () => {
         }
     });
     
+    // NUEVO: Escuchar el estado de Preguntas del Público
+    socket.on('qa-speaker-active', (data) => {
+        setActiveQuestion(data); // data debe contener { name, location, language }
+    });
+
+    socket.on('qa-speaker-inactive', () => {
+        setActiveQuestion(null);
+    });
+
     socket.on('translation-result', (data) => {
-      setTranscription(data.original);
+      // NUEVO: Aplicar truco de UX para prefijar si es una pregunta del público
+      const prefix = data.isQa ? `👉 [Pregunta de ${data.qaName || 'Público'}]: ` : '';
+      
+      setTranscription(prefix + data.original);
+      
       if (data.translations) {
-        setAllTranslations(data.translations); 
+        if (data.isQa) {
+            const prefixedTranslations = {};
+            for (let lang in data.translations) {
+                prefixedTranslations[lang] = `👉 [Q&A]: ${data.translations[lang]}`;
+            }
+            setAllTranslations(prefixedTranslations);
+        } else {
+            setAllTranslations(data.translations); 
+        }
       }
+      
       if (data.type === 'final') {
-        const text = data.original;
-        setFullTranscription(prev => prev + text + " ");
-        const wordsCount = text.trim().split(/\s+/).length;
+        const text = prefix + data.original;
+        setFullTranscription(prev => prev + text + " \n");
+        const wordsCount = data.original.trim().split(/\s+/).length;
         if (wordsCount > 0) socket.emit('analytics-sync-words', { words: wordsCount });
       }
     });
@@ -179,6 +204,8 @@ const SpeakerView = () => {
       socket.off('room-status-changed');
       socket.off('translation-result');
       socket.off('room-audience-count');
+      socket.off('qa-speaker-active');
+      socket.off('qa-speaker-inactive');
     };
   }, [isAuthenticated, isRecording, eventInfo, roomName]);
 
@@ -485,8 +512,24 @@ const SpeakerView = () => {
         </div>
       </header>
 
-      <main className="flex-1 flex flex-col min-h-0 gap-6 pb-6 overflow-y-auto pr-1 sm:pr-2">
-        <div className="space-y-4 shrink-0">
+      <main className="flex-1 flex flex-col min-h-0 gap-6 pb-6 overflow-y-auto pr-1 sm:pr-2 relative">
+        
+        {/* INDICADOR FLOTANTE DE PREGUNTA DEL PÚBLICO ACTIVA */}
+        {activeQuestion && (
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-blue-900/40 border border-blue-500/50 backdrop-blur-md px-5 py-2.5 rounded-full flex items-center gap-3 shadow-[0_0_20px_rgba(59,130,246,0.3)] z-50 animate-pulse">
+                <div className="bg-blue-500/20 p-1.5 rounded-full">
+                    <User className="w-4 h-4 text-blue-400" />
+                </div>
+                <div className="flex flex-col">
+                    <span className="text-[10px] font-bold text-blue-300 uppercase tracking-widest">Transmitiendo: Pregunta del Público</span>
+                    <span className="text-sm font-bold text-white">
+                        {activeQuestion.name} {activeQuestion.location ? `(${activeQuestion.location})` : ''}
+                    </span>
+                </div>
+            </div>
+        )}
+
+        <div className="space-y-4 shrink-0 mt-2">
           
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 sm:gap-6 mb-2">
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
@@ -495,7 +538,7 @@ const SpeakerView = () => {
                 <select 
                   value={inputLanguage}
                   onChange={(e) => setInputLanguage(e.target.value)}
-                  disabled={isRecording}
+                  disabled={isRecording || activeQuestion !== null}
                   className="w-full sm:w-auto bg-darker border border-gray-700 text-primary text-xs sm:text-sm font-bold uppercase tracking-wider rounded-lg px-3 py-2 sm:py-1.5 focus:ring-1 focus:ring-primary focus:outline-none appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <option value="es-CO">Español</option>
@@ -518,7 +561,7 @@ const SpeakerView = () => {
                 <select 
                   value={voiceGender}
                   onChange={(e) => setVoiceGender(e.target.value)}
-                  disabled={isRecording}
+                  disabled={isRecording || activeQuestion !== null}
                   className="w-full sm:w-auto bg-darker border border-gray-700 text-primary text-xs sm:text-sm font-bold uppercase tracking-wider rounded-lg px-3 py-2 sm:py-1.5 focus:ring-1 focus:ring-primary focus:outline-none appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <option value="female">👩 Mujer</option>
@@ -533,7 +576,7 @@ const SpeakerView = () => {
             </div>
           </div>
           
-          <p className="text-2xl sm:text-3xl md:text-4xl font-bold leading-tight text-white min-h-[4rem] sm:min-h-[3rem] text-left p-4 sm:p-0 bg-black/20 sm:bg-transparent rounded-xl border border-gray-800 sm:border-none">
+          <p className={`text-2xl sm:text-3xl md:text-4xl font-bold leading-tight min-h-[4rem] sm:min-h-[3rem] text-left p-4 sm:p-0 bg-black/20 sm:bg-transparent rounded-xl border border-gray-800 sm:border-none transition-colors ${activeQuestion ? 'text-blue-300' : 'text-white'}`}>
             {transcription || "Presiona el botón para comenzar a hablar..."}
           </p>
         </div>
@@ -638,10 +681,11 @@ const SpeakerView = () => {
           {!isRecording ? (
             <button 
               onClick={startRecording}
-              className="w-full sm:w-auto flex items-center justify-center gap-3 bg-primary hover:bg-blue-600 text-white px-6 sm:px-8 py-4 sm:py-4 rounded-full font-semibold transition-all shadow-lg hover:shadow-blue-500/25"
+              disabled={activeQuestion !== null}
+              className="w-full sm:w-auto flex items-center justify-center gap-3 bg-primary hover:bg-blue-600 text-white px-6 sm:px-8 py-4 sm:py-4 rounded-full font-semibold transition-all shadow-lg hover:shadow-blue-500/25 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Mic className="w-5 h-5 sm:w-6 sm:h-6 shrink-0" />
-              <span className="text-sm sm:text-base">Iniciar Discurso</span>
+              <span className="text-sm sm:text-base">{activeQuestion ? 'Auditorio en uso' : 'Iniciar Discurso'}</span>
             </button>
           ) : (
             <button 

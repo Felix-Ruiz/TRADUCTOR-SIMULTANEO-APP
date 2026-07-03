@@ -17,13 +17,18 @@ const maleVoiceMap = {
 };
 
 class TranslationService {
-    constructor(socket, fromLanguage = 'es-CO', toLanguages = ['en', 'pt'], voiceGender = 'female', roomName = 'PRINCIPAL') {
+    // NUEVO: Añadido parámetro isQa y qaName para diferenciar tráfico de orador vs público
+    constructor(socket, fromLanguage = 'es-CO', toLanguages = ['en', 'pt'], voiceGender = 'female', roomName = 'PRINCIPAL', isQa = false, qaName = '') {
         this.socket = socket; 
         this.targetLanguages = toLanguages; 
         this.fromLanguage = fromLanguage;
         this.voiceGender = voiceGender;
         this.roomName = roomName;
         this.isActive = true; // NUEVO: Candado de estado vital
+        
+        // Q&A Identifiers
+        this.isQa = isQa;
+        this.qaName = qaName;
         
         this.pushStream = sdk.AudioInputStream.createPushStream();
         
@@ -55,7 +60,13 @@ class TranslationService {
             try {
                 if (e.result.reason === sdk.ResultReason.TranslatingSpeech) {
                     const translations = this.extractTranslations(e.result.translations, e.result.text);
-                    const payload = { type: 'partial', original: e.result.text, translations };
+                    const payload = { 
+                        type: 'partial', 
+                        original: e.result.text, 
+                        translations,
+                        isQa: this.isQa, 
+                        qaName: this.qaName 
+                    };
                     
                     this.socket.emit('translation-result', payload); 
                     this.socket.broadcast.to(this.roomName).emit('translation-result', payload);
@@ -70,7 +81,13 @@ class TranslationService {
             try {
                 if (e.result.reason === sdk.ResultReason.TranslatedSpeech) {
                     const translations = this.extractTranslations(e.result.translations, e.result.text);
-                    const payload = { type: 'final', original: e.result.text, translations };
+                    const payload = { 
+                        type: 'final', 
+                        original: e.result.text, 
+                        translations,
+                        isQa: this.isQa,
+                        qaName: this.qaName
+                    };
                     
                     this.socket.emit('translation-result', payload);
                     this.socket.broadcast.to(this.roomName).emit('translation-result', payload);
@@ -127,7 +144,11 @@ class TranslationService {
                 text,
                 result => {
                     if (result.reason === sdk.ResultReason.SynthesizingAudioCompleted && this.isActive) {
-                        const payload = { language: lang, audioBuffer: result.audioData };
+                        const payload = { 
+                            language: lang, 
+                            audioBuffer: result.audioData,
+                            isQa: this.isQa
+                        };
                         this.socket.emit('neural-audio', payload);
                         this.socket.broadcast.to(this.roomName).emit('neural-audio', payload);
                     }
@@ -145,12 +166,13 @@ class TranslationService {
 
     start() {
         this.isActive = true;
-        console.log(`[Azure] Iniciando motor para sala ${this.roomName}...`);
+        const prefix = this.isQa ? '[Q&A Público] ' : '';
+        console.log(`[Azure] ${prefix}Iniciando motor para sala ${this.roomName}...`);
         if(this.recognizer) {
             try {
                 this.recognizer.startContinuousRecognitionAsync();
             } catch(e) {
-                console.error("[Azure] Fallo al iniciar el reconocedor:", e);
+                console.error(`[Azure] ${prefix}Fallo al iniciar el reconocedor:`, e);
             }
         }
     }
@@ -159,7 +181,9 @@ class TranslationService {
     stop() {
         if (!this.isActive) return; // Evitar bucles si ya se detuvo
         this.isActive = false; // Bloquea recepción de nuevo audio instantáneamente
-        console.log(`[Azure] Ejecutando Kill Switch para sala ${this.roomName} (Ahorro de costos activo)`);
+        
+        const prefix = this.isQa ? '[Q&A Público] ' : '';
+        console.log(`[Azure] ${prefix}Ejecutando Kill Switch para sala ${this.roomName} (Ahorro de costos activo)`);
         
         try {
             // 1. Matar el stream PRIMERO. Azure se da cuenta inmediatamente que no hay más datos.
@@ -176,10 +200,10 @@ class TranslationService {
                             this.recognizer.close();
                             this.recognizer = null;
                         }
-                        console.log(`[Azure] Conexión cerrada y memoria liberada.`);
+                        console.log(`[Azure] ${prefix}Conexión cerrada y memoria liberada.`);
                     },
                     (err) => {
-                        console.error("[Azure] Error al detener reconocedor:", err);
+                        console.error(`[Azure] ${prefix}Error al detener reconocedor:`, err);
                         if (this.recognizer) {
                             this.recognizer.close(); // Forzamos el cierre de la clase C++ subyacente
                             this.recognizer = null;
@@ -188,7 +212,7 @@ class TranslationService {
                 );
             }
         } catch (e) {
-            console.error("[Azure] Excepción en Kill Switch:", e);
+            console.error(`[Azure] ${prefix}Excepción en Kill Switch:`, e);
             // Red de seguridad máxima
             if (this.recognizer) {
                 try { this.recognizer.close(); } catch(err) {}

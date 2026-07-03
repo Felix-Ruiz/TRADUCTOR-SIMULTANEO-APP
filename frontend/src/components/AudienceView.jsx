@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
-import { Headphones, Globe2, AlertCircle, MessageSquare, Radio, PowerOff, Key, LogOut, QrCode, X, Scale, RefreshCw } from 'lucide-react';
+import { Headphones, Globe2, AlertCircle, MessageSquare, Radio, PowerOff, Key, LogOut, QrCode, X, Scale, RefreshCw, Hand, Mic } from 'lucide-react';
 import { Scanner } from '@yudiel/react-qr-scanner';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001');
@@ -55,6 +55,12 @@ const AudienceView = () => {
 
   const [gracefulPauseMsg, setGracefulPauseMsg] = useState(null);
 
+  // Estados para Preguntas del Público (Q&A)
+  const [qaState, setQaState] = useState('idle'); // idle, pending, approved
+  const [isQaModalOpen, setIsQaModalOpen] = useState(false);
+  const [qaName, setQaName] = useState('');
+  const [qaLocation, setQaLocation] = useState('');
+
   const [dialogConfig, setDialogConfig] = useState({ isOpen: false, title: '', message: '', type: 'confirm', onConfirm: null, confirmStyle: '' });
 
   const openDialog = (title, message, type = 'confirm', onConfirm = null, confirmStyle = 'bg-red-600 hover:bg-red-700 shadow-red-500/25') => {
@@ -68,6 +74,11 @@ const AudienceView = () => {
   const messagesEndRef = useRef(null);
 
   const wakeLockRef = useRef(null);
+
+  // NUEVO: Referencias para la captura de micrófono del público
+  const qaAudioContextRef = useRef(null);
+  const qaProcessorRef = useRef(null);
+  const qaStreamRef = useRef(null);
 
   const computedLogos = eventLogos.length > 0 ? eventLogos : (eventLogo ? [{ url: eventLogo, showOnMobile: true }] : []);
   let mobileLogos = computedLogos.filter(l => l.showOnMobile).slice(0, 3);
@@ -219,12 +230,14 @@ const AudienceView = () => {
         setAnimateLogos(false);
         setHasJoinedEvent(false); 
         setGracefulPauseMsg(null);
+        setQaState('idle');
         audioQueue.current = [];
         isPlaying.current = false;
         if (audioPlayerRef.current) {
           audioPlayerRef.current.pause();
           audioPlayerRef.current.removeAttribute('src');
         }
+        stopQaRecording(); // Asegurar limpieza del micro al salir
         releaseWakeLock();
       }
     );
@@ -242,6 +255,109 @@ const AudienceView = () => {
       releaseWakeLock();
   };
 
+  // Manejador de envío para Preguntas del Público
+  const handleQaSubmit = (e) => {
+    e.preventDefault();
+    if (!qaName.trim()) return;
+    
+    socket.emit('qa-request-floor', {
+        eventId,
+        roomName,
+        name: qaName.trim(),
+        location: qaLocation.trim(),
+        language // Usamos el idioma actual del oyente como idioma de origen
+    });
+    
+    setIsQaModalOpen(false);
+    setQaState('pending');
+  };
+
+  // Cancelar la solicitud de palabra
+  const cancelQaRequest = () => {
+    socket.emit('qa-reject-floor', { eventId, roomName, targetSocketId: socket.id });
+    setQaState('idle');
+  };
+
+  // ==========================================
+  // LÓGICA DE CAPTURA DE MICRÓFONO PARA PÚBLICO
+  // ==========================================
+  const stopQaRecording = () => {
+    if (qaProcessorRef.current) qaProcessorRef.current.disconnect();
+    if (qaAudioContextRef.current && qaAudioContextRef.current.state !== 'closed') {
+      qaAudioContextRef.current.close().catch(() => {});
+    }
+    if (qaStreamRef.current) qaStreamRef.current.getTracks().forEach(track => track.stop());
+  };
+
+  const startQaRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } 
+      });
+      qaStreamRef.current = stream;
+      
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      const audioContext = new AudioContext({ sampleRate: 16000 });
+      qaAudioContextRef.current = audioContext;
+
+      const source = audioContext.createMediaStreamSource(stream);
+      
+      const workletCode = `
+        class PCMProcessor extends AudioWorkletProcessor {
+          process(inputs, outputs, parameters) {
+            const input = inputs[0];
+            if (input && input.length > 0) {
+              const channelData = input[0];
+              const pcm16 = new Int16Array(channelData.length);
+              for (let i = 0; i < channelData.length; i++) {
+                let s = Math.max(-1, Math.min(1, channelData[i]));
+                pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+              }
+              this.port.postMessage(pcm16.buffer);
+            }
+            return true; 
+          }
+        }
+        registerProcessor('pcm-processor', PCMProcessor);
+      `;
+
+      const blob = new Blob([workletCode], { type: 'application/javascript' });
+      const workletUrl = URL.createObjectURL(blob);
+
+      await audioContext.audioWorklet.addModule(workletUrl);
+      const workletNode = new AudioWorkletNode(audioContext, 'pcm-processor');
+      qaProcessorRef.current = workletNode;
+
+      workletNode.port.onmessage = (event) => {
+        if (socket.connected && isSystemActive) {
+          // Emitimos el audio usando un canal exclusivo para Q&A
+          socket.emit('qa-audio-stream', { eventId, roomName, audioData: event.data });
+        }
+      };
+
+      const gainNode = audioContext.createGain();
+      gainNode.gain.value = 0;
+      source.connect(workletNode);
+      workletNode.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+
+    } catch (error) {
+      console.error('Error al acceder al micrófono del público:', error);
+      openDialog("Permiso Denegado", "Para hablar necesitas permitir el acceso al micrófono de tu dispositivo. Revisa los permisos de tu navegador.", "alert");
+      cancelQaRequest(); // Si no hay micro, devolvemos el estado a idle automáticamente
+    }
+  };
+
+  useEffect(() => {
+    if (qaState === 'approved') {
+        startQaRecording();
+    } else {
+        stopQaRecording();
+    }
+    return () => stopQaRecording();
+  }, [qaState]);
+  // ==========================================
+
   useEffect(() => {
     socket.on('connect', () => {
       setIsConnected(true);
@@ -250,7 +366,10 @@ const AudienceView = () => {
       }
     });
     
-    socket.on('disconnect', () => setIsConnected(false));
+    socket.on('disconnect', () => {
+        setIsConnected(false);
+        stopQaRecording();
+    });
 
     socket.on('system-status', (status) => {
       setIsSystemActive(status);
@@ -288,12 +407,20 @@ const AudienceView = () => {
     socket.on('translation-result', (data) => {
       if (!isSystemActive || !isEventActive || !isRoomActive || gracefulPauseMsg) return; 
       
+      // Si soy yo el que está hablando en Q&A, no necesito ver la traducción de mí mismo
+      if (qaState === 'approved' && data.isQa) return;
+
       if (isTvMode || userMode === 'text') {
         let currentText = '';
         if (data.translations && data.translations[language]) {
           currentText = data.translations[language];
         } else if (data.original) {
           currentText = data.original;
+        }
+
+        // Indicador visual de que la traducción viene del público
+        if (data.isQa && currentText) {
+            currentText = `🗣️ ${currentText}`;
         }
 
         if (data.type === 'partial') {
@@ -313,12 +440,26 @@ const AudienceView = () => {
 
     socket.on('neural-audio', (data) => {
       if (!isSystemActive || !isEventActive || !isRoomActive || gracefulPauseMsg) return; 
+      
+      // Si soy yo el que habla, no me reproduzco mi propio audio traducido
+      if (qaState === 'approved' && data.isQa) return;
+
       if (!isTvMode && userMode === 'audio' && data.language === language && data.audioBuffer) {
         const blob = new Blob([data.audioBuffer], { type: 'audio/mp3' });
         const url = URL.createObjectURL(blob);
         audioQueue.current.push(url);
         playNextInQueue();
       }
+    });
+
+    // Listeners de Q&A
+    socket.on('qa-floor-granted', () => {
+        setQaState('approved');
+    });
+
+    socket.on('qa-floor-revoked', () => {
+        setQaState('idle');
+        setIsQaModalOpen(false);
     });
 
     return () => {
@@ -331,9 +472,11 @@ const AudienceView = () => {
       socket.off('neural-audio');
       socket.off('system-status');
       socket.off('graceful-pause');
+      socket.off('qa-floor-granted');
+      socket.off('qa-floor-revoked');
       releaseWakeLock();
     };
-  }, [language, userMode, isTvMode, audienceCode, eventId, roomName, isSystemActive, isEventActive, isRoomActive, gracefulPauseMsg]); 
+  }, [language, userMode, isTvMode, audienceCode, eventId, roomName, isSystemActive, isEventActive, isRoomActive, gracefulPauseMsg, qaState]); 
 
   const unlockAudioAndStart = async () => {
     setUserMode('audio'); 
@@ -421,6 +564,51 @@ const AudienceView = () => {
           }
         `}
       </style>
+
+      {/* Modal para Identificación (Q&A) */}
+      {isQaModalOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity">
+          <div className="bg-darker border border-gray-700 p-6 rounded-3xl shadow-[0_0_40px_rgba(0,0,0,0.5)] max-w-sm w-full flex flex-col transform transition-all scale-100">
+            <div className="flex justify-between items-center mb-4">
+               <h3 className="text-lg font-bold text-white tracking-wide flex items-center gap-2">
+                 <Hand className="w-5 h-5 text-primary" /> Pedir la Palabra
+               </h3>
+               <button onClick={() => setIsQaModalOpen(false)} className="text-gray-500 hover:text-white transition-colors p-1">
+                 <X className="w-5 h-5" />
+               </button>
+            </div>
+            <p className="text-gray-400 text-sm leading-relaxed mb-6">
+               Identifícate brevemente para que el moderador pueda darte el paso.
+            </p>
+            <form onSubmit={handleQaSubmit} className="flex flex-col gap-4">
+               <input
+                 type="text"
+                 value={qaName}
+                 onChange={e => setQaName(e.target.value)}
+                 placeholder="Nombre (Ej. Carlos)"
+                 className="w-full bg-dark border border-gray-700 text-white rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary focus:outline-none transition-all placeholder-gray-600"
+                 required
+               />
+               <input
+                 type="text"
+                 value={qaLocation}
+                 onChange={e => setQaLocation(e.target.value)}
+                 placeholder="Ubicación (Opcional - Ej. Fila 4)"
+                 className="w-full bg-dark border border-gray-700 text-white rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary focus:outline-none transition-all placeholder-gray-600"
+               />
+               <div className="mt-4 flex justify-end">
+                 <button 
+                   type="submit" 
+                   disabled={!qaName.trim()}
+                   className="w-full px-5 py-3.5 rounded-xl bg-primary hover:bg-blue-600 text-white transition-all text-sm font-bold shadow-lg disabled:opacity-50 uppercase tracking-widest"
+                 >
+                   Enviar Solicitud
+                 </button>
+               </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {dialogConfig.isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity">
@@ -821,7 +1009,7 @@ const AudienceView = () => {
             </div>
           </div>
 
-          <main className="flex-1 flex flex-col justify-end pb-6 overflow-hidden">
+          <main className="flex-1 flex flex-col justify-end pb-6 overflow-hidden relative">
             {userMode === 'text' ? (
               <div className="flex flex-col gap-4 justify-end h-full w-full overflow-hidden">
                 {finalTexts.map((text, idx) => (
@@ -849,6 +1037,35 @@ const AudienceView = () => {
                 <p className="text-gray-500 text-sm text-center mt-2 px-4">
                   La transcripción visual está pausada para maximizar el rendimiento.
                 </p>
+              </div>
+            )}
+
+            {/* Sistema de Q&A: Botón Flotante y Estado */}
+            {qaState === 'idle' && (
+              <button
+                onClick={() => setIsQaModalOpen(true)}
+                className="absolute bottom-4 right-2 bg-gray-800 border border-gray-700 text-gray-300 p-4 rounded-full shadow-[0_0_20px_rgba(0,0,0,0.5)] hover:bg-primary hover:text-white hover:border-primary transition-all z-10"
+                title="Pedir la Palabra"
+              >
+                <Hand className="w-6 h-6" />
+              </button>
+            )}
+
+            {qaState === 'pending' && (
+              <div className="absolute bottom-4 right-2 flex items-center gap-3 bg-dark border border-gray-700 p-2 pr-4 rounded-full shadow-[0_0_20px_rgba(0,0,0,0.5)] z-10 animate-pulse">
+                 <button onClick={cancelQaRequest} className="bg-gray-800 hover:bg-red-500 text-gray-400 hover:text-white p-2 rounded-full transition-colors">
+                   <X className="w-4 h-4" />
+                 </button>
+                 <span className="text-xs font-bold text-gray-300 uppercase tracking-widest">En espera...</span>
+              </div>
+            )}
+
+            {qaState === 'approved' && (
+              <div className="absolute bottom-4 right-2 flex items-center gap-3 bg-red-500 border border-red-400 p-3 pr-5 rounded-full shadow-[0_0_20px_rgba(239,68,68,0.5)] z-10">
+                 <div className="bg-white/20 p-1.5 rounded-full animate-ping">
+                   <Mic className="w-4 h-4 text-white" />
+                 </div>
+                 <span className="text-xs font-bold text-white uppercase tracking-widest">¡Estás Hablando!</span>
               </div>
             )}
           </main>
