@@ -130,7 +130,7 @@ const statsSchema = new mongoose.Schema({
 });
 const StatsModel = mongoose.model('Stats', statsSchema);
 
-// NUEVO: Estructura en memoria para la Cola de Preguntas del Público
+// Estructura en memoria para la Cola de Preguntas del Público
 const questionQueues = new Map(); // Mapa global por sala aislada: 'eventId_roomName' -> Array de solicitantes
 
 const connectDB = async () => {
@@ -148,7 +148,8 @@ const connectDB = async () => {
                 id: e.id,
                 name: e.name,
                 adminPassword: e.adminPassword,
-                rooms: (e.rooms || []).map(r => ({ ...r, isActive: r.isActive !== false })),
+                // NUEVO: Asegurar que todas las salas tengan isQaActive (por defecto apagado)
+                rooms: (e.rooms || []).map(r => ({ ...r, isActive: r.isActive !== false, isQaActive: r.isQaActive || false })),
                 isActive: e.isActive !== false,
                 logoUrl: e.logoUrl || "",
                 logos: e.logos || [],
@@ -305,9 +306,8 @@ io.on('connection', (socket) => {
     socket.emit('system-status', isSystemActive);
 
     let translationService = null;
-    let qaTranslationService = null; // NUEVO: Instancia separada para audio del público
+    let qaTranslationService = null; 
 
-    // Función auxiliar para limpiar recursos del público si se desconectan
     const cleanupQaAudio = () => {
         if (qaTranslationService) {
             try { qaTranslationService.stop(); } catch(e) {}
@@ -448,7 +448,6 @@ io.on('connection', (socket) => {
         statsDB.delete(id);
         activeSpeakerRooms.delete(id);
         
-        // Limpiar colas de preguntas de las salas de este evento
         for (const key of questionQueues.keys()) {
             if (key.startsWith(`${id}_`)) questionQueues.delete(key);
         }
@@ -466,7 +465,8 @@ io.on('connection', (socket) => {
                 const speakerPwd = Math.random().toString(36).slice(-6).toUpperCase();
                 const audienceCode = Math.random().toString(36).slice(-6).toUpperCase();
                 if (!event.rooms) event.rooms = [];
-                event.rooms.push({ name: data.room, speakerPassword: speakerPwd, audienceCode: audienceCode, isActive: true });
+                // NUEVO: isQaActive en false por defecto al crear
+                event.rooms.push({ name: data.room, speakerPassword: speakerPwd, audienceCode: audienceCode, isActive: true, isQaActive: false });
             }
             markEventDirty(data.id);
             callback({ success: true });
@@ -484,7 +484,6 @@ io.on('connection', (socket) => {
             if (stats && stats.roomCounts && stats.roomCounts[data.room]) {
                 delete stats.roomCounts[data.room];
             }
-            // Limpiar la cola de preguntas de la sala eliminada
             questionQueues.delete(`${data.id}_${data.room}`);
             
             markEventDirty(data.id);
@@ -597,7 +596,7 @@ io.on('connection', (socket) => {
                 const speakerPwd = Math.random().toString(36).slice(-6).toUpperCase();
                 const audienceCode = Math.random().toString(36).slice(-6).toUpperCase();
                 if (!event.rooms) event.rooms = [];
-                event.rooms.push({ name: data.room, speakerPassword: speakerPwd, audienceCode: audienceCode, isActive: true });
+                event.rooms.push({ name: data.room, speakerPassword: speakerPwd, audienceCode: audienceCode, isActive: true, isQaActive: false });
             }
             markEventDirty(data.eventId);
             callback({ success: true });
@@ -615,7 +614,6 @@ io.on('connection', (socket) => {
             if (stats && stats.roomCounts && stats.roomCounts[data.room]) {
                 delete stats.roomCounts[data.room];
             }
-            // Limpiar la cola de preguntas de la sala eliminada
             questionQueues.delete(`${data.eventId}_${data.room}`);
             
             markEventDirty(data.eventId);
@@ -624,6 +622,31 @@ io.on('connection', (socket) => {
             emitMasterData();
         } else {
             callback({ success: false });
+        }
+    });
+
+    // ==========================================
+    // NUEVO: ACTIVACIÓN/DESACTIVACIÓN DE PREGUNTAS (Q&A)
+    // ==========================================
+    
+    socket.on('toggle-qa-status', (data) => {
+        const { eventId, roomName, status } = data;
+        const event = eventsDB.get(eventId);
+        if (event) {
+            const room = event.rooms.find(r => r.name === roomName);
+            if (room) {
+                room.isQaActive = status;
+                markEventDirty(eventId);
+                // Avisamos a la audiencia y al orador en la sala
+                io.to(`${eventId}_${roomName}`).emit('qa-status-changed', status);
+                // Si se apaga, vaciamos la cola
+                if (!status) {
+                    questionQueues.set(`${eventId}_${roomName}`, []);
+                    io.to(`event_admin_${eventId}`).emit('qa-queue-updated', { roomName, queue: [] });
+                    io.to(`speaker_${eventId}_${roomName}`).emit('qa-queue-updated', { roomName, queue: [] });
+                }
+                emitMasterData(); // Actualiza el panel Admin
+            }
         }
     });
 
@@ -641,7 +664,6 @@ io.on('connection', (socket) => {
         
         const queue = questionQueues.get(isolatedRoom);
         
-        // Evitar duplicados del mismo socket
         if (!queue.find(q => q.socketId === socket.id)) {
             const newRequest = {
                 socketId: socket.id,
@@ -653,7 +675,9 @@ io.on('connection', (socket) => {
             };
             queue.push(newRequest);
             
+            // NUEVO: Notificar al Administrador Y al Orador
             io.to(`event_admin_${eventId}`).emit('qa-queue-updated', { roomName, queue });
+            io.to(`speaker_${isolatedRoom}`).emit('qa-queue-updated', { roomName, queue });
         }
     });
 
@@ -665,16 +689,15 @@ io.on('connection', (socket) => {
         if (queue) {
             const requestIndex = queue.findIndex(q => q.socketId === targetSocketId);
             if (requestIndex !== -1) {
-                // Marcar como aprobado
                 queue[requestIndex].status = 'approved';
                 
-                // Limpiar otros aprobados previos si los hubiera
                 queue.forEach((q, i) => {
                     if (i !== requestIndex && q.status === 'approved') q.status = 'pending';
                 });
 
                 io.to(targetSocketId).emit('qa-floor-granted');
                 io.to(`event_admin_${eventId}`).emit('qa-queue-updated', { roomName, queue });
+                io.to(`speaker_${isolatedRoom}`).emit('qa-queue-updated', { roomName, queue });
             }
         }
     });
@@ -685,14 +708,12 @@ io.on('connection', (socket) => {
         
         const queue = questionQueues.get(isolatedRoom);
         if (queue) {
-            // Eliminar de la cola al usuario
             questionQueues.set(isolatedRoom, queue.filter(q => q.socketId !== targetSocketId));
             
-            // Avisar al usuario
             io.to(targetSocketId).emit('qa-floor-revoked');
             
-            // Actualizar panel
             io.to(`event_admin_${eventId}`).emit('qa-queue-updated', { roomName, queue: questionQueues.get(isolatedRoom) });
+            io.to(`speaker_${isolatedRoom}`).emit('qa-queue-updated', { roomName, queue: questionQueues.get(isolatedRoom) });
         }
     });
 
@@ -703,47 +724,36 @@ io.on('connection', (socket) => {
         socket.emit('qa-queue-updated', { roomName, queue });
     });
 
-    // ==========================================
-    // NUEVO: GESTIÓN DE AUDIO DEL PÚBLICO (Q&A)
-    // ==========================================
-
     socket.on('qa-audio-stream', (data) => {
         if (!isSystemActive) return;
         const { eventId, roomName, audioData } = data;
         const isolatedRoom = `${eventId}_${roomName}`;
         
-        // Verificar que el usuario sigue aprobado en la cola
         const queue = questionQueues.get(isolatedRoom) || [];
         const request = queue.find(q => q.socketId === socket.id && q.status === 'approved');
         
         if (request) {
-            // Si el servicio no existe para esta pregunta, crearlo
             if (!qaTranslationService) {
-                // Notificamos al orador que hay una pregunta activa
                 io.to(isolatedRoom).emit('qa-speaker-active', { name: request.name, location: request.location, language: request.language });
                 
-                // Mapeamos el idioma corto de la app (ej. 'en') a formato Azure (ej. 'en-US')
                 const langMap = { 'es': 'es-CO', 'en': 'en-US', 'de': 'de-DE', 'fr': 'fr-FR', 'pt': 'pt-BR' };
                 const fromLangAzure = langMap[request.language] || 'es-CO';
                 
-                // Los idiomas de destino son todos excepto el que ya habla (para eficiencia)
                 const toLangs = ['es', 'en', 'pt', 'fr', 'de'].filter(l => l !== request.language);
 
                 qaTranslationService = new TranslationService(
                     socket, 
                     fromLangAzure, 
                     toLangs, 
-                    'female', // Género de síntesis por defecto para Q&A
+                    'female', 
                     isolatedRoom,
-                    true, // isQa = true
-                    request.name // qaName
+                    true, 
+                    request.name 
                 );
                 qaTranslationService.start();
             }
-            // Escribir el fragmento de audio al servicio de Azure temporal
             qaTranslationService.writeAudio(audioData);
         } else {
-            // Si le quitaron el permiso pero sigue mandando audio, destruir el servicio
             cleanupQaAudio();
         }
     });
@@ -775,12 +785,21 @@ io.on('connection', (socket) => {
             const isolatedRoom = `${foundEvent.id}_${foundRoom.name}`;
             socket.join(isolatedRoom);
             
+            // NUEVO: Sala especial solo para el orador de esta sala
+            socket.join(`speaker_${isolatedRoom}`);
+            
             const stats = statsDB.get(foundEvent.id);
             const currentCount = stats?.roomCounts?.[foundRoom.name] || 0;
             socket.emit('room-audience-count', currentCount);
 
             console.log(`[✅ SENSOR] Orador autenticado exitosamente en la sala: ${foundRoom.name}`);
-            callback({ success: true, event: foundEvent, roomName: foundRoom.name, audienceCode: foundRoom.audienceCode });
+            callback({ 
+                success: true, 
+                event: foundEvent, 
+                roomName: foundRoom.name, 
+                audienceCode: foundRoom.audienceCode,
+                isQaActive: foundRoom.isQaActive // Enviamos estado inicial
+            });
         } else {
             registerFailedAttempt(clientIp);
             callback({ success: false, message: "Clave de sala incorrecta o evento no encontrado." });
@@ -970,6 +989,9 @@ io.on('connection', (socket) => {
             animateLogos: event.animateLogos || false,
             sponsorText: event.sponsorText 
         });
+
+        // NUEVO: Informar a la audiencia si las preguntas están activas al conectarse
+        socket.emit('qa-status-changed', roomDef.isQaActive || false);
     });
 
     socket.on('audience-change-lang', (newLang) => {
@@ -1015,6 +1037,7 @@ io.on('connection', (socket) => {
                     queue = queue.filter(q => q.socketId !== socketInstance.id);
                     questionQueues.set(isolatedRoom, queue);
                     io.to(`event_admin_${eventId}`).emit('qa-queue-updated', { roomName, queue });
+                    io.to(`speaker_${isolatedRoom}`).emit('qa-queue-updated', { roomName, queue });
                 }
             }
 
@@ -1023,7 +1046,7 @@ io.on('connection', (socket) => {
     };
 
     socket.on('leave-event-audience', () => {
-        cleanupQaAudio(); // Si el oyente sale de la sala y estaba hablando, cortarlo
+        cleanupQaAudio(); 
         removeAudienceFromStats(socket);
         Array.from(socket.rooms).forEach(r => {
             if (r !== socket.id) socket.leave(r);
@@ -1039,7 +1062,7 @@ io.on('connection', (socket) => {
             translationService = null;
         }
         
-        cleanupQaAudio(); // Asegurar que limpiamos la instancia si se desconecta de golpe
+        cleanupQaAudio(); 
         removeAudienceFromStats(socket);
     });
 });

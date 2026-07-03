@@ -56,6 +56,7 @@ const AudienceView = () => {
   const [gracefulPauseMsg, setGracefulPauseMsg] = useState(null);
 
   // Estados para Preguntas del Público (Q&A)
+  const [isQaActive, setIsQaActive] = useState(false); // NUEVO: Control de visibilidad del botón
   const [qaState, setQaState] = useState('idle'); // idle, pending, approved
   const [isQaModalOpen, setIsQaModalOpen] = useState(false);
   const [qaName, setQaName] = useState('');
@@ -75,7 +76,7 @@ const AudienceView = () => {
 
   const wakeLockRef = useRef(null);
 
-  // NUEVO: Referencias para la captura de micrófono del público
+  // Referencias para la captura de micrófono del público
   const qaAudioContextRef = useRef(null);
   const qaProcessorRef = useRef(null);
   const qaStreamRef = useRef(null);
@@ -231,6 +232,7 @@ const AudienceView = () => {
         setHasJoinedEvent(false); 
         setGracefulPauseMsg(null);
         setQaState('idle');
+        setIsQaActive(false);
         audioQueue.current = [];
         isPlaying.current = false;
         if (audioPlayerRef.current) {
@@ -453,8 +455,19 @@ const AudienceView = () => {
     });
 
     // Listeners de Q&A
+    socket.on('qa-status-changed', (status) => {
+        setIsQaActive(status);
+        if (!status) {
+            // Si el orador apaga las preguntas, cancelamos solicitudes en curso
+            setQaState('idle');
+            setIsQaModalOpen(false);
+            stopQaRecording();
+        }
+    });
+
     socket.on('qa-floor-granted', () => {
         setQaState('approved');
+        setIsQaModalOpen(false); // Cierra modal si quedó abierto
     });
 
     socket.on('qa-floor-revoked', () => {
@@ -472,6 +485,7 @@ const AudienceView = () => {
       socket.off('neural-audio');
       socket.off('system-status');
       socket.off('graceful-pause');
+      socket.off('qa-status-changed');
       socket.off('qa-floor-granted');
       socket.off('qa-floor-revoked');
       releaseWakeLock();
@@ -1041,7 +1055,7 @@ const AudienceView = () => {
             )}
 
             {/* Sistema de Q&A: Botón Flotante y Estado */}
-            {qaState === 'idle' && (
+            {isQaActive && qaState === 'idle' && (
               <button
                 onClick={() => setIsQaModalOpen(true)}
                 className="absolute bottom-4 right-2 bg-gray-800 border border-gray-700 text-gray-300 p-4 rounded-full shadow-[0_0_20px_rgba(0,0,0,0.5)] hover:bg-primary hover:text-white hover:border-primary transition-all z-10"

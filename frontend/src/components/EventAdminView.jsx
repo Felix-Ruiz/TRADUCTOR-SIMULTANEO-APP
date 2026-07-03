@@ -17,7 +17,6 @@ const EventAdminView = () => {
   const [isAddingRoom, setIsAddingRoom] = useState(false);
   const [copiedText, setCopiedText] = useState(null);
 
-  // NUEVO: Estado para gestionar las colas de Q&A por sala { 'roomName': [ { socketId, name, location, language, status } ] }
   const [qaQueues, setQaQueues] = useState({});
 
   const [dialogConfig, setDialogConfig] = useState({ isOpen: false, title: '', message: '', type: 'confirm', onConfirm: null, confirmStyle: '' });
@@ -60,7 +59,6 @@ const EventAdminView = () => {
         if (updatedEvent) setEventData(updatedEvent);
     });
 
-    // NUEVO: Escuchar actualizaciones de la cola de Q&A
     socket.on('qa-queue-updated', ({ roomName, queue }) => {
         setQaQueues(prev => ({ ...prev, [roomName]: queue }));
     });
@@ -73,7 +71,6 @@ const EventAdminView = () => {
     };
   }, [isAuthenticated]);
 
-  // NUEVO: Obtener el estado inicial de las colas cuando cargan las salas
   useEffect(() => {
     if (eventData && isSystemActive) {
       const safeRooms = eventData.rooms || [];
@@ -153,6 +150,12 @@ const EventAdminView = () => {
     }
   };
 
+  // NUEVO: Función para que el Admin encienda/apague las preguntas
+  const toggleRoomQaStatus = (roomName, currentQaStatus) => {
+      if (!eventData) return;
+      socket.emit('toggle-qa-status', { eventId: eventData.id, roomName, status: !currentQaStatus });
+  };
+
   const handleAddRoom = (e) => {
     e.preventDefault();
     if (!newRoomName.trim() || !eventData) return;
@@ -185,7 +188,6 @@ const EventAdminView = () => {
     setTimeout(() => setCopiedText(null), 2000);
   };
 
-  // NUEVO: Funciones para Q&A
   const approveQaFloor = (roomName, targetSocketId) => {
       if (!eventData) return;
       socket.emit('qa-approve-floor', { eventId: eventData.id, roomName, targetSocketId });
@@ -589,65 +591,87 @@ const EventAdminView = () => {
                         </div>
                     </div>
 
-                    {/* NUEVO: PANEL DE PREGUNTAS (Q&A) */}
+                    {/* PANEL DE PREGUNTAS (Q&A) INTEGRADO */}
                     {isSystemActive && eventData.isActive && roomObj.isActive !== false && (
                         <div className="mb-4 flex flex-col gap-2">
-                            {approvedRequest && (
-                                <div className="bg-blue-900/30 border border-blue-500/50 rounded-lg p-3 flex items-center justify-between shadow-inner mb-2">
-                                    <div className="flex items-center gap-3">
-                                       <div className="bg-blue-500/20 p-1.5 rounded-full animate-pulse">
-                                         <Mic className="w-4 h-4 text-blue-400" />
-                                       </div>
-                                       <div className="flex flex-col">
-                                           <span className="text-[10px] text-blue-300 font-bold uppercase tracking-widest">Transmitiendo: Público</span>
-                                           <span className="text-sm text-white font-bold">{approvedRequest.name} {approvedRequest.location ? `(${approvedRequest.location})` : ''}</span>
-                                       </div>
-                                    </div>
-                                    <button 
-                                      onClick={() => rejectQaFloor(roomObj.name, approvedRequest.socketId)} 
-                                      className="bg-red-500/20 hover:bg-red-500 text-red-400 hover:text-white p-2 rounded-lg transition-colors border border-red-500/30" 
-                                      title="Quitar palabra"
-                                    >
-                                        <Square className="w-4 h-4 fill-current" />
-                                    </button>
-                                </div>
-                            )}
+                            <div className="flex items-center justify-between border-t border-gray-800 pt-3 mb-1">
+                                <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest flex items-center gap-1.5">
+                                    <Hand className="w-3 h-3 text-blue-500" /> Moderación Q&A
+                                </span>
+                                <button 
+                                    onClick={() => toggleRoomQaStatus(roomObj.name, roomObj.isQaActive)}
+                                    className={`text-[10px] font-bold uppercase px-2 py-1 rounded-md transition-colors ${roomObj.isQaActive ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500 hover:text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
+                                >
+                                    {roomObj.isQaActive ? 'Desactivar Preguntas' : 'Activar Preguntas'}
+                                </button>
+                            </div>
 
-                            {pendingRequests.length > 0 && !approvedRequest && (
-                                <div className="flex flex-col gap-2">
-                                    <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest flex items-center gap-1.5 border-t border-gray-800 pt-2">
-                                        <Hand className="w-3 h-3" /> Fila de Preguntas ({pendingRequests.length})
-                                    </span>
-                                    {pendingRequests.map(req => (
-                                        <div key={req.socketId} className="bg-black/30 border border-gray-700 rounded-lg p-2.5 flex items-center justify-between shadow-sm">
-                                            <div className="flex flex-col">
-                                                <span className="text-xs text-white font-bold">{req.name} {req.location ? `(${req.location})` : ''}</span>
-                                                <span className="text-[10px] text-gray-500 font-bold uppercase">Idioma original: {req.language}</span>
+                            {roomObj.isQaActive ? (
+                                <>
+                                    {approvedRequest && (
+                                        <div className="bg-blue-900/30 border border-blue-500/50 rounded-lg p-3 flex items-center justify-between shadow-inner mb-2">
+                                            <div className="flex items-center gap-3">
+                                               <div className="bg-blue-500/20 p-1.5 rounded-full animate-pulse">
+                                                 <Mic className="w-4 h-4 text-blue-400" />
+                                               </div>
+                                               <div className="flex flex-col">
+                                                   <span className="text-[10px] text-blue-300 font-bold uppercase tracking-widest">Transmitiendo: Público</span>
+                                                   <span className="text-sm text-white font-bold">{approvedRequest.name} {approvedRequest.location ? `(${approvedRequest.location})` : ''}</span>
+                                               </div>
                                             </div>
-                                            <div className="flex items-center gap-2">
-                                                <button 
-                                                  onClick={() => approveQaFloor(roomObj.name, req.socketId)} 
-                                                  className="bg-green-500/10 hover:bg-green-500 text-green-500 hover:text-white border border-green-500/20 px-3 py-1.5 rounded-md transition-colors text-[10px] font-bold uppercase tracking-widest flex items-center gap-1"
-                                                >
-                                                    <CheckCircle2 className="w-3 h-3" /> Dar Palabra
-                                                </button>
-                                                <button 
-                                                  onClick={() => rejectQaFloor(roomObj.name, req.socketId)} 
-                                                  className="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 p-1.5 rounded-md transition-colors" 
-                                                  title="Rechazar"
-                                                >
-                                                    <X className="w-4 h-4" />
-                                                </button>
-                                            </div>
+                                            <button 
+                                              onClick={() => rejectQaFloor(roomObj.name, approvedRequest.socketId)} 
+                                              className="bg-red-500/20 hover:bg-red-500 text-red-400 hover:text-white p-2 rounded-lg transition-colors border border-red-500/30" 
+                                              title="Quitar palabra"
+                                            >
+                                                <Square className="w-4 h-4 fill-current" />
+                                            </button>
                                         </div>
-                                    ))}
+                                    )}
+
+                                    {pendingRequests.length > 0 && !approvedRequest && (
+                                        <div className="flex flex-col gap-2 max-h-[120px] overflow-y-auto">
+                                            {pendingRequests.map(req => (
+                                                <div key={req.socketId} className="bg-black/30 border border-gray-700 rounded-lg p-2.5 flex items-center justify-between shadow-sm">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-xs text-white font-bold">{req.name} {req.location ? `(${req.location})` : ''}</span>
+                                                        <span className="text-[10px] text-gray-500 font-bold uppercase">Idioma: {req.language}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <button 
+                                                          onClick={() => approveQaFloor(roomObj.name, req.socketId)} 
+                                                          className="bg-green-500/10 hover:bg-green-500 text-green-500 hover:text-white border border-green-500/20 px-3 py-1.5 rounded-md transition-colors text-[10px] font-bold uppercase tracking-widest flex items-center gap-1"
+                                                        >
+                                                            <CheckCircle2 className="w-3 h-3" /> Dar Palabra
+                                                        </button>
+                                                        <button 
+                                                          onClick={() => rejectQaFloor(roomObj.name, req.socketId)} 
+                                                          className="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 p-1.5 rounded-md transition-colors" 
+                                                          title="Rechazar"
+                                                        >
+                                                            <X className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                    {pendingRequests.length === 0 && !approvedRequest && (
+                                        <div className="text-center py-2 text-gray-500 text-xs italic">
+                                            Esperando participantes...
+                                        </div>
+                                    )}
+                                </>
+                            ) : (
+                                <div className="text-center py-2 text-gray-600 text-xs bg-black/20 rounded-lg border border-gray-800">
+                                    Las preguntas del público están desactivadas.
                                 </div>
                             )}
                         </div>
                     )}
                     {/* FIN Q&A */}
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-4 mt-auto">
                         <a 
                             href={`/admin?pwd=${roomObj.speakerPassword}`}
                             target="_blank"
@@ -679,7 +703,7 @@ const EventAdminView = () => {
                         </a>
                     </div>
 
-                    <div className="flex items-center justify-between mt-auto pt-3 border-t border-gray-800/50">
+                    <div className="flex items-center justify-between pt-3 border-t border-gray-800/50">
                         <span className="bg-green-500/10 border border-green-500/20 text-green-400 px-3 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold flex items-center gap-2 w-max">
                             <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shrink-0"></div>
                             <Users className="w-4 h-4 shrink-0 hidden sm:block" />
