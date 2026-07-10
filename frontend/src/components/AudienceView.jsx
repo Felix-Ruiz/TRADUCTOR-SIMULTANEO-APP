@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
-import { Headphones, Globe2, AlertCircle, MessageSquare, Radio, PowerOff, Key, LogOut, QrCode, X, Scale, RefreshCw, Hand, Mic } from 'lucide-react';
+import { Headphones, Globe2, AlertCircle, MessageSquare, Radio, PowerOff, Key, LogOut, QrCode, X, Scale, RefreshCw, Hand, Mic, Keyboard, MicSquare } from 'lucide-react';
 import { Scanner } from '@yudiel/react-qr-scanner';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001');
@@ -56,11 +56,20 @@ const AudienceView = () => {
   const [gracefulPauseMsg, setGracefulPauseMsg] = useState(null);
 
   // Estados para Preguntas del Público (Q&A)
-  const [isQaActive, setIsQaActive] = useState(false); // NUEVO: Control de visibilidad del botón
+  const [isQaActive, setIsQaActive] = useState(false); 
   const [qaState, setQaState] = useState('idle'); // idle, pending, approved
   const [isQaModalOpen, setIsQaModalOpen] = useState(false);
   const [qaName, setQaName] = useState('');
   const [qaLocation, setQaLocation] = useState('');
+  
+  // NUEVO: Estados para el Buzón de Preguntas Escritas/Dictadas
+  const [activeQaTab, setActiveQaTab] = useState('voice'); // 'voice' | 'text'
+  const [textQuestionContent, setTextQuestionContent] = useState('');
+  const [isDictating, setIsDictating] = useState(false);
+  const [projectedTextQuestion, setProjectedTextQuestion] = useState(null);
+  
+  // Referencia para la API de reconocimiento de voz del navegador
+  const speechRecognitionRef = useRef(null);
 
   const [dialogConfig, setDialogConfig] = useState({ isOpen: false, title: '', message: '', type: 'confirm', onConfirm: null, confirmStyle: '' });
 
@@ -76,7 +85,6 @@ const AudienceView = () => {
 
   const wakeLockRef = useRef(null);
 
-  // Referencias para la captura de micrófono del público
   const qaAudioContextRef = useRef(null);
   const qaProcessorRef = useRef(null);
   const qaStreamRef = useRef(null);
@@ -239,7 +247,7 @@ const AudienceView = () => {
           audioPlayerRef.current.pause();
           audioPlayerRef.current.removeAttribute('src');
         }
-        stopQaRecording(); // Asegurar limpieza del micro al salir
+        stopQaRecording(); 
         releaseWakeLock();
       }
     );
@@ -257,8 +265,7 @@ const AudienceView = () => {
       releaseWakeLock();
   };
 
-  // Manejador de envío para Preguntas del Público
-  const handleQaSubmit = (e) => {
+  const handleQaVoiceSubmit = (e) => {
     e.preventDefault();
     if (!qaName.trim()) return;
     
@@ -267,22 +274,90 @@ const AudienceView = () => {
         roomName,
         name: qaName.trim(),
         location: qaLocation.trim(),
-        language // Usamos el idioma actual del oyente como idioma de origen
+        language 
     });
     
     setIsQaModalOpen(false);
     setQaState('pending');
   };
 
-  // Cancelar la solicitud de palabra
+  const handleQaTextSubmit = (e) => {
+    e.preventDefault();
+    if (!qaName.trim() || !textQuestionContent.trim()) return;
+    
+    socket.emit('qa-submit-text', {
+        eventId,
+        roomName,
+        name: qaName.trim(),
+        location: qaLocation.trim(),
+        language,
+        text: textQuestionContent.trim()
+    });
+    
+    setIsQaModalOpen(false);
+    setTextQuestionContent('');
+    openDialog("¡Enviada!", "Tu pregunta ha sido enviada al orador.", "alert", null, "bg-green-600 hover:bg-green-700 shadow-green-500/25");
+  };
+
   const cancelQaRequest = () => {
     socket.emit('qa-reject-floor', { eventId, roomName, targetSocketId: socket.id });
     setQaState('idle');
   };
 
-  // ==========================================
-  // LÓGICA DE CAPTURA DE MICRÓFONO PARA PÚBLICO
-  // ==========================================
+  const toggleDictation = () => {
+    if (isDictating) {
+        if (speechRecognitionRef.current) {
+            speechRecognitionRef.current.stop();
+        }
+        setIsDictating(false);
+        return;
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+        openDialog("No Soportado", "Tu navegador no soporta el dictado nativo. Por favor, utiliza el teclado.", "alert");
+        return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = language === 'en' ? 'en-US' : language === 'pt' ? 'pt-BR' : language === 'fr' ? 'fr-FR' : language === 'de' ? 'de-DE' : 'es-CO';
+    recognition.continuous = true;
+    recognition.interimResults = true;
+
+    recognition.onstart = () => {
+        setIsDictating(true);
+    };
+
+    recognition.onresult = (event) => {
+        let interimTranscript = '';
+        let finalTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+            if (event.results[i].isFinal) {
+                finalTranscript += event.results[i][0].transcript;
+            } else {
+                interimTranscript += event.results[i][0].transcript;
+            }
+        }
+        
+        if (finalTranscript) {
+            setTextQuestionContent(prev => prev + (prev.endsWith(' ') ? '' : ' ') + finalTranscript);
+        }
+    };
+
+    recognition.onerror = (event) => {
+        console.error("Error en dictado:", event.error);
+        setIsDictating(false);
+    };
+
+    recognition.onend = () => {
+        setIsDictating(false);
+    };
+
+    speechRecognitionRef.current = recognition;
+    recognition.start();
+  };
+
   const stopQaRecording = () => {
     if (qaProcessorRef.current) qaProcessorRef.current.disconnect();
     if (qaAudioContextRef.current && qaAudioContextRef.current.state !== 'closed') {
@@ -332,7 +407,6 @@ const AudienceView = () => {
 
       workletNode.port.onmessage = (event) => {
         if (socket.connected && isSystemActive) {
-          // Emitimos el audio usando un canal exclusivo para Q&A
           socket.emit('qa-audio-stream', { eventId, roomName, audioData: event.data });
         }
       };
@@ -346,7 +420,7 @@ const AudienceView = () => {
     } catch (error) {
       console.error('Error al acceder al micrófono del público:', error);
       openDialog("Permiso Denegado", "Para hablar necesitas permitir el acceso al micrófono de tu dispositivo. Revisa los permisos de tu navegador.", "alert");
-      cancelQaRequest(); // Si no hay micro, devolvemos el estado a idle automáticamente
+      cancelQaRequest(); 
     }
   };
 
@@ -358,7 +432,6 @@ const AudienceView = () => {
     }
     return () => stopQaRecording();
   }, [qaState]);
-  // ==========================================
 
   useEffect(() => {
     socket.on('connect', () => {
@@ -408,8 +481,6 @@ const AudienceView = () => {
     
     socket.on('translation-result', (data) => {
       if (!isSystemActive || !isEventActive || !isRoomActive || gracefulPauseMsg) return; 
-      
-      // Si soy yo el que está hablando en Q&A, no necesito ver la traducción de mí mismo
       if (qaState === 'approved' && data.isQa) return;
 
       if (isTvMode || userMode === 'text') {
@@ -420,7 +491,6 @@ const AudienceView = () => {
           currentText = data.original;
         }
 
-        // Indicador visual de que la traducción viene del público
         if (data.isQa && currentText) {
             currentText = `🗣️ ${currentText}`;
         }
@@ -442,8 +512,6 @@ const AudienceView = () => {
 
     socket.on('neural-audio', (data) => {
       if (!isSystemActive || !isEventActive || !isRoomActive || gracefulPauseMsg) return; 
-      
-      // Si soy yo el que habla, no me reproduzco mi propio audio traducido
       if (qaState === 'approved' && data.isQa) return;
 
       if (!isTvMode && userMode === 'audio' && data.language === language && data.audioBuffer) {
@@ -454,11 +522,9 @@ const AudienceView = () => {
       }
     });
 
-    // Listeners de Q&A
     socket.on('qa-status-changed', (status) => {
         setIsQaActive(status);
         if (!status) {
-            // Si el orador apaga las preguntas, cancelamos solicitudes en curso
             setQaState('idle');
             setIsQaModalOpen(false);
             stopQaRecording();
@@ -467,12 +533,16 @@ const AudienceView = () => {
 
     socket.on('qa-floor-granted', () => {
         setQaState('approved');
-        setIsQaModalOpen(false); // Cierra modal si quedó abierto
+        setIsQaModalOpen(false); 
     });
 
     socket.on('qa-floor-revoked', () => {
         setQaState('idle');
         setIsQaModalOpen(false);
+    });
+
+    socket.on('qa-projected-text-question', (question) => {
+        setProjectedTextQuestion(question);
     });
 
     return () => {
@@ -488,6 +558,7 @@ const AudienceView = () => {
       socket.off('qa-status-changed');
       socket.off('qa-floor-granted');
       socket.off('qa-floor-revoked');
+      socket.off('qa-projected-text-question');
       releaseWakeLock();
     };
   }, [language, userMode, isTvMode, audienceCode, eventId, roomName, isSystemActive, isEventActive, isRoomActive, gracefulPauseMsg, qaState]); 
@@ -579,47 +650,76 @@ const AudienceView = () => {
         `}
       </style>
 
-      {/* Modal para Identificación (Q&A) */}
       {isQaModalOpen && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity">
           <div className="bg-darker border border-gray-700 p-6 rounded-3xl shadow-[0_0_40px_rgba(0,0,0,0.5)] max-w-sm w-full flex flex-col transform transition-all scale-100">
             <div className="flex justify-between items-center mb-4">
                <h3 className="text-lg font-bold text-white tracking-wide flex items-center gap-2">
-                 <Hand className="w-5 h-5 text-primary" /> Pedir la Palabra
+                 <MessageSquare className="w-5 h-5 text-primary" /> Hacer una Pregunta
                </h3>
                <button onClick={() => setIsQaModalOpen(false)} className="text-gray-500 hover:text-white transition-colors p-1">
                  <X className="w-5 h-5" />
                </button>
             </div>
-            <p className="text-gray-400 text-sm leading-relaxed mb-6">
-               Identifícate brevemente para que el moderador pueda darte el paso.
-            </p>
-            <form onSubmit={handleQaSubmit} className="flex flex-col gap-4">
-               <input
-                 type="text"
-                 value={qaName}
-                 onChange={e => setQaName(e.target.value)}
-                 placeholder="Nombre (Ej. Carlos)"
-                 className="w-full bg-dark border border-gray-700 text-white rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary focus:outline-none transition-all placeholder-gray-600"
-                 required
-               />
-               <input
-                 type="text"
-                 value={qaLocation}
-                 onChange={e => setQaLocation(e.target.value)}
-                 placeholder="Ubicación (Opcional - Ej. Fila 4)"
-                 className="w-full bg-dark border border-gray-700 text-white rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary focus:outline-none transition-all placeholder-gray-600"
-               />
-               <div className="mt-4 flex justify-end">
-                 <button 
-                   type="submit" 
-                   disabled={!qaName.trim()}
-                   className="w-full px-5 py-3.5 rounded-xl bg-primary hover:bg-blue-600 text-white transition-all text-sm font-bold shadow-lg disabled:opacity-50 uppercase tracking-widest"
-                 >
-                   Enviar Solicitud
-                 </button>
-               </div>
-            </form>
+
+            <div className="flex gap-2 p-1 bg-black rounded-xl mb-5">
+                <button 
+                    onClick={() => setActiveQaTab('voice')}
+                    className={`flex-1 py-2 text-xs font-bold uppercase tracking-widest rounded-lg transition-colors flex items-center justify-center gap-2 ${activeQaTab === 'voice' ? 'bg-gray-800 text-white shadow-md' : 'text-gray-500 hover:text-gray-300'}`}
+                >
+                    <Mic className="w-4 h-4" /> Hablar en Vivo
+                </button>
+                <button 
+                    onClick={() => setActiveQaTab('text')}
+                    className={`flex-1 py-2 text-xs font-bold uppercase tracking-widest rounded-lg transition-colors flex items-center justify-center gap-2 ${activeQaTab === 'text' ? 'bg-gray-800 text-white shadow-md' : 'text-gray-500 hover:text-gray-300'}`}
+                >
+                    <Keyboard className="w-4 h-4" /> Escribir
+                </button>
+            </div>
+
+            {activeQaTab === 'voice' ? (
+                <form onSubmit={handleQaVoiceSubmit} className="flex flex-col gap-4">
+                   <p className="text-gray-400 text-sm leading-relaxed mb-2">Identifícate para que el moderador pueda darte paso y encender tu micrófono.</p>
+                   <input type="text" value={qaName} onChange={e => setQaName(e.target.value)} placeholder="Nombre (Ej. Carlos)" className="w-full bg-dark border border-gray-700 text-white rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary focus:outline-none transition-all placeholder-gray-600" required />
+                   <input type="text" value={qaLocation} onChange={e => setQaLocation(e.target.value)} placeholder="Ubicación (Opcional - Ej. Fila 4)" className="w-full bg-dark border border-gray-700 text-white rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary focus:outline-none transition-all placeholder-gray-600" />
+                   <div className="mt-2 flex justify-end">
+                     <button type="submit" disabled={!qaName.trim()} className="w-full px-5 py-3.5 rounded-xl bg-primary hover:bg-blue-600 text-white transition-all text-sm font-bold shadow-lg disabled:opacity-50 uppercase tracking-widest">Pedir la Palabra</button>
+                   </div>
+                </form>
+            ) : (
+                <form onSubmit={handleQaTextSubmit} className="flex flex-col gap-4">
+                   <p className="text-gray-400 text-sm leading-relaxed mb-2">Envía tu pregunta al buzón del orador. Si es seleccionada, se proyectará para todos.</p>
+                   <div className="flex gap-2">
+                       <input type="text" value={qaName} onChange={e => setQaName(e.target.value)} placeholder="Tu Nombre" className="flex-1 bg-dark border border-gray-700 text-white rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary focus:outline-none transition-all placeholder-gray-600" required />
+                       <input type="text" value={qaLocation} onChange={e => setQaLocation(e.target.value)} placeholder="Ubicación" className="flex-1 bg-dark border border-gray-700 text-white rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary focus:outline-none transition-all placeholder-gray-600" />
+                   </div>
+                   
+                   <div className="relative">
+                       <textarea 
+                           value={textQuestionContent}
+                           onChange={e => setTextQuestionContent(e.target.value)}
+                           placeholder="Escribe aquí tu pregunta..."
+                           className="w-full bg-dark border border-gray-700 text-white rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary focus:outline-none transition-all placeholder-gray-600 min-h-[100px] resize-none pr-12"
+                           required
+                       />
+                       <button 
+                           type="button" 
+                           onClick={toggleDictation}
+                           title="Dictar por voz"
+                           className={`absolute right-3 bottom-4 p-2 rounded-full transition-all shadow-md ${isDictating ? 'bg-red-500 text-white animate-pulse' : 'bg-gray-800 text-primary hover:bg-primary hover:text-white'}`}
+                       >
+                           <MicSquare className="w-5 h-5" />
+                       </button>
+                   </div>
+                   {isDictating && <p className="text-xs text-red-400 text-center animate-pulse">Escuchando... Habla ahora.</p>}
+
+                   <div className="mt-2 flex justify-end">
+                     <button type="submit" disabled={!qaName.trim() || !textQuestionContent.trim()} className="w-full px-5 py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white transition-all text-sm font-bold shadow-lg disabled:opacity-50 uppercase tracking-widest flex items-center justify-center gap-2">
+                         <MessageSquare className="w-4 h-4" /> Enviar al Buzón
+                     </button>
+                   </div>
+                </form>
+            )}
           </div>
         </div>
       )}
@@ -837,6 +937,26 @@ const AudienceView = () => {
         </div>
       ) : isTvMode ? (
         <div className="flex flex-col h-screen w-full bg-black p-8 md:p-16 lg:pb-16 overflow-hidden relative">
+          
+          {projectedTextQuestion && (
+             <div className="absolute top-8 left-1/2 -translate-x-1/2 bg-blue-900/40 border border-blue-500/50 backdrop-blur-xl p-8 rounded-3xl shadow-[0_0_50px_rgba(59,130,246,0.3)] z-50 max-w-4xl w-[90%] flex flex-col gap-4 animate-[logo-glow_3s_ease-in-out_infinite]">
+                 <div className="flex items-center gap-3 border-b border-blue-500/30 pb-4">
+                     <div className="bg-blue-500/20 p-2 rounded-full">
+                         <MessageSquare className="w-8 h-8 text-blue-400" />
+                     </div>
+                     <div className="flex flex-col">
+                         <span className="text-sm font-bold text-blue-300 uppercase tracking-widest">Pregunta de la Audiencia</span>
+                         <span className="text-xl font-bold text-white">{projectedTextQuestion.name} {projectedTextQuestion.location ? `(${projectedTextQuestion.location})` : ''}</span>
+                     </div>
+                 </div>
+                 <p className="text-3xl md:text-4xl text-white font-medium leading-relaxed">
+                     "{projectedTextQuestion.translations && projectedTextQuestion.translations[language] 
+                        ? projectedTextQuestion.translations[language] 
+                        : projectedTextQuestion.text}"
+                 </p>
+             </div>
+          )}
+
           <div className="absolute top-6 right-8 z-10 flex items-center gap-4 bg-dark/80 p-3 rounded-2xl backdrop-blur-md border border-gray-800 shadow-xl transition-all duration-500 opacity-10 hover:opacity-100 hover:bg-dark">
             <div className="bg-black/50 border border-gray-700 text-gray-300 text-xs font-bold uppercase tracking-wider rounded-lg px-4 py-2">
                 SALA: {roomName}
@@ -873,7 +993,7 @@ const AudienceView = () => {
             </button>
           </div>
 
-          <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col justify-end gap-6 overflow-hidden relative z-0 pb-8 md:pb-12">
+          <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col justify-end gap-6 overflow-hidden relative z-0 mb-32 md:mb-40">
             {finalTexts.map((text, idx) => (
               <p key={idx} className="text-4xl md:text-5xl lg:text-6xl font-medium text-white/50 text-left leading-normal tracking-wide drop-shadow-2xl transition-all duration-300">
                 {text}
@@ -969,6 +1089,25 @@ const AudienceView = () => {
         <div className="flex flex-col h-screen w-full p-6 max-w-md mx-auto bg-darker relative">
           <audio ref={audioPlayerRef} onEnded={handleAudioEnded} className="hidden" />
 
+          {projectedTextQuestion && (
+             <div className="absolute top-16 left-4 right-4 bg-blue-900/40 border border-blue-500/50 backdrop-blur-xl p-5 rounded-3xl shadow-[0_0_30px_rgba(59,130,246,0.3)] z-50 flex flex-col gap-3">
+                 <div className="flex items-center gap-3 border-b border-blue-500/30 pb-3">
+                     <div className="bg-blue-500/20 p-2 rounded-full">
+                         <MessageSquare className="w-5 h-5 text-blue-400" />
+                     </div>
+                     <div className="flex flex-col">
+                         <span className="text-[10px] font-bold text-blue-300 uppercase tracking-widest">Pregunta Proyectada</span>
+                         <span className="text-sm font-bold text-white">{projectedTextQuestion.name} {projectedTextQuestion.location ? `(${projectedTextQuestion.location})` : ''}</span>
+                     </div>
+                 </div>
+                 <p className="text-lg text-white font-medium italic">
+                     "{projectedTextQuestion.translations && projectedTextQuestion.translations[language] 
+                        ? projectedTextQuestion.translations[language] 
+                        : projectedTextQuestion.text}"
+                 </p>
+             </div>
+          )}
+
           <header className="flex justify-between items-center mb-6 pb-4 border-b border-gray-800 shrink-0">
             <div className="flex items-center gap-3">
               <img src={(mobileLogos.length > 0 ? mobileLogos[0].url : '') || "/logo.png"} alt="Event Logo" className="h-8 w-auto max-w-[100px] object-contain animate-logo-pulse" onError={(e) => { e.target.style.display = 'none'; }} />
@@ -1054,14 +1193,13 @@ const AudienceView = () => {
               </div>
             )}
 
-            {/* Sistema de Q&A: Botón Flotante y Estado */}
             {isQaActive && qaState === 'idle' && (
               <button
                 onClick={() => setIsQaModalOpen(true)}
                 className="absolute bottom-4 right-2 bg-gray-800 border border-gray-700 text-gray-300 p-4 rounded-full shadow-[0_0_20px_rgba(0,0,0,0.5)] hover:bg-primary hover:text-white hover:border-primary transition-all z-10"
-                title="Pedir la Palabra"
+                title="Hacer una Pregunta"
               >
-                <Hand className="w-6 h-6" />
+                <MessageSquare className="w-6 h-6" />
               </button>
             )}
 
@@ -1075,11 +1213,19 @@ const AudienceView = () => {
             )}
 
             {qaState === 'approved' && (
-              <div className="absolute bottom-4 right-2 flex items-center gap-3 bg-red-500 border border-red-400 p-3 pr-5 rounded-full shadow-[0_0_20px_rgba(239,68,68,0.5)] z-10">
-                 <div className="bg-white/20 p-1.5 rounded-full animate-ping">
-                   <Mic className="w-4 h-4 text-white" />
+              <div className="absolute bottom-4 right-2 flex flex-col items-end gap-2 z-10">
+                 <div className="flex items-center gap-3 bg-red-500 border border-red-400 p-3 pr-5 rounded-full shadow-[0_0_20px_rgba(239,68,68,0.5)]">
+                    <div className="bg-white/20 p-1.5 rounded-full animate-ping">
+                      <Mic className="w-4 h-4 text-white" />
+                    </div>
+                    <span className="text-xs font-bold text-white uppercase tracking-widest">¡Estás Hablando!</span>
                  </div>
-                 <span className="text-xs font-bold text-white uppercase tracking-widest">¡Estás Hablando!</span>
+                 <button
+                   onClick={cancelQaRequest}
+                   className="bg-red-600 hover:bg-red-700 text-white font-bold text-[10px] uppercase tracking-widest px-4 py-2 rounded-xl shadow-lg border border-red-500 transition-all"
+                 >
+                   Terminar mi intervención
+                 </button>
               </div>
             )}
           </main>

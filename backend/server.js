@@ -130,8 +130,10 @@ const statsSchema = new mongoose.Schema({
 });
 const StatsModel = mongoose.model('Stats', statsSchema);
 
-// Estructura en memoria para la Cola de Preguntas del Público
-const questionQueues = new Map(); // Mapa global por sala aislada: 'eventId_roomName' -> Array de solicitantes
+// Estructuras en memoria para Q&A
+const questionQueues = new Map(); // Q&A en Vivo: 'eventId_roomName' -> [{ socketId, name, location, language, status, timestamp }]
+const textQuestionsDB = new Map(); // Q&A Escritas: 'eventId_roomName' -> [{ id, name, location, language, text, translations, timestamp }]
+const activeProjectedText = new Map(); // Texto proyectado actualmente: 'eventId_roomName' -> { question object }
 
 const connectDB = async () => {
     try {
@@ -148,7 +150,6 @@ const connectDB = async () => {
                 id: e.id,
                 name: e.name,
                 adminPassword: e.adminPassword,
-                // NUEVO: Asegurar que todas las salas tengan isQaActive (por defecto apagado)
                 rooms: (e.rooms || []).map(r => ({ ...r, isActive: r.isActive !== false, isQaActive: r.isQaActive || false })),
                 isActive: e.isActive !== false,
                 logoUrl: e.logoUrl || "",
@@ -186,7 +187,7 @@ const connectDB = async () => {
 };
 connectDB();
 
-// --- NUEVO: SISTEMA ANTI-COLAPSO DE MONGODB (Batch Processing) ---
+// --- SISTEMA ANTI-COLAPSO DE MONGODB (Batch Processing) ---
 const pendingEventUpdates = new Set();
 const pendingStatsUpdates = new Set();
 
@@ -319,8 +320,6 @@ io.on('connection', (socket) => {
     };
 
     socket.on('master-login', (pwd, callback) => {
-        console.log(`[DEBUG] Clave esperada: '${MASTER_PASSWORD}' | Clave recibida del frontend: '${pwd}'`);
-        
         const rateLimit = checkRateLimit(clientIp);
         if (!rateLimit.allowed) return callback({ success: false, message: rateLimit.message });
 
@@ -451,6 +450,9 @@ io.on('connection', (socket) => {
         for (const key of questionQueues.keys()) {
             if (key.startsWith(`${id}_`)) questionQueues.delete(key);
         }
+        for (const key of textQuestionsDB.keys()) {
+            if (key.startsWith(`${id}_`)) textQuestionsDB.delete(key);
+        }
 
         markEventDirty(id);
         markStatsDirty(id);
@@ -465,7 +467,6 @@ io.on('connection', (socket) => {
                 const speakerPwd = Math.random().toString(36).slice(-6).toUpperCase();
                 const audienceCode = Math.random().toString(36).slice(-6).toUpperCase();
                 if (!event.rooms) event.rooms = [];
-                // NUEVO: isQaActive en false por defecto al crear
                 event.rooms.push({ name: data.room, speakerPassword: speakerPwd, audienceCode: audienceCode, isActive: true, isQaActive: false });
             }
             markEventDirty(data.id);
@@ -485,6 +486,7 @@ io.on('connection', (socket) => {
                 delete stats.roomCounts[data.room];
             }
             questionQueues.delete(`${data.id}_${data.room}`);
+            textQuestionsDB.delete(`${data.id}_${data.room}`);
             
             markEventDirty(data.id);
             markStatsDirty(data.id);
@@ -615,6 +617,7 @@ io.on('connection', (socket) => {
                 delete stats.roomCounts[data.room];
             }
             questionQueues.delete(`${data.eventId}_${data.room}`);
+            textQuestionsDB.delete(`${data.eventId}_${data.room}`);
             
             markEventDirty(data.eventId);
             markStatsDirty(data.eventId);
@@ -626,7 +629,7 @@ io.on('connection', (socket) => {
     });
 
     // ==========================================
-    // NUEVO: ACTIVACIÓN/DESACTIVACIÓN DE PREGUNTAS (Q&A)
+    // ACTIVACIÓN/DESACTIVACIÓN DE PREGUNTAS (Q&A)
     // ==========================================
     
     socket.on('toggle-qa-status', (data) => {
@@ -637,21 +640,19 @@ io.on('connection', (socket) => {
             if (room) {
                 room.isQaActive = status;
                 markEventDirty(eventId);
-                // Avisamos a la audiencia y al orador en la sala
                 io.to(`${eventId}_${roomName}`).emit('qa-status-changed', status);
-                // Si se apaga, vaciamos la cola
                 if (!status) {
                     questionQueues.set(`${eventId}_${roomName}`, []);
                     io.to(`event_admin_${eventId}`).emit('qa-queue-updated', { roomName, queue: [] });
                     io.to(`speaker_${eventId}_${roomName}`).emit('qa-queue-updated', { roomName, queue: [] });
                 }
-                emitMasterData(); // Actualiza el panel Admin
+                emitMasterData(); 
             }
         }
     });
 
     // ==========================================
-    // LÓGICA DE PREGUNTAS DEL PÚBLICO (Q&A)
+    // Q&A MODO 1: MICRÓFONO EN VIVO
     // ==========================================
 
     socket.on('qa-request-floor', (data) => {
@@ -675,7 +676,6 @@ io.on('connection', (socket) => {
             };
             queue.push(newRequest);
             
-            // NUEVO: Notificar al Administrador Y al Orador
             io.to(`event_admin_${eventId}`).emit('qa-queue-updated', { roomName, queue });
             io.to(`speaker_${isolatedRoom}`).emit('qa-queue-updated', { roomName, queue });
         }
@@ -717,13 +717,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('qa-get-queue', (data) => {
-        const { eventId, roomName } = data;
-        const isolatedRoom = `${eventId}_${roomName}`;
-        const queue = questionQueues.get(isolatedRoom) || [];
-        socket.emit('qa-queue-updated', { roomName, queue });
-    });
-
     socket.on('qa-audio-stream', (data) => {
         if (!isSystemActive) return;
         const { eventId, roomName, audioData } = data;
@@ -759,6 +752,109 @@ io.on('connection', (socket) => {
     });
 
     // ==========================================
+    // Q&A MODO 2: BUZÓN DE PREGUNTAS ESCRITAS CON TRADUCCIÓN AZURE
+    // ==========================================
+
+    socket.on('qa-submit-text', async (data) => {
+        const { eventId, roomName, name, location, language, text } = data;
+        const isolatedRoom = `${eventId}_${roomName}`;
+        if (!textQuestionsDB.has(isolatedRoom)) textQuestionsDB.set(isolatedRoom, []);
+        
+        const questionId = 'q_' + Math.random().toString(36).substr(2, 9);
+        let translatedTexts = {};
+        
+        const key = process.env.AZURE_TRANSLATOR_KEY;
+        const region = process.env.AZURE_TRANSLATOR_REGION;
+
+        if (key && region) {
+            try {
+                const toLangs = ['es', 'en', 'pt', 'fr', 'de'].filter(l => l !== language);
+                const queryLangs = toLangs.join('&to=');
+                const url = `https://api.cognitive.microsofttranslator.com/translate?api-version=3.0&from=${language}&to=${queryLangs}`;
+                
+                // Usamos fetch nativo (Node 18+)
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Ocp-Apim-Subscription-Key': key,
+                        'Ocp-Apim-Subscription-Region': region,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify([{ text }])
+                });
+                
+                const result = await response.json();
+                if (result && result[0] && result[0].translations) {
+                    result[0].translations.forEach(t => {
+                        translatedTexts[t.to] = t.text;
+                    });
+                }
+                translatedTexts[language] = text; 
+            } catch (err) {
+                console.error('[Azure Text] Error traduciendo pregunta escrita:', err);
+                translatedTexts[language] = text;
+            }
+        } else {
+            translatedTexts[language] = text;
+        }
+
+        const newTextRequest = { 
+            id: questionId, 
+            name: name || 'Anónimo', 
+            location: location || 'Sala', 
+            language: language || 'es', 
+            text, 
+            translations: translatedTexts,
+            timestamp: Date.now() 
+        };
+        
+        textQuestionsDB.get(isolatedRoom).push(newTextRequest);
+        
+        io.to(`event_admin_${eventId}`).emit('qa-text-queue-updated', { roomName, queue: textQuestionsDB.get(isolatedRoom) });
+        io.to(`speaker_${isolatedRoom}`).emit('qa-text-queue-updated', { roomName, queue: textQuestionsDB.get(isolatedRoom) });
+    });
+
+    socket.on('qa-delete-text', (data) => {
+        const { eventId, roomName, questionId } = data;
+        const isolatedRoom = `${eventId}_${roomName}`;
+        let queue = textQuestionsDB.get(isolatedRoom) || [];
+        queue = queue.filter(q => q.id !== questionId);
+        textQuestionsDB.set(isolatedRoom, queue);
+        
+        io.to(`event_admin_${eventId}`).emit('qa-text-queue-updated', { roomName, queue });
+        io.to(`speaker_${isolatedRoom}`).emit('qa-text-queue-updated', { roomName, queue });
+        
+        const projected = activeProjectedText.get(isolatedRoom);
+        if (projected && projected.id === questionId) {
+            activeProjectedText.delete(isolatedRoom);
+            io.to(isolatedRoom).emit('qa-projected-text-question', null);
+        }
+    });
+
+    socket.on('qa-project-text', (data) => {
+        const { eventId, roomName, question } = data;
+        const isolatedRoom = `${eventId}_${roomName}`;
+        activeProjectedText.set(isolatedRoom, question);
+        io.to(isolatedRoom).emit('qa-projected-text-question', question);
+    });
+
+    socket.on('qa-stop-project-text', (data) => {
+        const { eventId, roomName } = data;
+        const isolatedRoom = `${eventId}_${roomName}`;
+        activeProjectedText.delete(isolatedRoom);
+        io.to(isolatedRoom).emit('qa-projected-text-question', null);
+    });
+
+    socket.on('qa-get-queue', (data) => {
+        const { eventId, roomName } = data;
+        const isolatedRoom = `${eventId}_${roomName}`;
+        const queue = questionQueues.get(isolatedRoom) || [];
+        const textQueue = textQuestionsDB.get(isolatedRoom) || [];
+        socket.emit('qa-queue-updated', { roomName, queue });
+        socket.emit('qa-text-queue-updated', { roomName, queue: textQueue });
+    });
+
+    // ==========================================
 
     socket.on('speaker-login', (password, callback) => {
         console.log(`[🔐 SENSOR] Alguien intentó entrar como Orador con la clave: ${password}`);
@@ -784,8 +880,6 @@ io.on('connection', (socket) => {
             resetAttempts(clientIp);
             const isolatedRoom = `${foundEvent.id}_${foundRoom.name}`;
             socket.join(isolatedRoom);
-            
-            // NUEVO: Sala especial solo para el orador de esta sala
             socket.join(`speaker_${isolatedRoom}`);
             
             const stats = statsDB.get(foundEvent.id);
@@ -798,7 +892,7 @@ io.on('connection', (socket) => {
                 event: foundEvent, 
                 roomName: foundRoom.name, 
                 audienceCode: foundRoom.audienceCode,
-                isQaActive: foundRoom.isQaActive // Enviamos estado inicial
+                isQaActive: foundRoom.isQaActive 
             });
         } else {
             registerFailedAttempt(clientIp);
@@ -807,35 +901,12 @@ io.on('connection', (socket) => {
     });
 
     socket.on('start-translation', (config) => {
-        console.log(`\n[🎤 DEBUG] Petición de transmisión recibida: Sala '${config.roomName}' | Evento '${config.eventId}'`);
-        
-        if (!isSystemActive) {
-            console.log(`[❌ DEBUG] Bloqueado: La Central de Sistema está APAGADA.`);
-            return;
-        }
-        
+        if (!isSystemActive) return;
         const event = eventsDB.get(config.eventId);
-        if (!event) {
-            console.log(`[❌ DEBUG] Bloqueado: El evento '${config.eventId}' NO EXISTE en memoria.`);
-            return;
-        }
-        if (!event.isActive) {
-            console.log(`[❌ DEBUG] Bloqueado: El evento '${event.name}' está PAUSADO.`);
-            return;
-        }
-        
+        if (!event || !event.isActive) return;
         const room = event.rooms.find(r => r.name === config.roomName);
-        if (!room) {
-            console.log(`[❌ DEBUG] Bloqueado: La sala '${config.roomName}' NO EXISTE en este evento.`);
-            return;
-        }
-        if (room.isActive === false) {
-            console.log(`[❌ DEBUG] Bloqueado: La sala '${config.roomName}' está PAUSADA.`);
-            return;
-        }
+        if (!room || room.isActive === false) return;
 
-        console.log(`[✅ DEBUG] Validación exitosa. Conectando con Microsoft Azure...`);
-        
         const eventId = config.eventId;
         const roomName = config.roomName;
         const isolatedRoom = `${eventId}_${roomName}`;
@@ -894,7 +965,6 @@ io.on('connection', (socket) => {
     };
 
     socket.on('stop-translation', () => {
-        console.log(`[🛑 SENSOR] Petición de detener transmisión recibida.`);
         handleSpeakerStop();
         if (translationService) {
             translationService.stop();
@@ -990,8 +1060,12 @@ io.on('connection', (socket) => {
             sponsorText: event.sponsorText 
         });
 
-        // NUEVO: Informar a la audiencia si las preguntas están activas al conectarse
         socket.emit('qa-status-changed', roomDef.isQaActive || false);
+
+        const projectedText = activeProjectedText.get(isolatedRoom);
+        if (projectedText) {
+            socket.emit('qa-projected-text-question', projectedText);
+        }
     });
 
     socket.on('audience-change-lang', (newLang) => {
@@ -1054,7 +1128,6 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', () => {
-        console.log(`[❌ DESCONEXIÓN] Un cliente se ha ido. ID: ${socket.id}`);
         handleSpeakerStop();
         
         if (translationService) {

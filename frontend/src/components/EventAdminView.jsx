@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
-import { Power, Plus, Trash2, Key, Copy, CheckCircle2, X, Users, AlertCircle, BarChart3, UserCog, LogOut, Activity, ExternalLink, MonitorPlay, Mic, Download, Scale, Hand, Square } from 'lucide-react';
+import { Power, Plus, Trash2, Key, Copy, CheckCircle2, X, Users, AlertCircle, BarChart3, UserCog, LogOut, Activity, ExternalLink, MonitorPlay, Mic, Download, Scale, Hand, Square, MessageSquare } from 'lucide-react';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001', { autoConnect: false });
 
@@ -18,6 +18,7 @@ const EventAdminView = () => {
   const [copiedText, setCopiedText] = useState(null);
 
   const [qaQueues, setQaQueues] = useState({});
+  const [qaTextQueues, setQaTextQueues] = useState({});
 
   const [dialogConfig, setDialogConfig] = useState({ isOpen: false, title: '', message: '', type: 'confirm', onConfirm: null, confirmStyle: '' });
 
@@ -63,10 +64,15 @@ const EventAdminView = () => {
         setQaQueues(prev => ({ ...prev, [roomName]: queue }));
     });
 
+    socket.on('qa-text-queue-updated', ({ roomName, queue }) => {
+        setQaTextQueues(prev => ({ ...prev, [roomName]: queue }));
+    });
+
     return () => {
         socket.off('system-status');
         socket.off('event-admin-data-updated');
         socket.off('qa-queue-updated');
+        socket.off('qa-text-queue-updated');
         socket.disconnect();
     };
   }, [isAuthenticated]);
@@ -111,6 +117,7 @@ const EventAdminView = () => {
         setIsAuthenticated(false);
         setEventData(null);
         setQaQueues({});
+        setQaTextQueues({});
         sessionStorage.removeItem('isEventAdminAuth');
         sessionStorage.removeItem('eventAdminPwd');
         socket.disconnect();
@@ -150,7 +157,6 @@ const EventAdminView = () => {
     }
   };
 
-  // NUEVO: Función para que el Admin encienda/apague las preguntas
   const toggleRoomQaStatus = (roomName, currentQaStatus) => {
       if (!eventData) return;
       socket.emit('toggle-qa-status', { eventId: eventData.id, roomName, status: !currentQaStatus });
@@ -196,6 +202,11 @@ const EventAdminView = () => {
   const rejectQaFloor = (roomName, targetSocketId) => {
       if (!eventData) return;
       socket.emit('qa-reject-floor', { eventId: eventData.id, roomName, targetSocketId });
+  };
+
+  const deleteTextQuestion = (roomName, questionId) => {
+      if (!eventData) return;
+      socket.emit('qa-delete-text', { eventId: eventData.id, roomName, questionId });
   };
 
   const downloadAnalytics = (event) => {
@@ -559,6 +570,7 @@ const EventAdminView = () => {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 overflow-y-auto pb-4">
             {safeRooms.map(roomObj => {
                 const roomQueue = qaQueues[roomObj.name] || [];
+                const roomTextQueue = qaTextQueues[roomObj.name] || [];
                 const pendingRequests = roomQueue.filter(q => q.status === 'pending');
                 const approvedRequest = roomQueue.find(q => q.status === 'approved');
 
@@ -631,6 +643,7 @@ const EventAdminView = () => {
 
                                     {pendingRequests.length > 0 && !approvedRequest && (
                                         <div className="flex flex-col gap-2 max-h-[120px] overflow-y-auto">
+                                            <span className="text-[10px] text-gray-500 uppercase flex items-center gap-1 mt-1"><Mic className="w-3 h-3"/> Fila de Voz</span>
                                             {pendingRequests.map(req => (
                                                 <div key={req.socketId} className="bg-black/30 border border-gray-700 rounded-lg p-2.5 flex items-center justify-between shadow-sm">
                                                     <div className="flex flex-col">
@@ -656,9 +669,33 @@ const EventAdminView = () => {
                                             ))}
                                         </div>
                                     )}
-                                    {pendingRequests.length === 0 && !approvedRequest && (
+
+                                    {roomTextQueue.length > 0 && (
+                                        <div className="mt-3 flex flex-col gap-2">
+                                           <span className="text-[10px] text-gray-500 uppercase flex items-center gap-1"><MessageSquare className="w-3 h-3"/> Buzón Escrito ({roomTextQueue.length})</span>
+                                           <div className="max-h-[120px] overflow-y-auto flex flex-col gap-2">
+                                               {roomTextQueue.map(q => (
+                                                   <div key={q.id} className="bg-black/30 border border-gray-700 p-2.5 rounded-lg flex justify-between items-center shadow-sm">
+                                                       <div className="flex flex-col overflow-hidden pr-2">
+                                                           <span className="text-xs text-white font-medium italic break-words line-clamp-2">"{q.text}"</span>
+                                                           <span className="text-[10px] text-gray-500 font-bold mt-0.5">{q.name}</span>
+                                                       </div>
+                                                       <button 
+                                                           onClick={() => deleteTextQuestion(roomObj.name, q.id)} 
+                                                           className="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white p-1.5 rounded-md transition-colors shrink-0"
+                                                           title="Descartar"
+                                                        >
+                                                           <Trash2 className="w-4 h-4" />
+                                                       </button>
+                                                   </div>
+                                               ))}
+                                           </div>
+                                        </div>
+                                    )}
+
+                                    {pendingRequests.length === 0 && roomTextQueue.length === 0 && !approvedRequest && (
                                         <div className="text-center py-2 text-gray-500 text-xs italic">
-                                            Esperando participantes...
+                                            Bandeja limpia. Esperando preguntas...
                                         </div>
                                     )}
                                 </>

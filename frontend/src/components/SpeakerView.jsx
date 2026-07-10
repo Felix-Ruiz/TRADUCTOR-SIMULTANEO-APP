@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
-import { Mic, Square, Radio, Globe, Download, Lock, AlertTriangle, AlertCircle, Users, Monitor, MonitorPlay, Copy, CheckCircle2, Scale, User, Hand, X } from 'lucide-react';
+import { Mic, Square, Radio, Globe, Download, Lock, AlertTriangle, AlertCircle, Users, Monitor, MonitorPlay, Copy, CheckCircle2, Scale, User, Hand, X, MessageSquare, Play, StopCircle, Trash2 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
 // FIX: Se añade el fallback de URL para evitar conexiones caídas o indefinidas
@@ -50,6 +50,11 @@ const SpeakerView = () => {
   const [activeQuestion, setActiveQuestion] = useState(null);
   const [isQaActive, setIsQaActive] = useState(false);
   const [qaQueue, setQaQueue] = useState([]);
+  
+  // ESTADOS PARA EL BUZÓN DE PREGUNTAS ESCRITAS
+  const [activeQaTab, setActiveQaTab] = useState('voice'); // 'voice' | 'text'
+  const [qaTextQueue, setQaTextQueue] = useState([]);
+  const [projectedTextQuestion, setProjectedTextQuestion] = useState(null);
 
   const audioContextRef = useRef(null);
   const processorRef = useRef(null);
@@ -82,11 +87,10 @@ const SpeakerView = () => {
         setIsRoomActive(true); 
         setRoomName(response.roomName); 
         setAudienceCode(response.audienceCode); 
-        setIsQaActive(response.isQaActive || false); // Sincroniza estado de preguntas
+        setIsQaActive(response.isQaActive || false); 
         sessionStorage.setItem('speakerPwd', pwd);
         setLoginError('');
         
-        // Pedir la cola actual si las preguntas están activas
         socket.emit('qa-get-queue', { eventId: response.event.id, roomName: response.roomName });
       } else {
         console.warn("[⚠️ CLIENT] Error en la autenticación de sala:", response.message);
@@ -106,13 +110,13 @@ const SpeakerView = () => {
     attemptLogin(passwordInput);
   };
 
-  // FUNCIONES DE CONTROL Q&A PARA EL ORADOR
   const toggleQaStatus = () => {
     if (!eventInfo) return;
     const newStatus = !isQaActive;
     socket.emit('toggle-qa-status', { eventId: eventInfo.id, roomName, status: newStatus });
   };
 
+  // ACCIONES Q&A MODO VOZ
   const approveQaFloor = (targetSocketId) => {
     if (!eventInfo) return;
     socket.emit('qa-approve-floor', { eventId: eventInfo.id, roomName, targetSocketId });
@@ -121,6 +125,22 @@ const SpeakerView = () => {
   const rejectQaFloor = (targetSocketId) => {
     if (!eventInfo) return;
     socket.emit('qa-reject-floor', { eventId: eventInfo.id, roomName, targetSocketId });
+  };
+
+  // ACCIONES Q&A MODO TEXTO
+  const projectTextQuestion = (question) => {
+    if (!eventInfo) return;
+    socket.emit('qa-project-text', { eventId: eventInfo.id, roomName, question });
+  };
+
+  const stopProjectingText = () => {
+    if (!eventInfo) return;
+    socket.emit('qa-stop-project-text', { eventId: eventInfo.id, roomName });
+  };
+
+  const deleteTextQuestion = (questionId) => {
+    if (!eventInfo) return;
+    socket.emit('qa-delete-text', { eventId: eventInfo.id, roomName, questionId });
   };
 
   useEffect(() => {
@@ -180,11 +200,12 @@ const SpeakerView = () => {
         }
     });
 
-    // LISTENERS DEL Q&A
+    // LISTENERS Q&A GENERAL
     socket.on('qa-status-changed', (status) => {
         setIsQaActive(status);
     });
 
+    // LISTENERS Q&A MODO VOZ
     socket.on('qa-queue-updated', (data) => {
         if (data.roomName === roomName) {
             setQaQueue(data.queue);
@@ -199,10 +220,30 @@ const SpeakerView = () => {
         setActiveQuestion(null);
     });
 
+    // LISTENERS Q&A MODO TEXTO
+    socket.on('qa-text-queue-updated', (data) => {
+        if (data.roomName === roomName) {
+            setQaTextQueue(data.queue);
+        }
+    });
+
+    socket.on('qa-projected-text-question', (question) => {
+        setProjectedTextQuestion(question);
+    });
+
     socket.on('translation-result', (data) => {
+      let textToShow = data.original;
+      
+      if (data.isQa && data.translations) {
+        const speakerBaseLang = inputLanguage.split('-')[0]; 
+        if (data.translations[speakerBaseLang]) {
+          textToShow = data.translations[speakerBaseLang];
+        }
+      }
+
       const prefix = data.isQa ? `👉 [Pregunta de ${data.qaName || 'Público'}]: ` : '';
       
-      setTranscription(prefix + data.original);
+      setTranscription(prefix + textToShow);
       
       if (data.translations) {
         if (data.isQa) {
@@ -217,7 +258,7 @@ const SpeakerView = () => {
       }
       
       if (data.type === 'final') {
-        const text = prefix + data.original;
+        const text = prefix + textToShow;
         setFullTranscription(prev => prev + text + " \n");
         const wordsCount = data.original.trim().split(/\s+/).length;
         if (wordsCount > 0) socket.emit('analytics-sync-words', { words: wordsCount });
@@ -240,8 +281,10 @@ const SpeakerView = () => {
       socket.off('qa-speaker-inactive');
       socket.off('qa-status-changed');
       socket.off('qa-queue-updated');
+      socket.off('qa-text-queue-updated');
+      socket.off('qa-projected-text-question');
     };
-  }, [isAuthenticated, isRecording, eventInfo, roomName]);
+  }, [isAuthenticated, isRecording, eventInfo, roomName, inputLanguage]);
 
   const stopRecordingLocally = () => {
     console.warn("[🎤 CLIENT] Deteniendo captura de hardware local de audio.");
@@ -524,7 +567,6 @@ const SpeakerView = () => {
                   <span className="text-gray-400 text-[10px] font-bold tracking-widest uppercase ml-0.5">Oyentes en espera</span>
               </div>
 
-              {/* BOTÓN TOGGLE Q&A */}
               <button 
                   onClick={toggleQaStatus}
                   className={`inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl sm:rounded-full transition-all duration-300 w-full sm:w-auto ${isQaActive ? 'bg-blue-500/10 border border-blue-500/30 shadow-lg shadow-blue-500/10' : 'bg-darker border border-gray-800 shadow-inner hover:bg-gray-800'}`}
@@ -557,7 +599,6 @@ const SpeakerView = () => {
 
       <main className="flex-1 flex flex-col min-h-0 gap-6 pb-6 overflow-y-auto pr-1 sm:pr-2 relative">
         
-        {/* INDICADOR FLOTANTE DE PREGUNTA DEL PÚBLICO ACTIVA */}
         {activeQuestion && (
             <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-blue-900/40 border border-blue-500/50 backdrop-blur-md px-5 py-2.5 rounded-full flex items-center gap-3 shadow-[0_0_20px_rgba(59,130,246,0.3)] z-50 animate-pulse">
                 <div className="bg-blue-500/20 p-1.5 rounded-full">
@@ -624,70 +665,138 @@ const SpeakerView = () => {
           </p>
         </div>
 
-        {/* NUEVO: PANEL DE Q&A PARA EL ORADOR */}
+        {/* PANEL PRINCIPAL DE MODERACIÓN Q&A PARA EL ORADOR */}
         {isQaActive && (
             <div className="bg-dark border border-gray-800 rounded-2xl p-4 sm:p-5 shadow-xl shrink-0 mt-2 flex flex-col gap-3">
-                <div className="flex items-center justify-between pb-3 border-b border-gray-800">
+                <div className="flex flex-col sm:flex-row items-center justify-between pb-3 border-b border-gray-800 gap-3">
                     <h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2">
                         <Hand className="w-4 h-4 text-blue-500" />
                         Moderación del Público
                     </h3>
-                    <span className="bg-blue-500/10 text-blue-400 text-[10px] font-bold px-2 py-1 rounded-md border border-blue-500/20">
-                        {qaQueue.filter(q => q.status === 'pending').length} en espera
-                    </span>
-                </div>
-                
-                {qaQueue.find(q => q.status === 'approved') && (
-                    <div className="bg-blue-900/30 border border-blue-500/50 rounded-lg p-3 flex items-center justify-between mb-1 shadow-inner">
-                        <div className="flex items-center gap-3">
-                            <div className="bg-blue-500/20 p-1.5 rounded-full animate-pulse">
-                                <Mic className="w-4 h-4 text-blue-400" />
-                            </div>
-                            <div className="flex flex-col">
-                                <span className="text-[10px] text-blue-300 font-bold uppercase tracking-widest">Tiene la palabra</span>
-                                <span className="text-sm text-white font-bold">
-                                    {qaQueue.find(q => q.status === 'approved').name} 
-                                    {qaQueue.find(q => q.status === 'approved').location ? ` (${qaQueue.find(q => q.status === 'approved').location})` : ''}
-                                </span>
-                            </div>
-                        </div>
+                    <div className="flex bg-black p-1 rounded-lg">
                         <button 
-                            onClick={() => rejectQaFloor(qaQueue.find(q => q.status === 'approved').socketId)} 
-                            className="bg-red-500/20 hover:bg-red-500 text-red-400 hover:text-white p-2 rounded-lg transition-colors border border-red-500/30"
-                            title="Quitar Palabra"
+                            onClick={() => setActiveQaTab('voice')}
+                            className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-md transition-colors flex items-center gap-1.5 ${activeQaTab === 'voice' ? 'bg-gray-800 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}
                         >
-                            <Square className="w-4 h-4 fill-current" />
+                            <Mic className="w-3 h-3" /> Fila Voz
+                            {qaQueue.filter(q => q.status === 'pending').length > 0 && <span className="bg-blue-500 text-white px-1.5 rounded-full">{qaQueue.filter(q => q.status === 'pending').length}</span>}
+                        </button>
+                        <button 
+                            onClick={() => setActiveQaTab('text')}
+                            className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-md transition-colors flex items-center gap-1.5 ${activeQaTab === 'text' ? 'bg-gray-800 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}
+                        >
+                            <MessageSquare className="w-3 h-3" /> Buzón Escrito
+                            {qaTextQueue.length > 0 && <span className="bg-blue-500 text-white px-1.5 rounded-full">{qaTextQueue.length}</span>}
                         </button>
                     </div>
+                </div>
+                
+                {activeQaTab === 'voice' && (
+                    <>
+                        {qaQueue.find(q => q.status === 'approved') && (
+                            <div className="bg-blue-900/30 border border-blue-500/50 rounded-lg p-3 flex items-center justify-between mb-1 shadow-inner">
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-blue-500/20 p-1.5 rounded-full animate-pulse">
+                                        <Mic className="w-4 h-4 text-blue-400" />
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-[10px] text-blue-300 font-bold uppercase tracking-widest">Tiene la palabra</span>
+                                        <span className="text-sm text-white font-bold">
+                                            {qaQueue.find(q => q.status === 'approved').name} 
+                                            {qaQueue.find(q => q.status === 'approved').location ? ` (${qaQueue.find(q => q.status === 'approved').location})` : ''}
+                                        </span>
+                                    </div>
+                                </div>
+                                <button 
+                                    onClick={() => rejectQaFloor(qaQueue.find(q => q.status === 'approved').socketId)} 
+                                    className="bg-red-500/20 hover:bg-red-500 text-red-400 hover:text-white p-2 rounded-lg transition-colors border border-red-500/30"
+                                    title="Quitar Palabra"
+                                >
+                                    <Square className="w-4 h-4 fill-current" />
+                                </button>
+                            </div>
+                        )}
+
+                        <div className="flex flex-col gap-2 max-h-[160px] overflow-y-auto pr-1">
+                            {qaQueue.filter(q => q.status === 'pending').map(req => (
+                                <div key={req.socketId} className="bg-black/30 border border-gray-700 rounded-lg p-2.5 flex items-center justify-between">
+                                    <div className="flex flex-col">
+                                        <span className="text-xs text-white font-bold">{req.name} {req.location ? `(${req.location})` : ''}</span>
+                                        <span className="text-[10px] text-gray-500 font-bold uppercase">Habla: {req.language}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <button 
+                                            onClick={() => approveQaFloor(req.socketId)} 
+                                            className="bg-green-500/10 hover:bg-green-500 text-green-500 hover:text-white border border-green-500/20 px-3 py-1.5 rounded-md transition-colors text-[10px] font-bold uppercase flex items-center gap-1"
+                                        >
+                                            <CheckCircle2 className="w-3 h-3" /> Permitir
+                                        </button>
+                                        <button 
+                                            onClick={() => rejectQaFloor(req.socketId)} 
+                                            className="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 p-1.5 rounded-md transition-colors"
+                                        >
+                                            <X className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                            {qaQueue.filter(q => q.status === 'pending').length === 0 && !qaQueue.find(q => q.status === 'approved') && (
+                                <p className="text-xs text-gray-500 text-center py-4 italic">No hay personas en la fila de micrófono.</p>
+                            )}
+                        </div>
+                    </>
                 )}
 
-                <div className="flex flex-col gap-2 max-h-[160px] overflow-y-auto pr-1">
-                    {qaQueue.filter(q => q.status === 'pending').map(req => (
-                        <div key={req.socketId} className="bg-black/30 border border-gray-700 rounded-lg p-2.5 flex items-center justify-between">
-                            <div className="flex flex-col">
-                                <span className="text-xs text-white font-bold">{req.name} {req.location ? `(${req.location})` : ''}</span>
-                                <span className="text-[10px] text-gray-500 font-bold uppercase">Habla: {req.language}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
+                {activeQaTab === 'text' && (
+                    <>
+                        {projectedTextQuestion && (
+                            <div className="bg-green-900/20 border border-green-500/50 rounded-lg p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between mb-2 shadow-inner gap-3">
+                                <div className="flex flex-col overflow-hidden">
+                                    <span className="text-[10px] text-green-400 font-bold uppercase tracking-widest flex items-center gap-1 mb-1">
+                                        <MonitorPlay className="w-3 h-3" /> Proyectando Ahora
+                                    </span>
+                                    <span className="text-sm text-white font-medium italic break-words line-clamp-2">"{projectedTextQuestion.text}"</span>
+                                </div>
                                 <button 
-                                    onClick={() => approveQaFloor(req.socketId)} 
-                                    className="bg-green-500/10 hover:bg-green-500 text-green-500 hover:text-white border border-green-500/20 px-3 py-1.5 rounded-md transition-colors text-[10px] font-bold uppercase flex items-center gap-1"
+                                    onClick={stopProjectingText} 
+                                    className="bg-gray-800 hover:bg-gray-700 text-white p-2 rounded-lg transition-colors border border-gray-600 flex items-center gap-2 text-xs font-bold whitespace-nowrap shrink-0"
                                 >
-                                    <CheckCircle2 className="w-3 h-3" /> Permitir
-                                </button>
-                                <button 
-                                    onClick={() => rejectQaFloor(req.socketId)} 
-                                    className="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 p-1.5 rounded-md transition-colors"
-                                >
-                                    <X className="w-4 h-4" />
+                                    <StopCircle className="w-4 h-4" /> Ocultar
                                 </button>
                             </div>
+                        )}
+
+                        <div className="flex flex-col gap-2 max-h-[160px] overflow-y-auto pr-1">
+                            {qaTextQueue.map(q => (
+                                <div key={q.id} className={`bg-black/30 border p-3 rounded-lg flex flex-col gap-2 ${projectedTextQuestion?.id === q.id ? 'border-green-500/50 opacity-50' : 'border-gray-700'}`}>
+                                    <div className="flex flex-col">
+                                        <span className="text-xs text-gray-400 font-bold">{q.name} {q.location ? `(${q.location})` : ''}</span>
+                                        <span className="text-sm text-white leading-snug mt-1 break-words">"{q.text}"</span>
+                                    </div>
+                                    <div className="flex justify-end items-center gap-2 mt-1">
+                                        <button 
+                                            onClick={() => deleteTextQuestion(q.id)} 
+                                            className="text-gray-500 hover:text-red-500 bg-gray-800/50 hover:bg-red-500/10 p-1.5 rounded-md transition-colors"
+                                            title="Descartar Pregunta"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                        <button 
+                                            onClick={() => projectTextQuestion(q)} 
+                                            disabled={projectedTextQuestion?.id === q.id}
+                                            className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-md transition-colors text-[10px] font-bold uppercase flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            <Play className="w-3 h-3 fill-current" /> {projectedTextQuestion?.id === q.id ? 'En Pantalla' : 'Proyectar'}
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                            {qaTextQueue.length === 0 && (
+                                <p className="text-xs text-gray-500 text-center py-4 italic">El buzón de preguntas escritas está vacío.</p>
+                            )}
                         </div>
-                    ))}
-                    {qaQueue.filter(q => q.status === 'pending').length === 0 && !qaQueue.find(q => q.status === 'approved') && (
-                        <p className="text-xs text-gray-500 text-center py-4 italic">Nadie ha levantado la mano aún.</p>
-                    )}
-                </div>
+                    </>
+                )}
             </div>
         )}
 
