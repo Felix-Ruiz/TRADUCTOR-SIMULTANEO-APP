@@ -944,7 +944,7 @@ const SpeakerView = () => {
         
         <div className="mt-4 flex items-center justify-center gap-1.5 text-[9px] font-bold text-gray-600 tracking-widest uppercase opacity-50 w-full text-center">
             <Scale className="w-3 h-3" />
-            <span>© {new Date().getFullYear()} ACOFI TRANSLATOR •- LICENCIA DE USO EXCLUSIVO</span>
+            <span>© {new Date().getFullYear()} ACOFI TRANSLATOR • LICENCIA DE USO EXCLUSIVO</span>
         </div>
       </footer>
     </div>
