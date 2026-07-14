@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
-import { Headphones, Globe2, AlertCircle, MessageSquare, Radio, PowerOff, Key, LogOut, QrCode, X, Scale, RefreshCw, Hand, Mic, Keyboard, MicSquare } from 'lucide-react';
+import { Headphones, Globe2, AlertCircle, MessageSquare, Radio, PowerOff, Key, LogOut, QrCode, X, Scale, RefreshCw, Hand, Mic, Keyboard,} from 'lucide-react';
 import { Scanner } from '@yudiel/react-qr-scanner';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001');
@@ -708,7 +708,7 @@ const AudienceView = () => {
                            title="Dictar por voz"
                            className={`absolute right-3 bottom-4 p-2 rounded-full transition-all shadow-md ${isDictating ? 'bg-red-500 text-white animate-pulse' : 'bg-gray-800 text-primary hover:bg-primary hover:text-white'}`}
                        >
-                           <MicSquare className="w-5 h-5" />
+                           <Mic className="w-5 h-5" />
                        </button>
                    </div>
                    {isDictating && <p className="text-xs text-red-400 text-center animate-pulse">Escuchando... Habla ahora.</p>}
