@@ -675,14 +675,17 @@ const EventAdminView = () => {
                                            <span className="text-[10px] text-gray-500 uppercase flex items-center gap-1"><MessageSquare className="w-3 h-3"/> Buzón Escrito ({roomTextQueue.length})</span>
                                            <div className="max-h-[120px] overflow-y-auto flex flex-col gap-2">
                                                {roomTextQueue.map(q => (
-                                                   <div key={q.id} className="bg-black/30 border border-gray-700 p-2.5 rounded-lg flex justify-between items-center shadow-sm">
+                                                   <div key={q.id} className="bg-black/30 border border-gray-700 p-2.5 rounded-lg flex justify-between items-center shadow-sm gap-2">
                                                        <div className="flex flex-col overflow-hidden pr-2">
                                                            <span className="text-xs text-white font-medium italic break-words line-clamp-2">"{q.text}"</span>
-                                                           <span className="text-[10px] text-gray-500 font-bold mt-0.5">{q.name}</span>
+                                                           <div className="flex items-center gap-1.5 mt-0.5">
+                                                               <span className="text-[10px] text-gray-500 font-bold">{q.name}</span>
+                                                               <span className="text-[9px] bg-gray-800 border border-gray-700 text-gray-400 px-1 py-0.5 rounded uppercase font-bold tracking-widest">Idioma: {q.language}</span>
+                                                           </div>
                                                        </div>
                                                        <button 
                                                            onClick={() => deleteTextQuestion(roomObj.name, q.id)} 
-                                                           className="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white p-1.5 rounded-md transition-colors shrink-0"
+                                                           className="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white p-1.5 rounded-md transition-colors shrink-0 h-max"
                                                            title="Descartar"
                                                         >
                                                            <Trash2 className="w-4 h-4" />

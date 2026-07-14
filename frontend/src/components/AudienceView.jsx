@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
-import { Headphones, Globe2, AlertCircle, MessageSquare, Radio, PowerOff, Key, LogOut, QrCode, X, Scale, RefreshCw, Hand, Mic, Keyboard,} from 'lucide-react';
+import { Headphones, Globe2, AlertCircle, MessageSquare, Radio, PowerOff, Key, LogOut, QrCode, X, Scale, RefreshCw, Hand, Mic, Keyboard, Square } from 'lucide-react';
 import { Scanner } from '@yudiel/react-qr-scanner';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001');
@@ -650,6 +650,7 @@ const AudienceView = () => {
         `}
       </style>
 
+      {/* Modal para Identificación y Q&A (Con Pestañas) */}
       {isQaModalOpen && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity">
           <div className="bg-darker border border-gray-700 p-6 rounded-3xl shadow-[0_0_40px_rgba(0,0,0,0.5)] max-w-sm w-full flex flex-col transform transition-all scale-100">
@@ -664,24 +665,26 @@ const AudienceView = () => {
 
             <div className="flex gap-2 p-1 bg-black rounded-xl mb-5">
                 <button 
-                    onClick={() => setActiveQaTab('voice')}
-                    className={`flex-1 py-2 text-xs font-bold uppercase tracking-widest rounded-lg transition-colors flex items-center justify-center gap-2 ${activeQaTab === 'voice' ? 'bg-gray-800 text-white shadow-md' : 'text-gray-500 hover:text-gray-300'}`}
-                >
-                    <Mic className="w-4 h-4" /> Hablar en Vivo
-                </button>
-                <button 
                     onClick={() => setActiveQaTab('text')}
                     className={`flex-1 py-2 text-xs font-bold uppercase tracking-widest rounded-lg transition-colors flex items-center justify-center gap-2 ${activeQaTab === 'text' ? 'bg-gray-800 text-white shadow-md' : 'text-gray-500 hover:text-gray-300'}`}
                 >
                     <Keyboard className="w-4 h-4" /> Escribir
+                </button>
+                <button 
+                    onClick={() => setActiveQaTab('voice')}
+                    className={`flex-1 py-2 text-xs font-bold uppercase tracking-widest rounded-lg transition-colors flex items-center justify-center gap-2 ${activeQaTab === 'voice' ? 'bg-gray-800 text-white shadow-md' : 'text-gray-500 hover:text-gray-300'}`}
+                >
+                    <Mic className="w-4 h-4" /> Hablar (Vivo)
                 </button>
             </div>
 
             {activeQaTab === 'voice' ? (
                 <form onSubmit={handleQaVoiceSubmit} className="flex flex-col gap-4">
                    <p className="text-gray-400 text-sm leading-relaxed mb-2">Identifícate para que el moderador pueda darte paso y encender tu micrófono.</p>
-                   <input type="text" value={qaName} onChange={e => setQaName(e.target.value)} placeholder="Nombre (Ej. Carlos)" className="w-full bg-dark border border-gray-700 text-white rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary focus:outline-none transition-all placeholder-gray-600" required />
-                   <input type="text" value={qaLocation} onChange={e => setQaLocation(e.target.value)} placeholder="Ubicación (Opcional - Ej. Fila 4)" className="w-full bg-dark border border-gray-700 text-white rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary focus:outline-none transition-all placeholder-gray-600" />
+                   <div className="flex flex-col sm:flex-row gap-3">
+                       <input type="text" value={qaName} onChange={e => setQaName(e.target.value)} placeholder="Tu Nombre" className="w-full sm:flex-1 bg-dark border border-gray-700 text-white rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary focus:outline-none transition-all placeholder-gray-600" required />
+                       <input type="text" value={qaLocation} onChange={e => setQaLocation(e.target.value)} placeholder="Ubicación" className="w-full sm:flex-1 bg-dark border border-gray-700 text-white rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary focus:outline-none transition-all placeholder-gray-600" />
+                   </div>
                    <div className="mt-2 flex justify-end">
                      <button type="submit" disabled={!qaName.trim()} className="w-full px-5 py-3.5 rounded-xl bg-primary hover:bg-blue-600 text-white transition-all text-sm font-bold shadow-lg disabled:opacity-50 uppercase tracking-widest">Pedir la Palabra</button>
                    </div>
@@ -689,9 +692,9 @@ const AudienceView = () => {
             ) : (
                 <form onSubmit={handleQaTextSubmit} className="flex flex-col gap-4">
                    <p className="text-gray-400 text-sm leading-relaxed mb-2">Envía tu pregunta al buzón del orador. Si es seleccionada, se proyectará para todos.</p>
-                   <div className="flex gap-2">
-                       <input type="text" value={qaName} onChange={e => setQaName(e.target.value)} placeholder="Tu Nombre" className="flex-1 bg-dark border border-gray-700 text-white rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary focus:outline-none transition-all placeholder-gray-600" required />
-                       <input type="text" value={qaLocation} onChange={e => setQaLocation(e.target.value)} placeholder="Ubicación" className="flex-1 bg-dark border border-gray-700 text-white rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary focus:outline-none transition-all placeholder-gray-600" />
+                   <div className="flex flex-col sm:flex-row gap-3">
+                       <input type="text" value={qaName} onChange={e => setQaName(e.target.value)} placeholder="Tu Nombre" className="w-full sm:flex-1 bg-dark border border-gray-700 text-white rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary focus:outline-none transition-all placeholder-gray-600" required />
+                       <input type="text" value={qaLocation} onChange={e => setQaLocation(e.target.value)} placeholder="Ubicación" className="w-full sm:flex-1 bg-dark border border-gray-700 text-white rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary focus:outline-none transition-all placeholder-gray-600" />
                    </div>
                    
                    <div className="relative">
@@ -706,12 +709,16 @@ const AudienceView = () => {
                            type="button" 
                            onClick={toggleDictation}
                            title="Dictar por voz"
-                           className={`absolute right-3 bottom-4 p-2 rounded-full transition-all shadow-md ${isDictating ? 'bg-red-500 text-white animate-pulse' : 'bg-gray-800 text-primary hover:bg-primary hover:text-white'}`}
+                           className={`absolute right-3 bottom-3 p-2 rounded-lg transition-all shadow-md flex items-center justify-center ${isDictating ? 'bg-red-500 text-white animate-pulse' : 'bg-gray-800 text-primary hover:bg-primary hover:text-white'}`}
                        >
-                           <Mic className="w-5 h-5" />
+                           {isDictating ? <Square className="w-5 h-5 fill-current" /> : <Mic className="w-5 h-5" />}
                        </button>
                    </div>
-                   {isDictating && <p className="text-xs text-red-400 text-center animate-pulse">Escuchando... Habla ahora.</p>}
+                   {isDictating && (
+                       <div className="bg-green-500/10 border border-green-500/30 text-green-400 px-3 py-2 rounded-lg text-xs font-bold text-center flex items-center justify-center gap-2 shadow-inner">
+                           <div className="w-2 h-2 bg-green-500 rounded-full animate-ping"></div> Escuchando... Haz clic en el botón rojo para detener.
+                       </div>
+                   )}
 
                    <div className="mt-2 flex justify-end">
                      <button type="submit" disabled={!qaName.trim() || !textQuestionContent.trim()} className="w-full px-5 py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white transition-all text-sm font-bold shadow-lg disabled:opacity-50 uppercase tracking-widest flex items-center justify-center gap-2">
@@ -1194,13 +1201,22 @@ const AudienceView = () => {
             )}
 
             {isQaActive && qaState === 'idle' && (
-              <button
-                onClick={() => setIsQaModalOpen(true)}
-                className="absolute bottom-4 right-2 bg-gray-800 border border-gray-700 text-gray-300 p-4 rounded-full shadow-[0_0_20px_rgba(0,0,0,0.5)] hover:bg-primary hover:text-white hover:border-primary transition-all z-10"
-                title="Hacer una Pregunta"
-              >
-                <MessageSquare className="w-6 h-6" />
-              </button>
+              <div className="absolute bottom-4 right-2 flex flex-col gap-3 z-10">
+                <button
+                  onClick={() => { setActiveQaTab('text'); setIsQaModalOpen(true); }}
+                  className="bg-gray-800 border border-gray-700 text-gray-300 p-4 rounded-full shadow-[0_0_20px_rgba(0,0,0,0.5)] hover:bg-primary hover:text-white hover:border-primary transition-all flex items-center justify-center group"
+                  title="Enviar Pregunta Escrita"
+                >
+                  <MessageSquare className="w-6 h-6 group-hover:scale-110 transition-transform" />
+                </button>
+                <button
+                  onClick={() => { setActiveQaTab('voice'); setIsQaModalOpen(true); }}
+                  className="bg-gray-800 border border-gray-700 text-gray-300 p-4 rounded-full shadow-[0_0_20px_rgba(0,0,0,0.5)] hover:bg-green-600 hover:text-white hover:border-green-500 transition-all flex items-center justify-center group"
+                  title="Pedir la Palabra (Voz)"
+                >
+                  <Hand className="w-6 h-6 group-hover:scale-110 transition-transform" />
+                </button>
+              </div>
             )}
 
             {qaState === 'pending' && (

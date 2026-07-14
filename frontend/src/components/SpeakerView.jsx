@@ -46,12 +46,10 @@ const SpeakerView = () => {
   const [audienceCount, setAudienceCount] = useState(0);
   const [copiedText, setCopiedText] = useState(null);
 
-  // ESTADOS PARA PREGUNTAS DEL PÚBLICO (Q&A)
   const [activeQuestion, setActiveQuestion] = useState(null);
   const [isQaActive, setIsQaActive] = useState(false);
   const [qaQueue, setQaQueue] = useState([]);
   
-  // ESTADOS PARA EL BUZÓN DE PREGUNTAS ESCRITAS
   const [activeQaTab, setActiveQaTab] = useState('voice'); // 'voice' | 'text'
   const [qaTextQueue, setQaTextQueue] = useState([]);
   const [projectedTextQuestion, setProjectedTextQuestion] = useState(null);
@@ -116,7 +114,6 @@ const SpeakerView = () => {
     socket.emit('toggle-qa-status', { eventId: eventInfo.id, roomName, status: newStatus });
   };
 
-  // ACCIONES Q&A MODO VOZ
   const approveQaFloor = (targetSocketId) => {
     if (!eventInfo) return;
     socket.emit('qa-approve-floor', { eventId: eventInfo.id, roomName, targetSocketId });
@@ -127,7 +124,6 @@ const SpeakerView = () => {
     socket.emit('qa-reject-floor', { eventId: eventInfo.id, roomName, targetSocketId });
   };
 
-  // ACCIONES Q&A MODO TEXTO
   const projectTextQuestion = (question) => {
     if (!eventInfo) return;
     socket.emit('qa-project-text', { eventId: eventInfo.id, roomName, question });
@@ -200,12 +196,10 @@ const SpeakerView = () => {
         }
     });
 
-    // LISTENERS Q&A GENERAL
     socket.on('qa-status-changed', (status) => {
         setIsQaActive(status);
     });
 
-    // LISTENERS Q&A MODO VOZ
     socket.on('qa-queue-updated', (data) => {
         if (data.roomName === roomName) {
             setQaQueue(data.queue);
@@ -220,7 +214,6 @@ const SpeakerView = () => {
         setActiveQuestion(null);
     });
 
-    // LISTENERS Q&A MODO TEXTO
     socket.on('qa-text-queue-updated', (data) => {
         if (data.roomName === roomName) {
             setQaTextQueue(data.queue);
@@ -665,7 +658,6 @@ const SpeakerView = () => {
           </p>
         </div>
 
-        {/* PANEL PRINCIPAL DE MODERACIÓN Q&A PARA EL ORADOR */}
         {isQaActive && (
             <div className="bg-dark border border-gray-800 rounded-2xl p-4 sm:p-5 shadow-xl shrink-0 mt-2 flex flex-col gap-3">
                 <div className="flex flex-col sm:flex-row items-center justify-between pb-3 border-b border-gray-800 gap-3">
@@ -770,7 +762,10 @@ const SpeakerView = () => {
                             {qaTextQueue.map(q => (
                                 <div key={q.id} className={`bg-black/30 border p-3 rounded-lg flex flex-col gap-2 ${projectedTextQuestion?.id === q.id ? 'border-green-500/50 opacity-50' : 'border-gray-700'}`}>
                                     <div className="flex flex-col">
-                                        <span className="text-xs text-gray-400 font-bold">{q.name} {q.location ? `(${q.location})` : ''}</span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs text-gray-400 font-bold">{q.name} {q.location ? `(${q.location})` : ''}</span>
+                                            <span className="bg-gray-800 text-gray-500 text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-widest border border-gray-700">Idioma: {q.language}</span>
+                                        </div>
                                         <span className="text-sm text-white leading-snug mt-1 break-words">"{q.text}"</span>
                                     </div>
                                     <div className="flex justify-end items-center gap-2 mt-1">
