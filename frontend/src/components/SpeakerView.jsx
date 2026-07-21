@@ -56,10 +56,12 @@ const SpeakerView = () => {
   const [qaTextQueue, setQaTextQueue] = useState([]);
   const [projectedTextQuestion, setProjectedTextQuestion] = useState(null);
 
-  // NUEVOS ESTADOS: Control de visibilidad de paneles y modales
+  // ESTADOS: Control de visibilidad de paneles y modales
+  const [showTranscriptionPanel, setShowTranscriptionPanel] = useState(true);
   const [showQaPanel, setShowQaPanel] = useState(true);
   const [showTvPanel, setShowTvPanel] = useState(true);
   const [showMonitorsPanel, setShowMonitorsPanel] = useState(false);
+  
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const menuRef = useRef(null);
@@ -574,7 +576,7 @@ const SpeakerView = () => {
       )}
 
       <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-6 sm:mb-8 shrink-0 bg-dark p-4 sm:p-6 rounded-2xl border border-gray-800 shadow-xl">
-        <div className="flex flex-col gap-4 sm:gap-5 w-full lg:w-auto">
+        <div className="flex flex-col gap-4 sm:gap-5 flex-1 min-w-0">
           <div className="flex items-center gap-3 sm:gap-4">
             {eventInfo?.logoUrl ? (
                 <div className="bg-white/5 p-2 sm:p-2.5 rounded-xl shrink-0 w-12 h-12 sm:w-16 sm:h-16 flex items-center justify-center">
@@ -597,14 +599,13 @@ const SpeakerView = () => {
             </div>
           </div>
           
-          {/* BOTONES REUBICADOS EN EL ENCABEZADO */}
-          <div className="flex flex-wrap items-center gap-3">
-              <div className={`inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-xl sm:rounded-full font-medium text-xs sm:text-sm w-full sm:w-max ${isRecording ? 'bg-red-500/10 text-red-500 border border-red-500/20' : 'bg-gray-800 text-gray-400 border border-gray-700'}`}>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              <div className={`inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl sm:rounded-full font-medium text-xs sm:text-sm w-full sm:w-max ${isRecording ? 'bg-red-500/10 text-red-500 border border-red-500/20' : 'bg-gray-800 text-gray-400 border border-gray-700'}`}>
                 <Radio className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 ${isRecording ? 'animate-pulse' : ''}`} />
                 <span>{isRecording ? `Transmitiendo en Vivo` : 'Sistema en espera'}</span>
               </div>
               
-              <div className={`inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl sm:rounded-full transition-all duration-300 w-full sm:w-auto ${isRecording ? 'bg-green-500/10 border border-green-500/30 shadow-lg shadow-green-500/10' : 'bg-darker border border-gray-800 shadow-inner'}`}>
+              <div className={`inline-flex items-center justify-center gap-2 px-3 py-1.5 sm:py-2 rounded-xl sm:rounded-full transition-all duration-300 w-full sm:w-auto ${isRecording ? 'bg-green-500/10 border border-green-500/30 shadow-lg shadow-green-500/10' : 'bg-darker border border-gray-800 shadow-inner'}`}>
                   <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${isRecording ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`}></div>
                   <Users className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 ${isRecording ? 'text-green-500' : 'text-gray-500'}`} />
                   <span className={`font-bold text-sm leading-none ${isRecording ? 'text-white' : 'text-gray-300'}`}>{audienceCount}</span>
@@ -613,7 +614,7 @@ const SpeakerView = () => {
 
               <button 
                   onClick={toggleQaStatus}
-                  className={`inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl sm:rounded-full transition-all duration-300 w-full sm:w-auto ${isQaActive ? 'bg-blue-500/10 border border-blue-500/30 shadow-lg shadow-blue-500/10' : 'bg-darker border border-gray-800 shadow-inner hover:bg-gray-800'}`}
+                  className={`inline-flex items-center justify-center gap-2 px-3 py-1.5 sm:py-2 rounded-xl sm:rounded-full transition-all duration-300 w-full sm:w-auto ${isQaActive ? 'bg-blue-500/10 border border-blue-500/30 shadow-lg shadow-blue-500/10' : 'bg-darker border border-gray-800 shadow-inner hover:bg-gray-800'}`}
               >
                   <Hand className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 ${isQaActive ? 'text-blue-500' : 'text-gray-500'}`} />
                   <span className={`font-bold text-sm leading-none ${isQaActive ? 'text-white' : 'text-gray-400'}`}>PREGUNTAS {isQaActive ? 'ON' : 'OFF'}</span>
@@ -623,7 +624,7 @@ const SpeakerView = () => {
                   <button 
                     onClick={startRecording}
                     disabled={activeQuestion !== null}
-                    className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl sm:rounded-full bg-primary hover:bg-blue-600 text-white transition-all shadow-lg hover:shadow-blue-500/25 disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
+                    className="inline-flex items-center justify-center gap-2 px-4 py-1.5 sm:py-2 rounded-xl sm:rounded-full bg-primary hover:bg-blue-600 text-white transition-all shadow-lg hover:shadow-blue-500/25 disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
                   >
                     <Mic className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
                     <span className="font-bold text-sm leading-none">{activeQuestion ? 'Auditorio en uso' : 'Iniciar Discurso'}</span>
@@ -631,16 +632,79 @@ const SpeakerView = () => {
               ) : (
                   <button 
                     onClick={stopRecording}
-                    className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl sm:rounded-full bg-red-500 hover:bg-red-600 text-white transition-all shadow-lg hover:shadow-red-500/25 w-full sm:w-auto"
+                    className="inline-flex items-center justify-center gap-2 px-4 py-1.5 sm:py-2 rounded-xl sm:rounded-full bg-red-500 hover:bg-red-600 text-white transition-all shadow-lg hover:shadow-red-500/25 w-full sm:w-auto"
                   >
                     <Square className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-current shrink-0" />
                     <span className="font-bold text-sm leading-none">Detener Transmisión</span>
                   </button>
               )}
+
+              {/* BOTÓN DE MENÚ (AJUSTES) REUBICADO Y REDISEÑADO */}
+              <div className="relative w-full sm:w-auto" ref={menuRef}>
+                  <button 
+                      onClick={() => setIsMenuOpen(!isMenuOpen)} 
+                      className={`inline-flex items-center justify-center gap-2 px-4 py-1.5 sm:py-2 rounded-xl sm:rounded-full font-bold text-xs uppercase tracking-widest transition-all duration-300 w-full sm:w-auto shadow-lg border ${isMenuOpen ? 'bg-gray-700 text-white border-gray-500' : 'bg-darker border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800'}`}
+                      title="Configuraciones y Descargas"
+                  >
+                      <Settings className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 transition-transform duration-300 ${isMenuOpen ? 'rotate-90' : 'rotate-0'}`} />
+                      Ajustes
+                  </button>
+
+                  {isMenuOpen && (
+                      <div className="absolute left-0 sm:left-auto sm:right-0 top-full mt-3 w-[260px] bg-darker border border-gray-600 rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.8)] z-50 p-5 flex flex-col gap-4">
+                          <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-800 pb-2">Control de Paneles</h4>
+                          
+                          <label className="flex items-center justify-between cursor-pointer group">
+                              <span className="text-xs font-bold uppercase tracking-wider text-gray-300 group-hover:text-white transition-colors">Subtítulos Orador</span>
+                              <div className={`w-10 h-5 rounded-full relative transition-colors shadow-inner ${showTranscriptionPanel ? 'bg-primary' : 'bg-gray-700'}`}>
+                                  <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${showTranscriptionPanel ? 'translate-x-5' : 'translate-x-0'}`} />
+                              </div>
+                              <input type="checkbox" className="hidden" checked={showTranscriptionPanel} onChange={() => setShowTranscriptionPanel(!showTranscriptionPanel)} />
+                          </label>
+
+                          <label className="flex items-center justify-between cursor-pointer group">
+                              <span className="text-xs font-bold uppercase tracking-wider text-gray-300 group-hover:text-white transition-colors">Moderación Q&A</span>
+                              <div className={`w-10 h-5 rounded-full relative transition-colors shadow-inner ${showQaPanel ? 'bg-primary' : 'bg-gray-700'}`}>
+                                  <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${showQaPanel ? 'translate-x-5' : 'translate-x-0'}`} />
+                              </div>
+                              <input type="checkbox" className="hidden" checked={showQaPanel} onChange={() => setShowQaPanel(!showQaPanel)} />
+                          </label>
+                          
+                          <label className="flex items-center justify-between cursor-pointer group">
+                              <span className="text-xs font-bold uppercase tracking-wider text-gray-300 group-hover:text-white transition-colors">Modo TV</span>
+                              <div className={`w-10 h-5 rounded-full relative transition-colors shadow-inner ${showTvPanel ? 'bg-primary' : 'bg-gray-700'}`}>
+                                  <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${showTvPanel ? 'translate-x-5' : 'translate-x-0'}`} />
+                              </div>
+                              <input type="checkbox" className="hidden" checked={showTvPanel} onChange={() => setShowTvPanel(!showTvPanel)} />
+                          </label>
+                          
+                          <label className="flex items-center justify-between cursor-pointer group">
+                              <span className="text-xs font-bold uppercase tracking-wider text-gray-300 group-hover:text-white transition-colors">Monitores</span>
+                              <div className={`w-10 h-5 rounded-full relative transition-colors shadow-inner ${showMonitorsPanel ? 'bg-primary' : 'bg-gray-700'}`}>
+                                  <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${showMonitorsPanel ? 'translate-x-5' : 'translate-x-0'}`} />
+                              </div>
+                              <input type="checkbox" className="hidden" checked={showMonitorsPanel} onChange={() => setShowMonitorsPanel(!showMonitorsPanel)} />
+                          </label>
+
+                          <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-800 pb-2 pt-2">Descargas de Sesión</h4>
+                          <div className="flex flex-col gap-2">
+                              <button onClick={downloadTranscription} disabled={!fullTranscription} className="flex justify-start items-center gap-2 bg-gray-800 hover:bg-gray-700 text-white px-3 py-2.5 rounded-xl font-bold transition-colors text-xs border border-gray-700 disabled:opacity-40 disabled:cursor-not-allowed">
+                                  <Download className="w-3.5 h-3.5 shrink-0" />
+                                  <span>Transcripción</span>
+                              </button>
+                              <button onClick={downloadSummary} disabled={!fullTranscription} className="flex justify-start items-center gap-2 bg-dark hover:bg-gray-800 text-primary px-3 py-2.5 rounded-xl font-bold transition-colors text-xs border border-primary/30 disabled:opacity-40 disabled:cursor-not-allowed">
+                                  <Download className="w-3.5 h-3.5 shrink-0" />
+                                  <span>Acta de Resumen</span>
+                              </button>
+                          </div>
+                      </div>
+                  )}
+              </div>
           </div>
         </div>
         
-        <div className="w-full lg:w-auto flex flex-row items-center gap-3 sm:gap-5 bg-darker p-3 sm:p-4 rounded-xl border border-gray-700 shadow-inner">
+        {/* PANEL DE QR ORIGINAL (RESTAURADO) */}
+        <div className="w-full lg:w-auto flex flex-row items-center gap-4 sm:gap-5 bg-darker p-3 sm:p-4 rounded-xl border border-gray-700 shadow-inner shrink-0">
           <button onClick={() => setIsQrModalOpen(true)} className="bg-white p-2 rounded-xl shrink-0 relative group overflow-hidden transition-all hover:ring-2 hover:ring-primary outline-none">
             <QRCodeSVG value={audienceUrl} size={64} />
             <div className="absolute inset-0 bg-black/70 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
@@ -659,64 +723,6 @@ const SpeakerView = () => {
                     {copiedText === audienceCode ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
                 </button>
             </div>
-          </div>
-          
-          {/* MENÚ DESPLEGABLE (TOGGLES Y DESCARGAS) */}
-          <div className="relative border-l border-gray-700 pl-3 sm:pl-5 h-full flex items-center" ref={menuRef}>
-            <button 
-                onClick={() => setIsMenuOpen(!isMenuOpen)} 
-                className={`inline-flex items-center justify-center p-2.5 sm:px-4 sm:py-2.5 rounded-xl sm:rounded-full transition-all duration-300 border shadow-inner ${isMenuOpen ? 'bg-gray-800 border-gray-500 text-white' : 'bg-darker border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white'}`}
-                title="Configurar Vistas y Descargas"
-            >
-                <Settings className={`w-5 h-5 sm:w-4 sm:h-4 shrink-0 transition-transform duration-300 ${isMenuOpen ? 'rotate-90' : 'rotate-0'}`} />
-                <span className="hidden sm:inline font-bold text-xs uppercase tracking-widest ml-2">Vistas</span>
-            </button>
-
-            {isMenuOpen && (
-                <div className="absolute right-0 top-full mt-3 w-64 bg-darker border border-gray-700 rounded-2xl shadow-2xl z-50 p-5 flex flex-col gap-4">
-                    <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-800 pb-2">Control de Paneles</h4>
-                    
-                    <label className="flex items-center justify-between cursor-pointer group">
-                        <span className="text-xs font-bold uppercase tracking-wider text-gray-300 group-hover:text-white transition-colors">Moderación Q&A</span>
-                        <div className={`w-10 h-5 rounded-full relative transition-colors ${showQaPanel ? 'bg-primary' : 'bg-gray-700'}`}>
-                            <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${showQaPanel ? 'translate-x-5' : 'translate-x-0'}`} />
-                        </div>
-                        <input type="checkbox" className="hidden" checked={showQaPanel} onChange={() => setShowQaPanel(!showQaPanel)} />
-                    </label>
-                    
-                    <label className="flex items-center justify-between cursor-pointer group">
-                        <span className="text-xs font-bold uppercase tracking-wider text-gray-300 group-hover:text-white transition-colors">Modo TV</span>
-                        <div className={`w-10 h-5 rounded-full relative transition-colors ${showTvPanel ? 'bg-primary' : 'bg-gray-700'}`}>
-                            <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${showTvPanel ? 'translate-x-5' : 'translate-x-0'}`} />
-                        </div>
-                        <input type="checkbox" className="hidden" checked={showTvPanel} onChange={() => setShowTvPanel(!showTvPanel)} />
-                    </label>
-                    
-                    <label className="flex items-center justify-between cursor-pointer group">
-                        <span className="text-xs font-bold uppercase tracking-wider text-gray-300 group-hover:text-white transition-colors">Monitores</span>
-                        <div className={`w-10 h-5 rounded-full relative transition-colors ${showMonitorsPanel ? 'bg-primary' : 'bg-gray-700'}`}>
-                            <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${showMonitorsPanel ? 'translate-x-5' : 'translate-x-0'}`} />
-                        </div>
-                        <input type="checkbox" className="hidden" checked={showMonitorsPanel} onChange={() => setShowMonitorsPanel(!showMonitorsPanel)} />
-                    </label>
-
-                    {!isRecording && fullTranscription && (
-                        <>
-                            <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-800 pb-2 pt-2">Descargas</h4>
-                            <div className="flex flex-col gap-2">
-                                <button onClick={downloadTranscription} className="flex justify-start items-center gap-2 bg-gray-800 hover:bg-gray-700 text-white px-3 py-2.5 rounded-xl font-bold transition-colors text-xs border border-gray-700">
-                                    <Download className="w-3.5 h-3.5 shrink-0" />
-                                    <span>Transcripción</span>
-                                </button>
-                                <button onClick={downloadSummary} className="flex justify-start items-center gap-2 bg-dark hover:bg-gray-800 text-primary px-3 py-2.5 rounded-xl font-bold transition-colors text-xs border border-primary/30">
-                                    <Download className="w-3.5 h-3.5 shrink-0" />
-                                    <span>Acta de Resumen</span>
-                                </button>
-                            </div>
-                        </>
-                    )}
-                </div>
-            )}
           </div>
         </div>
       </header>
@@ -737,59 +743,61 @@ const SpeakerView = () => {
             </div>
         )}
 
-        {/* CAJA DE TEXTO EXPANDIBLE (FLEX-1) */}
-        <div className="flex-1 flex flex-col min-h-[10rem] shrink-0">
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 sm:gap-6 mb-4 shrink-0">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
-              <span className="text-xs sm:text-sm font-semibold text-gray-500 uppercase tracking-wider">Idioma:</span>
-              <div className="relative w-full sm:w-auto">
-                <select 
-                  value={inputLanguage}
-                  onChange={(e) => setInputLanguage(e.target.value)}
-                  disabled={isRecording || activeQuestion !== null}
-                  className="w-full sm:w-auto bg-darker border border-gray-700 text-primary text-xs sm:text-sm font-bold uppercase tracking-wider rounded-lg px-3 py-2 sm:py-1.5 focus:ring-1 focus:ring-primary focus:outline-none appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <option value="es-CO">Español</option>
-                  <option value="en-US">Inglés</option>
-                  <option value="de-DE">Alemán</option>
-                  <option value="fr-FR">Francés</option>
-                  <option value="pt-BR">Portugués</option>
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-primary">
-                  <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
-                  </svg>
+        {/* PANEL DE TRANSCRIPCIÓN (OCULTABLE) */}
+        {showTranscriptionPanel && (
+            <div className="flex-1 flex flex-col min-h-[10rem] shrink-0">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 sm:gap-6 mb-4 shrink-0">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
+                  <span className="text-xs sm:text-sm font-semibold text-gray-500 uppercase tracking-wider">Idioma:</span>
+                  <div className="relative w-full sm:w-auto">
+                    <select 
+                      value={inputLanguage}
+                      onChange={(e) => setInputLanguage(e.target.value)}
+                      disabled={isRecording || activeQuestion !== null}
+                      className="w-full sm:w-auto bg-darker border border-gray-700 text-primary text-xs sm:text-sm font-bold uppercase tracking-wider rounded-lg px-3 py-2 sm:py-1.5 focus:ring-1 focus:ring-primary focus:outline-none appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <option value="es-CO">Español</option>
+                      <option value="en-US">Inglés</option>
+                      <option value="de-DE">Alemán</option>
+                      <option value="fr-FR">Francés</option>
+                      <option value="pt-BR">Portugués</option>
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-primary">
+                      <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                        <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
+                  <span className="text-xs sm:text-sm font-semibold text-gray-500 uppercase tracking-wider">Tipo de Voz:</span>
+                  <div className="relative w-full sm:w-auto">
+                    <select 
+                      value={voiceGender}
+                      onChange={(e) => setVoiceGender(e.target.value)}
+                      disabled={isRecording || activeQuestion !== null}
+                      className="w-full sm:w-auto bg-darker border border-gray-700 text-primary text-xs sm:text-sm font-bold uppercase tracking-wider rounded-lg px-3 py-2 sm:py-1.5 focus:ring-1 focus:ring-primary focus:outline-none appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <option value="female">👩 Mujer</option>
+                      <option value="male">👨 Hombre</option>
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-primary">
+                      <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                        <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                      </svg>
+                    </div>
+                  </div>
                 </div>
               </div>
+              
+              <p className={`text-2xl sm:text-3xl md:text-4xl font-bold leading-tight flex-1 overflow-y-auto text-left p-4 sm:p-0 bg-black/20 sm:bg-transparent rounded-xl border border-gray-800 sm:border-none transition-colors ${activeQuestion ? 'text-blue-300' : 'text-white'}`}>
+                {transcription || "Presiona el botón superior de 'Iniciar Discurso' para comenzar a hablar..."}
+              </p>
             </div>
+        )}
 
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
-              <span className="text-xs sm:text-sm font-semibold text-gray-500 uppercase tracking-wider">Tipo de Voz:</span>
-              <div className="relative w-full sm:w-auto">
-                <select 
-                  value={voiceGender}
-                  onChange={(e) => setVoiceGender(e.target.value)}
-                  disabled={isRecording || activeQuestion !== null}
-                  className="w-full sm:w-auto bg-darker border border-gray-700 text-primary text-xs sm:text-sm font-bold uppercase tracking-wider rounded-lg px-3 py-2 sm:py-1.5 focus:ring-1 focus:ring-primary focus:outline-none appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <option value="female">👩 Mujer</option>
-                  <option value="male">👨 Hombre</option>
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-primary">
-                  <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
-                  </svg>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <p className={`text-2xl sm:text-3xl md:text-4xl font-bold leading-tight flex-1 overflow-y-auto text-left p-4 sm:p-0 bg-black/20 sm:bg-transparent rounded-xl border border-gray-800 sm:border-none transition-colors ${activeQuestion ? 'text-blue-300' : 'text-white'}`}>
-            {transcription || "Presiona el botón superior de 'Iniciar Discurso' para comenzar a hablar..."}
-          </p>
-        </div>
-
-        {/* PANELES OCULTABLES */}
+        {/* PANEL DE MODERACIÓN Q&A (OCULTABLE) */}
         {isQaActive && showQaPanel && (
             <div className="bg-dark border border-gray-800 rounded-2xl p-4 sm:p-5 shadow-xl shrink-0 flex flex-col gap-3">
                 <div className="flex flex-col sm:flex-row items-center justify-between pb-3 border-b border-gray-800 gap-3">
@@ -927,6 +935,7 @@ const SpeakerView = () => {
             </div>
         )}
 
+        {/* PANTALLAS MODO TV (OCULTABLE) */}
         {showTvPanel && (
             <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between bg-dark border border-gray-800 rounded-2xl p-4 sm:p-5 shadow-xl shrink-0 gap-4">
                 <div className="flex flex-col">
@@ -968,6 +977,7 @@ const SpeakerView = () => {
             </div>
         )}
 
+        {/* LAYOUT DE MONITORES (OCULTABLE) */}
         {showMonitorsPanel && (
             <div className="flex flex-col gap-4 shrink-0">
               <div className="flex flex-col sm:flex-row sm:items-center gap-3">
