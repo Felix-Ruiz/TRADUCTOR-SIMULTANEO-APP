@@ -62,7 +62,7 @@ const AudienceView = () => {
   const [qaName, setQaName] = useState('');
   const [qaLocation, setQaLocation] = useState('');
   
-  // NUEVO: Estados para el Buzón de Preguntas Escritas/Dictadas
+  // Estados para el Buzón de Preguntas Escritas/Dictadas
   const [activeQaTab, setActiveQaTab] = useState('voice'); // 'voice' | 'text'
   const [textQuestionContent, setTextQuestionContent] = useState('');
   const [isDictating, setIsDictating] = useState(false);
@@ -1199,54 +1199,84 @@ const AudienceView = () => {
                 </p>
               </div>
             )}
-
-            {isQaActive && qaState === 'idle' && (
-              <div className="absolute bottom-4 right-2 flex flex-col gap-3 z-10">
-                <button
-                  onClick={() => { setActiveQaTab('text'); setIsQaModalOpen(true); }}
-                  className="bg-gray-800 border border-gray-700 text-gray-300 p-4 rounded-full shadow-[0_0_20px_rgba(0,0,0,0.5)] hover:bg-primary hover:text-white hover:border-primary transition-all flex items-center justify-center group"
-                  title="Enviar Pregunta Escrita"
-                >
-                  <MessageSquare className="w-6 h-6 group-hover:scale-110 transition-transform" />
-                </button>
-                <button
-                  onClick={() => { setActiveQaTab('voice'); setIsQaModalOpen(true); }}
-                  className="bg-gray-800 border border-gray-700 text-gray-300 p-4 rounded-full shadow-[0_0_20px_rgba(0,0,0,0.5)] hover:bg-green-600 hover:text-white hover:border-green-500 transition-all flex items-center justify-center group"
-                  title="Pedir la Palabra (Voz)"
-                >
-                  <Hand className="w-6 h-6 group-hover:scale-110 transition-transform" />
-                </button>
-              </div>
-            )}
-
-            {qaState === 'pending' && (
-              <div className="absolute bottom-4 right-2 flex items-center gap-3 bg-dark border border-gray-700 p-2 pr-4 rounded-full shadow-[0_0_20px_rgba(0,0,0,0.5)] z-10 animate-pulse">
-                 <button onClick={cancelQaRequest} className="bg-gray-800 hover:bg-red-500 text-gray-400 hover:text-white p-2 rounded-full transition-colors">
-                   <X className="w-4 h-4" />
-                 </button>
-                 <span className="text-xs font-bold text-gray-300 uppercase tracking-widest">En espera...</span>
-              </div>
-            )}
-
-            {qaState === 'approved' && (
-              <div className="absolute bottom-4 right-2 flex flex-col items-end gap-2 z-10">
-                 <div className="flex items-center gap-3 bg-red-500 border border-red-400 p-3 pr-5 rounded-full shadow-[0_0_20px_rgba(239,68,68,0.5)]">
-                    <div className="bg-white/20 p-1.5 rounded-full animate-ping">
-                      <Mic className="w-4 h-4 text-white" />
-                    </div>
-                    <span className="text-xs font-bold text-white uppercase tracking-widest">¡Estás Hablando!</span>
-                 </div>
-                 <button
-                   onClick={cancelQaRequest}
-                   className="bg-red-600 hover:bg-red-700 text-white font-bold text-[10px] uppercase tracking-widest px-4 py-2 rounded-xl shadow-lg border border-red-500 transition-all"
-                 >
-                   Terminar mi intervención
-                 </button>
-              </div>
-            )}
           </main>
 
-          <footer className="shrink-0 pb-4 pt-2 border-t border-gray-800/50 flex flex-col items-center">
+          <footer className="shrink-0 pb-4 pt-4 border-t border-gray-800/50 flex flex-col items-center w-full relative z-10 bg-darker">
+            {isQaActive && (
+                <div className="w-full mb-4">
+                  {/* QA Idle */}
+                  {qaState === 'idle' && (
+                    <div className="flex gap-3 w-full">
+                        <button
+                          onClick={() => { setActiveQaTab('voice'); setIsQaModalOpen(true); }}
+                          className="flex-1 flex items-center justify-center gap-2 sm:gap-3 bg-gray-800 border border-gray-700 hover:border-green-500 hover:bg-gray-700 p-3 rounded-xl transition-all shadow-lg group"
+                        >
+                          <div className="bg-gray-700 group-hover:bg-green-500 p-2.5 rounded-lg transition-colors shadow-inner">
+                            <Hand className="w-4 h-4 text-gray-400 group-hover:text-white" />
+                          </div>
+                          <div className="flex flex-col items-start text-left">
+                            <span className="text-[10px] font-bold text-gray-400 group-hover:text-white uppercase tracking-widest leading-tight transition-colors">Pedir</span>
+                            <span className="text-[11px] font-bold text-gray-300 group-hover:text-white uppercase tracking-widest leading-tight transition-colors">Palabra</span>
+                          </div>
+                        </button>
+                        <button
+                          onClick={() => { setActiveQaTab('text'); setIsQaModalOpen(true); }}
+                          className="flex-1 flex items-center justify-center gap-2 sm:gap-3 bg-gray-800 border border-gray-700 hover:border-primary hover:bg-gray-700 p-3 rounded-xl transition-all shadow-lg group"
+                        >
+                          <div className="bg-gray-700 group-hover:bg-primary p-2.5 rounded-lg transition-colors shadow-inner">
+                            <MessageSquare className="w-4 h-4 text-gray-400 group-hover:text-white" />
+                          </div>
+                          <div className="flex flex-col items-start text-left">
+                            <span className="text-[10px] font-bold text-gray-400 group-hover:text-white uppercase tracking-widest leading-tight transition-colors">Pregunta</span>
+                            <span className="text-[11px] font-bold text-gray-300 group-hover:text-white uppercase tracking-widest leading-tight transition-colors">Escrita</span>
+                          </div>
+                        </button>
+                    </div>
+                  )}
+
+                  {/* QA Pending */}
+                  {qaState === 'pending' && (
+                    <div className="w-full flex items-center justify-between bg-dark border border-gray-700 p-3.5 rounded-xl shadow-lg animate-pulse">
+                       <div className="flex items-center gap-3">
+                           <div className="bg-gray-700 p-2.5 rounded-lg">
+                               <Hand className="w-4 h-4 text-gray-400" />
+                           </div>
+                           <div className="flex flex-col">
+                               <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest leading-tight">Estado</span>
+                               <span className="text-xs font-bold text-gray-300 uppercase tracking-widest leading-tight">En fila de espera...</span>
+                           </div>
+                       </div>
+                       <button onClick={cancelQaRequest} className="bg-gray-800 hover:bg-red-500 text-gray-400 hover:text-white p-2.5 rounded-lg transition-colors shadow-inner">
+                         <X className="w-4 h-4" />
+                       </button>
+                    </div>
+                  )}
+
+                  {/* QA Approved */}
+                  {qaState === 'approved' && (
+                    <div className="w-full flex flex-col gap-3 bg-red-500/10 border border-red-500/30 p-4 rounded-xl shadow-[0_0_20px_rgba(239,68,68,0.15)]">
+                       <div className="flex items-center justify-between w-full">
+                           <div className="flex items-center gap-3">
+                               <div className="bg-red-500 p-2.5 rounded-lg animate-pulse shadow-lg shadow-red-500/50">
+                                   <Mic className="w-4 h-4 text-white" />
+                               </div>
+                               <div className="flex flex-col">
+                                   <span className="text-[10px] font-bold text-red-400 uppercase tracking-widest leading-tight">Transmitiendo</span>
+                                   <span className="text-xs font-bold text-white uppercase tracking-widest leading-tight">¡Tu micrófono está activo!</span>
+                               </div>
+                           </div>
+                       </div>
+                       <button
+                         onClick={cancelQaRequest}
+                         className="w-full bg-red-600 hover:bg-red-700 text-white font-bold text-[10px] sm:text-xs uppercase tracking-widest py-3 rounded-xl shadow-lg border border-red-500 transition-all flex items-center justify-center gap-2"
+                       >
+                         <Square className="w-4 h-4 fill-current" /> Terminar mi intervención
+                       </button>
+                    </div>
+                  )}
+                </div>
+            )}
+
             <button
               onClick={switchMode}
               className="w-full group relative flex items-center justify-center gap-3 bg-dark border border-gray-700 hover:border-gray-500 p-4 rounded-xl transition-all shadow-lg overflow-hidden"
