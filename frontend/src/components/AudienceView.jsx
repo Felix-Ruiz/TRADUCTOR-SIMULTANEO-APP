@@ -14,6 +14,315 @@ const getDeviceId = () => {
     return id;
 };
 
+// DICCIONARIO MULTILINGÜE PARA LA INTERFAZ
+const uiTranslations = {
+  es: {
+    exit: "Salir",
+    close: "Cerrar",
+    subtitlesOnly: "Solo Subtítulos",
+    silentReading: "Lectura silenciosa en pantalla",
+    audioOnly: "Solo Audio",
+    headphonesReq: "Requiere uso de audífonos",
+    targetLang: "Idioma de traducción",
+    waitingSpeaker: "Esperando al orador...",
+    neuralAudioActive: "Audio neuronal activo",
+    transcriptionPaused: "La transcripción visual está pausada para maximizar el rendimiento.",
+    requestFloorBtn1: "Pedir",
+    requestFloorBtn2: "Palabra",
+    writtenQuestionBtn1: "Pregunta",
+    writtenQuestionBtn2: "Escrita",
+    status: "Estado",
+    waitingQueue: "En fila de espera...",
+    broadcasting: "Transmitiendo",
+    micActive: "¡Tu micrófono está activo!",
+    endIntervention: "Terminar mi intervención",
+    switchToAudio: "Cambiar a Modo Audio",
+    switchToText: "Cambiar a Modo Texto",
+    projectedQuestion: "Pregunta Proyectada",
+    askQuestion: "Hacer una Pregunta",
+    liveVoiceText: "Identifícate para que el moderador pueda darte paso y encender tu micrófono.",
+    mailboxText: "Envía tu pregunta al buzón del orador. Si es seleccionada, se proyectará para todos.",
+    yourName: "Tu Nombre",
+    location: "Ubicación (Ej. Fila 4)",
+    writeQuestionHere: "Escribe aquí tu pregunta...",
+    listening: "Escuchando... Haz clic en el botón rojo para detener.",
+    sendToMailbox: "Enviar al Buzón",
+    notSupported: "No Soportado",
+    notSupportedText: "Tu navegador no soporta el dictado nativo. Por favor, utiliza el teclado.",
+    sent: "¡Enviada!",
+    sentText: "Tu pregunta ha sido enviada al orador.",
+    permissionDenied: "Permiso Denegado",
+    permissionDeniedText: "Para hablar necesitas permitir el acceso al micrófono de tu dispositivo.",
+    privacy: "Privacidad",
+    terms: "Términos",
+    cookies: "Cookies",
+    translationPlatform: "Plataforma de Traducción",
+    room: "SALA:",
+    liveTranslation: "Traducción en Vivo",
+    enterCode: "Ingresa el código manual o escanea el QR de tu sala para acceder.",
+    roomCode: "Código de Sala",
+    scanQR: "Escanear QR",
+    enterRoom: "Ingresar a la Sala",
+    validating: "Validando sala...",
+    syncing: "Sincronizando...",
+    reconnect: "Reconectar",
+    backToMenu: "Salir al menú principal",
+    roomPaused: "Sala Pausada",
+    roomPausedText: "El sistema o esta sala se encuentra inactiva en este momento. Por favor, espera a que se reanude.",
+    scanToJoin: "Escanear Acceso",
+    pointCamera: "Apunta la cámara al código QR de tu sala para ingresar automáticamente.",
+    legalNotice: "Las transcripciones se generan automáticamente. Puede contener errores. No almacena voz.",
+    cancel: "Cancelar",
+    confirm: "Confirmar",
+    understood: "Entendido",
+    exitPrompt: "¿Deseas desconectarte y volver al menú principal?"
+  },
+  en: {
+    exit: "Leave",
+    close: "Close",
+    subtitlesOnly: "Subtitles Only",
+    silentReading: "Silent reading on screen",
+    audioOnly: "Audio Only",
+    headphonesReq: "Headphones required",
+    targetLang: "Translation Language",
+    waitingSpeaker: "Waiting for the speaker...",
+    neuralAudioActive: "Neural audio active",
+    transcriptionPaused: "Visual transcription is paused to maximize performance.",
+    requestFloorBtn1: "Request",
+    requestFloorBtn2: "Floor",
+    writtenQuestionBtn1: "Written",
+    writtenQuestionBtn2: "Question",
+    status: "Status",
+    waitingQueue: "Waiting in queue...",
+    broadcasting: "Broadcasting",
+    micActive: "Your microphone is active!",
+    endIntervention: "End my intervention",
+    switchToAudio: "Switch to Audio Mode",
+    switchToText: "Switch to Text Mode",
+    projectedQuestion: "Projected Question",
+    askQuestion: "Ask a Question",
+    liveVoiceText: "Identify yourself so the moderator can give you the floor and turn on your microphone.",
+    mailboxText: "Send your question to the speaker's mailbox. If selected, it will be projected for everyone.",
+    yourName: "Your Name",
+    location: "Location (e.g., Row 4)",
+    writeQuestionHere: "Write your question here...",
+    listening: "Listening... Click the red button to stop.",
+    sendToMailbox: "Send to Mailbox",
+    notSupported: "Not Supported",
+    notSupportedText: "Your browser does not support native dictation. Please use the keyboard.",
+    sent: "Sent!",
+    sentText: "Your question has been sent to the speaker.",
+    permissionDenied: "Permission Denied",
+    permissionDeniedText: "To speak, you need to allow microphone access on your device.",
+    privacy: "Privacy",
+    terms: "Terms",
+    cookies: "Cookies",
+    translationPlatform: "Translation Platform",
+    room: "ROOM:",
+    liveTranslation: "Live Translation",
+    enterCode: "Enter the manual code or scan your room's QR to access.",
+    roomCode: "Room Code",
+    scanQR: "Scan QR",
+    enterRoom: "Enter Room",
+    validating: "Validating room...",
+    syncing: "Syncing...",
+    reconnect: "Reconnect",
+    backToMenu: "Back to main menu",
+    roomPaused: "Room Paused",
+    roomPausedText: "The system or this room is currently inactive. Please wait for it to resume.",
+    scanToJoin: "Scan to Join",
+    pointCamera: "Point your camera at your room's QR code to enter automatically.",
+    legalNotice: "Transcriptions are generated automatically. May contain errors. Voice is not stored.",
+    cancel: "Cancel",
+    confirm: "Confirm",
+    understood: "Understood",
+    exitPrompt: "Do you want to disconnect and return to the main menu?"
+  },
+  pt: {
+    exit: "Sair",
+    close: "Fechar",
+    subtitlesOnly: "Apenas Legendas",
+    silentReading: "Leitura silenciosa na tela",
+    audioOnly: "Apenas Áudio",
+    headphonesReq: "Requer uso de fones de ouvido",
+    targetLang: "Idioma de traducción",
+    waitingSpeaker: "Aguardando o orador...",
+    neuralAudioActive: "Áudio neural ativo",
+    transcriptionPaused: "A transcrição visual está pausada para maximizar o desempenho.",
+    requestFloorBtn1: "Pedir",
+    requestFloorBtn2: "Palavra",
+    writtenQuestionBtn1: "Pergunta",
+    writtenQuestionBtn2: "Escrita",
+    status: "Status",
+    waitingQueue: "Na fila de espera...",
+    broadcasting: "Transmitindo",
+    micActive: "Seu microfone está ativo!",
+    endIntervention: "Encerrar minha intervenção",
+    switchToAudio: "Mudar para Modo Áudio",
+    switchToText: "Mudar para Modo Texto",
+    projectedQuestion: "Pergunta Projetada",
+    askQuestion: "Fazer uma Pergunta",
+    liveVoiceText: "Identifique-se para que o moderador possa lhe dar a palavra e ligar seu microfone.",
+    mailboxText: "Envie sua pergunta para a caixa de entrada do orador. Se selecionada, será projetada.",
+    yourName: "Seu Nome",
+    location: "Localização",
+    writeQuestionHere: "Escreva sua pergunta aqui...",
+    listening: "Ouvindo... Clique no botão vermelho para parar.",
+    sendToMailbox: "Enviar para Caixa",
+    notSupported: "Não Suportado",
+    notSupportedText: "Seu navegador não suporta ditado nativo. Por favor, use o teclado.",
+    sent: "Enviado!",
+    sentText: "Sua pergunta foi enviada ao orador.",
+    permissionDenied: "Permissão Negada",
+    permissionDeniedText: "Para falar, você precisa permitir o acesso ao microfone no seu dispositivo.",
+    privacy: "Privacidade",
+    terms: "Termos",
+    cookies: "Cookies",
+    translationPlatform: "Plataforma de Tradução",
+    room: "SALA:",
+    liveTranslation: "Tradução ao Vivo",
+    enterCode: "Insira o código ou escaneie o QR da sua sala.",
+    roomCode: "Código da Sala",
+    scanQR: "Escanear QR",
+    enterRoom: "Entrar na Sala",
+    validating: "Validando sala...",
+    syncing: "Sincronizando...",
+    reconnect: "Reconectar",
+    backToMenu: "Sair para o menu principal",
+    roomPaused: "Sala Pausada",
+    roomPausedText: "O sistema ou esta sala está inativo no momento. Por favor, aguarde.",
+    scanToJoin: "Escanear Acesso",
+    pointCamera: "Aponte a câmera para o código QR da sua sala para entrar.",
+    legalNotice: "Tradução gerada automaticamente.",
+    cancel: "Cancelar",
+    confirm: "Confirmar",
+    understood: "Entendido",
+    exitPrompt: "Deseja desconectar e voltar ao menu?"
+  },
+  fr: {
+    exit: "Quitter",
+    close: "Fermer",
+    subtitlesOnly: "Sous-titres Uniquement",
+    silentReading: "Lecture silencieuse à l'écran",
+    audioOnly: "Audio Uniquement",
+    headphonesReq: "Écouteurs requis",
+    targetLang: "Langue cible",
+    waitingSpeaker: "En attente de l'orateur...",
+    neuralAudioActive: "Audio neuronal actif",
+    transcriptionPaused: "La transcription est en pause pour maximiser les performances.",
+    requestFloorBtn1: "Demander",
+    requestFloorBtn2: "la Parole",
+    writtenQuestionBtn1: "Question",
+    writtenQuestionBtn2: "Écrite",
+    status: "Statut",
+    waitingQueue: "En file d'attente...",
+    broadcasting: "En direct",
+    micActive: "Votre micro est actif !",
+    endIntervention: "Terminer mon intervention",
+    switchToAudio: "Passer en mode audio",
+    switchToText: "Passer en mode texte",
+    projectedQuestion: "Question Projetée",
+    askQuestion: "Poser une question",
+    liveVoiceText: "Identifiez-vous pour que le modérateur puisse vous donner la parole.",
+    mailboxText: "Envoyez votre question à l'orateur. Si elle est sélectionnée, elle sera projetée.",
+    yourName: "Votre Nom",
+    location: "Emplacement",
+    writeQuestionHere: "Écrivez votre question ici...",
+    listening: "Écoute en cours... Cliquez sur le bouton rouge pour arrêter.",
+    sendToMailbox: "Envoyer",
+    notSupported: "Non Supporté",
+    notSupportedText: "Votre navigateur ne supporte pas la dictée. Veuillez utiliser le clavier.",
+    sent: "Envoyé !",
+    sentText: "Votre question a été envoyée à l'orateur.",
+    permissionDenied: "Permission Refusée",
+    permissionDeniedText: "Pour parler, vous devez autoriser l'accès au microphone.",
+    privacy: "Confidentialité",
+    terms: "Conditions",
+    cookies: "Cookies",
+    translationPlatform: "Plateforme de Traduction",
+    room: "SALLE:",
+    liveTranslation: "Traduction en Direct",
+    enterCode: "Entrez le code ou scannez le QR de votre salle.",
+    roomCode: "Code de la Salle",
+    scanQR: "Scanner QR",
+    enterRoom: "Entrer",
+    validating: "Validation...",
+    syncing: "Synchronisation...",
+    reconnect: "Reconnecter",
+    backToMenu: "Retour au menu",
+    roomPaused: "Salle en Pause",
+    roomPausedText: "Le système ou cette salle est actuellement inactif.",
+    scanToJoin: "Scanner",
+    pointCamera: "Pointez votre caméra vers le QR code.",
+    legalNotice: "Traduction générée automatiquement.",
+    cancel: "Annuler",
+    confirm: "Confirmer",
+    understood: "Compris",
+    exitPrompt: "Voulez-vous vous déconnecter ?"
+  },
+  de: {
+    exit: "Verlassen",
+    close: "Schließen",
+    subtitlesOnly: "Nur Untertitel",
+    silentReading: "Leises Lesen auf dem Bildschirm",
+    audioOnly: "Nur Audio",
+    headphonesReq: "Kopfhörer erforderlich",
+    targetLang: "Zielsprache",
+    waitingSpeaker: "Warten auf den Sprecher...",
+    neuralAudioActive: "Neuronales Audio aktiv",
+    transcriptionPaused: "Die Transkription ist pausiert, um die Leistung zu maximieren.",
+    requestFloorBtn1: "Wort",
+    requestFloorBtn2: "Erteilen",
+    writtenQuestionBtn1: "Schriftliche",
+    writtenQuestionBtn2: "Frage",
+    status: "Status",
+    waitingQueue: "In der Warteschlange...",
+    broadcasting: "Übertragung",
+    micActive: "Dein Mikrofon ist aktiv!",
+    endIntervention: "Meine Wortmeldung beenden",
+    switchToAudio: "Zum Audiomodus wechseln",
+    switchToText: "Zum Textmodus wechseln",
+    projectedQuestion: "Projizierte Frage",
+    askQuestion: "Eine Frage stellen",
+    liveVoiceText: "Identifizieren Sie sich, damit der Moderator Ihnen das Wort erteilen kann.",
+    mailboxText: "Senden Sie Ihre Frage an den Sprecher. Wenn ausgewählt, wird sie projiziert.",
+    yourName: "Dein Name",
+    location: "Standort",
+    writeQuestionHere: "Schreibe deine Frage hier...",
+    listening: "Hört zu... Klicke auf den roten Button zum Stoppen.",
+    sendToMailbox: "Senden",
+    notSupported: "Nicht Unterstützt",
+    notSupportedText: "Dein Browser unterstützt keine Spracheingabe. Bitte nutze die Tastatur.",
+    sent: "Gesendet!",
+    sentText: "Deine Frage wurde an den Sprecher gesendet.",
+    permissionDenied: "Zugriff Verweigert",
+    permissionDeniedText: "Um zu sprechen, musst du den Mikrofonzugriff erlauben.",
+    privacy: "Datenschutz",
+    terms: "Bedingungen",
+    cookies: "Cookies",
+    translationPlatform: "Übersetzungsplattform",
+    room: "RAUM:",
+    liveTranslation: "Live-Übersetzung",
+    enterCode: "Code eingeben oder QR scannen.",
+    roomCode: "Raumcode",
+    scanQR: "QR Scannen",
+    enterRoom: "Raum betreten",
+    validating: "Validierung...",
+    syncing: "Synchronisieren...",
+    reconnect: "Neu verbinden",
+    backToMenu: "Zurück zum Menü",
+    roomPaused: "Raum pausiert",
+    roomPausedText: "Das System oder dieser Raum ist derzeit inaktiv.",
+    scanToJoin: "Scannen",
+    pointCamera: "Richte die Kamera auf den QR-Code.",
+    legalNotice: "Automatisch generierte Übersetzung.",
+    cancel: "Abbrechen",
+    confirm: "Bestätigen",
+    understood: "Verstanden",
+    exitPrompt: "Möchten Sie die Verbindung trennen?"
+  }
+};
+
 const AudienceView = () => {
   const queryParams = new URLSearchParams(window.location.search);
   const isTvMode = queryParams.get('tv') === 'true';
@@ -26,7 +335,7 @@ const AudienceView = () => {
   const [audienceCode, setAudienceCode] = useState(initialCode);
   const [eventInput, setEventInput] = useState('');
   const [eventError, setEventError] = useState('');
-  const [eventName, setEventName] = useState('Traducción en Vivo');
+  const [eventName, setEventName] = useState(''); 
 
   const [eventLogo, setEventLogo] = useState('');
   const [eventLogos, setEventLogos] = useState([]); 
@@ -59,19 +368,22 @@ const AudienceView = () => {
   const [isQaActive, setIsQaActive] = useState(false); 
   const [qaState, setQaState] = useState('idle'); // idle, pending, approved
   const [isQaModalOpen, setIsQaModalOpen] = useState(false);
+  const [qaModalType, setQaModalType] = useState('live'); // 'live' | 'mailbox'
   const [qaName, setQaName] = useState('');
   const [qaLocation, setQaLocation] = useState('');
   
-  // Estados para el Buzón de Preguntas Escritas/Dictadas
-  const [activeQaTab, setActiveQaTab] = useState('voice'); // 'voice' | 'text'
+  // Estados para el Buzón
   const [textQuestionContent, setTextQuestionContent] = useState('');
   const [isDictating, setIsDictating] = useState(false);
   const [projectedTextQuestion, setProjectedTextQuestion] = useState(null);
   
-  // Referencia para la API de reconocimiento de voz del navegador
   const speechRecognitionRef = useRef(null);
 
   const [dialogConfig, setDialogConfig] = useState({ isOpen: false, title: '', message: '', type: 'confirm', onConfirm: null, confirmStyle: '' });
+
+  const t = (key) => {
+    return uiTranslations[language]?.[key] || uiTranslations['es'][key] || key;
+  };
 
   const openDialog = (title, message, type = 'confirm', onConfirm = null, confirmStyle = 'bg-red-600 hover:bg-red-700 shadow-red-500/25') => {
     setDialogConfig({ isOpen: true, title, message, type, onConfirm, confirmStyle });
@@ -221,8 +533,8 @@ const AudienceView = () => {
 
   const handleExitEvent = () => {
     openDialog(
-      "Salir de la Sala",
-      "¿Deseas desconectarte y volver al menú principal?",
+      t('exit'),
+      t('exitPrompt'),
       "confirm",
       () => {
         socket.emit('leave-event-audience'); 
@@ -296,7 +608,7 @@ const AudienceView = () => {
     
     setIsQaModalOpen(false);
     setTextQuestionContent('');
-    openDialog("¡Enviada!", "Tu pregunta ha sido enviada al orador.", "alert", null, "bg-green-600 hover:bg-green-700 shadow-green-500/25");
+    openDialog(t('sent'), t('sentText'), "alert", null, "bg-green-600 hover:bg-green-700 shadow-green-500/25");
   };
 
   const cancelQaRequest = () => {
@@ -315,7 +627,7 @@ const AudienceView = () => {
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-        openDialog("No Soportado", "Tu navegador no soporta el dictado nativo. Por favor, utiliza el teclado.", "alert");
+        openDialog(t('notSupported'), t('notSupportedText'), "alert");
         return;
     }
 
@@ -419,7 +731,7 @@ const AudienceView = () => {
 
     } catch (error) {
       console.error('Error al acceder al micrófono del público:', error);
-      openDialog("Permiso Denegado", "Para hablar necesitas permitir el acceso al micrófono de tu dispositivo. Revisa los permisos de tu navegador.", "alert");
+      openDialog(t('permissionDenied'), t('permissionDeniedText'), "alert");
       cancelQaRequest(); 
     }
   };
@@ -476,7 +788,7 @@ const AudienceView = () => {
 
     socket.on('graceful-pause', () => {
         stopPlaybackAndClear();
-        setGracefulPauseMsg("Ajustando el canal de traducción en tiempo real para garantizar la mejor calidad en tu dispositivo.");
+        setGracefulPauseMsg(t('syncing'));
     });
     
     socket.on('translation-result', (data) => {
@@ -600,13 +912,13 @@ const AudienceView = () => {
 
   const LegalFooter = () => (
     <div className="mt-6 flex flex-wrap justify-center items-center gap-x-3 gap-y-2 text-[10px] text-gray-500 font-bold uppercase tracking-widest text-center w-full">
-        <button onClick={() => setLegalModalContent('privacy')} className="hover:text-gray-300 transition-colors underline decoration-gray-700 underline-offset-4">Privacidad</button>
+        <button onClick={() => setLegalModalContent('privacy')} className="hover:text-gray-300 transition-colors underline decoration-gray-700 underline-offset-4">{t('privacy')}</button>
         <span className="text-gray-700">•</span>
-        <button onClick={() => setLegalModalContent('terms')} className="hover:text-gray-300 transition-colors underline decoration-gray-700 underline-offset-4">Términos</button>
+        <button onClick={() => setLegalModalContent('terms')} className="hover:text-gray-300 transition-colors underline decoration-gray-700 underline-offset-4">{t('terms')}</button>
         <span className="text-gray-700">•</span>
-        <button onClick={() => setLegalModalContent('cookies')} className="hover:text-gray-300 transition-colors underline decoration-gray-700 underline-offset-4">Cookies</button>
+        <button onClick={() => setLegalModalContent('cookies')} className="hover:text-gray-300 transition-colors underline decoration-gray-700 underline-offset-4">{t('cookies')}</button>
         <div className="w-full mt-2 text-gray-600 flex items-center justify-center gap-1.5">
-           <Scale className="w-3 h-3" /> © {new Date().getFullYear()} Plataforma de Traducción
+           <Scale className="w-3 h-3" /> © {new Date().getFullYear()} {t('translationPlatform')}
         </div>
     </div>
   );
@@ -650,58 +962,46 @@ const AudienceView = () => {
         `}
       </style>
 
-      {/* Modal para Identificación y Q&A (Con Pestañas) */}
+      {/* Modal para Identificación y Q&A */}
       {isQaModalOpen && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity">
           <div className="bg-darker border border-gray-700 p-6 rounded-3xl shadow-[0_0_40px_rgba(0,0,0,0.5)] max-w-sm w-full flex flex-col transform transition-all scale-100">
-            <div className="flex justify-between items-center mb-4">
+            <div className="flex justify-between items-center mb-5">
                <h3 className="text-lg font-bold text-white tracking-wide flex items-center gap-2">
-                 <MessageSquare className="w-5 h-5 text-primary" /> Hacer una Pregunta
+                 {qaModalType === 'live' ? <Mic className="w-5 h-5 text-primary" /> : <MessageSquare className="w-5 h-5 text-primary" />} 
+                 {t('askQuestion')}
                </h3>
-               <button onClick={() => setIsQaModalOpen(false)} className="text-gray-500 hover:text-white transition-colors p-1">
-                 <X className="w-5 h-5" />
+               <button onClick={() => setIsQaModalOpen(false)} className="text-gray-500 hover:text-white transition-colors p-1 bg-gray-800 rounded-full">
+                 <X className="w-4 h-4" />
                </button>
             </div>
 
-            <div className="flex gap-2 p-1 bg-black rounded-xl mb-5">
-                <button 
-                    onClick={() => setActiveQaTab('text')}
-                    className={`flex-1 py-2 text-xs font-bold uppercase tracking-widest rounded-lg transition-colors flex items-center justify-center gap-2 ${activeQaTab === 'text' ? 'bg-gray-800 text-white shadow-md' : 'text-gray-500 hover:text-gray-300'}`}
-                >
-                    <Keyboard className="w-4 h-4" /> Escribir
-                </button>
-                <button 
-                    onClick={() => setActiveQaTab('voice')}
-                    className={`flex-1 py-2 text-xs font-bold uppercase tracking-widest rounded-lg transition-colors flex items-center justify-center gap-2 ${activeQaTab === 'voice' ? 'bg-gray-800 text-white shadow-md' : 'text-gray-500 hover:text-gray-300'}`}
-                >
-                    <Mic className="w-4 h-4" /> Hablar (Vivo)
-                </button>
-            </div>
-
-            {activeQaTab === 'voice' ? (
+            {qaModalType === 'live' ? (
                 <form onSubmit={handleQaVoiceSubmit} className="flex flex-col gap-4">
-                   <p className="text-gray-400 text-sm leading-relaxed mb-2">Identifícate para que el moderador pueda darte paso y encender tu micrófono.</p>
-                   <div className="flex flex-col sm:flex-row gap-3">
-                       <input type="text" value={qaName} onChange={e => setQaName(e.target.value)} placeholder="Tu Nombre" className="w-full sm:flex-1 bg-dark border border-gray-700 text-white rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary focus:outline-none transition-all placeholder-gray-600" required />
-                       <input type="text" value={qaLocation} onChange={e => setQaLocation(e.target.value)} placeholder="Ubicación" className="w-full sm:flex-1 bg-dark border border-gray-700 text-white rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary focus:outline-none transition-all placeholder-gray-600" />
+                   <p className="text-gray-400 text-sm leading-relaxed mb-2">{t('liveVoiceText')}</p>
+                   <div className="flex flex-col gap-3">
+                       <input type="text" value={qaName} onChange={e => setQaName(e.target.value)} placeholder={t('yourName')} className="w-full bg-dark border border-gray-700 text-white rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary focus:outline-none transition-all placeholder-gray-600" required />
+                       <input type="text" value={qaLocation} onChange={e => setQaLocation(e.target.value)} placeholder={t('location')} className="w-full bg-dark border border-gray-700 text-white rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary focus:outline-none transition-all placeholder-gray-600" />
                    </div>
                    <div className="mt-2 flex justify-end">
-                     <button type="submit" disabled={!qaName.trim()} className="w-full px-5 py-3.5 rounded-xl bg-primary hover:bg-blue-600 text-white transition-all text-sm font-bold shadow-lg disabled:opacity-50 uppercase tracking-widest">Pedir la Palabra</button>
+                     <button type="submit" disabled={!qaName.trim()} className="w-full px-5 py-3.5 rounded-xl bg-primary hover:bg-blue-600 text-white transition-all text-sm font-bold shadow-lg disabled:opacity-50 uppercase tracking-widest flex items-center justify-center gap-2">
+                         <Hand className="w-4 h-4" /> {t('requestFloorBtn1')} {t('requestFloorBtn2')}
+                     </button>
                    </div>
                 </form>
             ) : (
                 <form onSubmit={handleQaTextSubmit} className="flex flex-col gap-4">
-                   <p className="text-gray-400 text-sm leading-relaxed mb-2">Envía tu pregunta al buzón del orador. Si es seleccionada, se proyectará para todos.</p>
-                   <div className="flex flex-col sm:flex-row gap-3">
-                       <input type="text" value={qaName} onChange={e => setQaName(e.target.value)} placeholder="Tu Nombre" className="w-full sm:flex-1 bg-dark border border-gray-700 text-white rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary focus:outline-none transition-all placeholder-gray-600" required />
-                       <input type="text" value={qaLocation} onChange={e => setQaLocation(e.target.value)} placeholder="Ubicación" className="w-full sm:flex-1 bg-dark border border-gray-700 text-white rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary focus:outline-none transition-all placeholder-gray-600" />
+                   <p className="text-gray-400 text-sm leading-relaxed mb-2">{t('mailboxText')}</p>
+                   <div className="flex flex-col gap-3">
+                       <input type="text" value={qaName} onChange={e => setQaName(e.target.value)} placeholder={t('yourName')} className="w-full bg-dark border border-gray-700 text-white rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary focus:outline-none transition-all placeholder-gray-600" required />
+                       <input type="text" value={qaLocation} onChange={e => setQaLocation(e.target.value)} placeholder={t('location')} className="w-full bg-dark border border-gray-700 text-white rounded-xl px-4 py-3.5 text-sm focus:ring-2 focus:ring-primary focus:outline-none transition-all placeholder-gray-600" />
                    </div>
                    
                    <div className="relative">
                        <textarea 
                            value={textQuestionContent}
                            onChange={e => setTextQuestionContent(e.target.value)}
-                           placeholder="Escribe aquí tu pregunta..."
+                           placeholder={t('writeQuestionHere')}
                            className="w-full bg-dark border border-gray-700 text-white rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary focus:outline-none transition-all placeholder-gray-600 min-h-[100px] resize-none pr-12"
                            required
                        />
@@ -716,13 +1016,13 @@ const AudienceView = () => {
                    </div>
                    {isDictating && (
                        <div className="bg-green-500/10 border border-green-500/30 text-green-400 px-3 py-2 rounded-lg text-xs font-bold text-center flex items-center justify-center gap-2 shadow-inner">
-                           <div className="w-2 h-2 bg-green-500 rounded-full animate-ping"></div> Escuchando... Haz clic en el botón rojo para detener.
+                           <div className="w-2 h-2 bg-green-500 rounded-full animate-ping"></div> {t('listening')}
                        </div>
                    )}
 
                    <div className="mt-2 flex justify-end">
                      <button type="submit" disabled={!qaName.trim() || !textQuestionContent.trim()} className="w-full px-5 py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white transition-all text-sm font-bold shadow-lg disabled:opacity-50 uppercase tracking-widest flex items-center justify-center gap-2">
-                         <MessageSquare className="w-4 h-4" /> Enviar al Buzón
+                         <MessageSquare className="w-4 h-4" /> {t('sendToMailbox')}
                      </button>
                    </div>
                 </form>
@@ -742,14 +1042,14 @@ const AudienceView = () => {
             <div className="flex justify-end gap-3 mt-2">
               {dialogConfig.type === 'confirm' && (
                 <button onClick={closeDialog} className="px-5 py-2.5 rounded-xl text-gray-400 hover:bg-gray-800 hover:text-white transition-colors text-sm font-bold tracking-wide">
-                  Cancelar
+                  {t('cancel')}
                 </button>
               )}
               <button 
                 onClick={() => { if(dialogConfig.onConfirm) dialogConfig.onConfirm(); closeDialog(); }} 
                 className={`px-5 py-2.5 rounded-xl text-white text-sm font-bold tracking-wide transition-all shadow-lg ${dialogConfig.confirmStyle}`}
               >
-                Confirmar
+                {dialogConfig.type === 'alert' ? t('understood') : t('confirm')}
               </button>
             </div>
           </div>
@@ -761,7 +1061,7 @@ const AudienceView = () => {
           <div className="flex flex-col items-center gap-6 animate-pulse">
             <img src="/logo.png" alt="Logo" className="h-14 w-auto object-contain drop-shadow-lg" onError={(e) => { e.target.style.display = 'none'; }} />
             <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-gray-500 text-sm font-semibold tracking-widest uppercase">Validando sala...</p>
+            <p className="text-gray-500 text-sm font-semibold tracking-widest uppercase">{t('validating')}</p>
           </div>
         </div>
       ) : gracefulPauseMsg ? (
@@ -772,7 +1072,7 @@ const AudienceView = () => {
                 <div className="absolute inset-0 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
                 <RefreshCw className="w-10 h-10 text-primary animate-pulse" />
               </div>
-              <h2 className="text-2xl font-bold text-white mb-3 text-center tracking-tight">Sincronizando...</h2>
+              <h2 className="text-2xl font-bold text-white mb-3 text-center tracking-tight">{t('syncing')}</h2>
               <p className="text-gray-400 text-sm text-center leading-relaxed max-w-xs mb-8">
                 {gracefulPauseMsg}
               </p>
@@ -783,7 +1083,7 @@ const AudienceView = () => {
                 }}
                 className="w-full bg-primary hover:bg-blue-600 text-white px-6 py-4 rounded-xl font-bold transition-all shadow-lg text-sm tracking-widest uppercase"
               >
-                Reconectar
+                {t('reconnect')}
               </button>
               <button
                 onClick={() => {
@@ -794,7 +1094,7 @@ const AudienceView = () => {
                 }}
                 className="mt-6 text-gray-500 hover:text-white transition-colors text-xs font-bold uppercase tracking-widest"
               >
-                Salir al menú principal
+                {t('backToMenu')}
               </button>
             </div>
          </div>
@@ -803,7 +1103,7 @@ const AudienceView = () => {
             <div className="flex justify-between items-center p-6 bg-darker border-b border-gray-800 shrink-0">
                 <h3 className="text-white font-bold tracking-widest uppercase flex items-center gap-3">
                     <QrCode className="w-5 h-5 text-primary" />
-                    Escanear Acceso
+                    {t('scanToJoin')}
                 </h3>
                 <button 
                     onClick={() => setIsScanning(false)} 
@@ -814,7 +1114,7 @@ const AudienceView = () => {
             </div>
             <div className="flex-1 relative flex flex-col items-center justify-center bg-black p-6">
                 <p className="text-gray-400 text-sm text-center mb-8 max-w-xs">
-                    Apunta la cámara al código QR de tu sala para ingresar automáticamente.
+                    {t('pointCamera')}
                 </p>
                 <div className="w-full max-w-sm rounded-3xl overflow-hidden shadow-[0_0_50px_rgba(16,185,129,0.15)] border border-primary/30 relative bg-darker">
                     <Scanner
@@ -831,9 +1131,9 @@ const AudienceView = () => {
            <div className="flex justify-between items-center p-5 bg-dark border-b border-gray-800 shrink-0 shadow-lg z-10">
               <h3 className="text-white font-bold tracking-widest uppercase flex items-center gap-2 text-sm">
                   <Scale className="w-4 h-4 text-primary" />
-                  {legalModalContent === 'privacy' && "Tratamiento de Datos"}
-                  {legalModalContent === 'terms' && "Términos y Condiciones"}
-                  {legalModalContent === 'cookies' && "Política de Almacenamiento"}
+                  {legalModalContent === 'privacy' && t('privacy')}
+                  {legalModalContent === 'terms' && t('terms')}
+                  {legalModalContent === 'cookies' && t('cookies')}
               </h3>
               <button onClick={() => setLegalModalContent(null)} className="text-gray-400 hover:text-white bg-gray-800 hover:bg-red-500 hover:border-red-500 p-1.5 rounded-lg border border-gray-700 transition-all">
                   <X className="w-5 h-5" />
@@ -841,29 +1141,7 @@ const AudienceView = () => {
            </div>
            <div className="flex-1 overflow-y-auto p-6 md:p-8 text-gray-300 text-sm leading-relaxed">
               <div className="max-w-2xl mx-auto space-y-6">
-                  {legalModalContent === 'privacy' && (
-                      <>
-                          <p><strong>1. Captura y Procesamiento de Voz:</strong> La plataforma utiliza el micrófono del dispositivo emisor exclusivamente para capturar la voz durante la sesión activa. El audio se transmite en tiempo real mediante canales cifrados a <strong>servidores de procesamiento automatizado de terceros con certificación de seguridad corporativa</strong> para generar la traducción y síntesis de voz neuronal.</p>
-                          <p><strong>2. Almacenamiento No Persistente:</strong> Las transmisiones de audio son efímeras. No almacenamos, grabamos ni guardamos copias de voz de los oradores ni de la audiencia en bases de datos a largo plazo.</p>
-                          <p><strong>3. Telemetría y Analíticas:</strong> Recopilamos información analítica anónima, como el recuento de usuarios por sala y los idiomas seleccionados, para proporcionar métricas de calidad al organizador del evento. No se recopilan datos de identificación personal sin consentimiento.</p>
-                          <p><strong>4. Marco Normativo:</strong> Este tratamiento se realiza garantizando el cumplimiento de los estándares de protección de datos vigentes aplicables a entornos institucionales y corporativos.</p>
-                      </>
-                  )}
-                  {legalModalContent === 'terms' && (
-                      <>
-                          <p><strong>1. Uso del Servicio:</strong> Esta plataforma se proporciona "tal cual" como una herramienta de asistencia en tiempo real para eventos en vivo. El usuario se compromete a no utilizar el sistema para fines ilícitos o que interfieran con la transmisión tecnológica del evento.</p>
-                          <p><strong>2. Propiedad Intelectual:</strong> El diseño de la interfaz y la marca blanca mostrada pertenecen al organizador del evento o a la entidad licenciante. Queda prohibida su reproducción o distribución sin autorización expresa.</p>
-                          <p><strong>3. Naturaleza de la Traducción:</strong> La plataforma proporciona traducciones generadas de forma automática en tiempo real para facilitar la comprensión general. Debido a la naturaleza del procesamiento automatizado y el lenguaje hablado, pueden presentarse variaciones, omisiones o inexactitudes con respecto al mensaje original. Este servicio está diseñado como soporte comunicativo y <strong>no constituye ni sustituye una traducción humana certificada</strong>.</p>
-                          <p><strong>4. Disponibilidad:</strong> Al ser un sistema que depende de conexiones de red y proveedores en la nube, el servicio puede presentar latencia o interrupciones inherentes a la infraestructura de internet local del usuario.</p>
-                      </>
-                  )}
-                  {legalModalContent === 'cookies' && (
-                      <>
-                          <p><strong>1. Cookies Técnicas Estrictamente Necesarias:</strong> Utilizamos tecnologías de almacenamiento local en su navegador (SessionStorage, LocalStorage y cachés de Service Workers para Aplicaciones Web Progresivas) exclusivamente para garantizar el funcionamiento técnico de la aplicación (ej. mantener su sesión activa en una sala, recordar su idioma de preferencia y cargar la interfaz rápidamente ante cortes de red).</p>
-                          <p><strong>2. Ausencia de Rastreadores de Publicidad:</strong> No implementamos cookies de terceros con fines publicitarios, de marketing cruzado ni de venta de perfiles de navegación. Nuestra plataforma está diseñada desde el principio bajo el principio de privacidad por diseño (Privacy by Design).</p>
-                          <p><strong>3. Gestión del Usuario:</strong> Al hacer clic en "Salir del evento" o utilizar el botón de desconexión, el sistema limpia activamente el rastro de su sesión de las salas en memoria.</p>
-                      </>
-                  )}
+                  {t('legalNotice')}
               </div>
            </div>
         </div>
@@ -874,23 +1152,47 @@ const AudienceView = () => {
             <div className="bg-red-500/10 p-6 rounded-full mb-8">
               <PowerOff className="w-16 h-16 text-red-500/80" />
             </div>
-            <h2 className="text-3xl font-bold text-white mb-3 text-center tracking-tight">Sala Pausada</h2>
+            <h2 className="text-3xl font-bold text-white mb-3 text-center tracking-tight">{t('roomPaused')}</h2>
             <p className="text-gray-400 text-base text-center leading-relaxed max-w-xs mb-8">
-              El sistema o esta sala se encuentra inactiva en este momento. Por favor, espera a que se reanude.
+              {t('roomPausedText')}
             </p>
             <button 
               onClick={handleExitEvent}
               className="text-gray-500 hover:text-white transition-colors flex items-center gap-2 text-xs font-bold uppercase tracking-widest border border-gray-800 rounded-lg px-4 py-2"
             >
               <LogOut className="w-4 h-4" />
-              Salir al menú
+              {t('backToMenu')}
             </button>
           </div>
         </div>
       ) : !audienceCode ? (
-        <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-darker">
-          <div className="w-full max-w-sm flex flex-col items-center">
-            
+        <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-darker relative">
+          
+          <div className="absolute top-6 right-6 flex items-center gap-3 z-10">
+            <div className="relative">
+              <select 
+                value={language} 
+                onChange={(e) => {
+                  setLanguage(e.target.value);
+                  socket.emit('audience-change-lang', e.target.value);
+                }}
+                className="bg-gray-800 border border-gray-700 text-white text-xs font-bold uppercase tracking-wider rounded-lg px-3 py-2 focus:ring-1 focus:ring-primary focus:outline-none appearance-none cursor-pointer"
+              >
+                <option value="es">Español</option>
+                <option value="en">English</option>
+                <option value="de">Deutsch</option>
+                <option value="fr">Français</option>
+                <option value="pt">Português</option>
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
+                <svg className="fill-current h-3 w-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                  <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div className="w-full max-w-sm flex flex-col items-center mt-8">
             <div className="flex flex-wrap justify-center items-center gap-6 mb-6">
                 {mobileLogos.map((logo, idx) => (
                     <img key={idx} src={logo.url} alt="Logo" className="h-14 md:h-16 w-auto max-w-[120px] object-contain drop-shadow-lg animate-logo-pulse" onError={(e) => { e.target.style.display = 'none'; }} />
@@ -898,9 +1200,9 @@ const AudienceView = () => {
                 {mobileLogos.length === 0 && <img src="/logo.png" alt="Logo" className="h-14 w-auto object-contain drop-shadow-lg animate-logo-pulse" onError={(e) => { e.target.style.display = 'none'; }} />}
             </div>
             
-            <h2 className="text-2xl font-bold text-white mb-2 text-center tracking-tight">Traducción en Vivo</h2>
-            <p className="text-gray-400 text-sm text-center mb-8 leading-relaxed">
-              Ingresa el código manual o escanea el QR de tu sala para acceder.
+            <h2 className="text-2xl font-bold text-white mb-2 text-center tracking-tight">{eventName === 'Traducción en Vivo' ? t('liveTranslation') : eventName}</h2>
+            <p className="text-gray-400 text-sm text-center mb-8 leading-relaxed px-4">
+              {t('enterCode')}
             </p>
             
             <form onSubmit={handleEventSubmit} className="w-full flex flex-col gap-4">
@@ -912,14 +1214,14 @@ const AudienceView = () => {
                       type="text"
                       value={eventInput}
                       onChange={(e) => setEventInput(e.target.value.toUpperCase().trim())}
-                      placeholder="Código de Sala"
+                      placeholder={t('roomCode')}
                       className="w-full bg-dark border border-gray-700 text-white text-center text-lg font-bold tracking-widest rounded-xl py-4 pl-10 pr-16 focus:ring-2 focus:ring-primary focus:outline-none transition-all shadow-inner"
                   />
                   <button
                       type="button"
                       onClick={() => setIsScanning(true)}
                       className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 bg-gray-800 border border-gray-700 rounded-lg text-primary hover:bg-primary hover:text-white hover:border-primary transition-all shadow-lg"
-                      title="Escanear QR"
+                      title={t('scanQR')}
                   >
                       <QrCode className="w-5 h-5" />
                   </button>
@@ -930,7 +1232,7 @@ const AudienceView = () => {
                 disabled={!eventInput.trim() || !isConnected}
                 className="w-full bg-primary hover:bg-blue-600 text-white px-6 py-4 rounded-xl font-bold transition-all shadow-lg hover:shadow-blue-500/25 disabled:opacity-50 tracking-widest uppercase mt-2"
               >
-                Ingresar a la Sala
+                {t('enterRoom')}
               </button>
             </form>
 
@@ -952,7 +1254,7 @@ const AudienceView = () => {
                          <MessageSquare className="w-8 h-8 text-blue-400" />
                      </div>
                      <div className="flex flex-col">
-                         <span className="text-sm font-bold text-blue-300 uppercase tracking-widest">Pregunta de la Audiencia</span>
+                         <span className="text-sm font-bold text-blue-300 uppercase tracking-widest">{t('projectedQuestion')}</span>
                          <span className="text-xl font-bold text-white">{projectedTextQuestion.name} {projectedTextQuestion.location ? `(${projectedTextQuestion.location})` : ''}</span>
                      </div>
                  </div>
@@ -966,7 +1268,7 @@ const AudienceView = () => {
 
           <div className="absolute top-6 right-8 z-10 flex items-center gap-4 bg-dark/80 p-3 rounded-2xl backdrop-blur-md border border-gray-800 shadow-xl transition-all duration-500 opacity-10 hover:opacity-100 hover:bg-dark">
             <div className="bg-black/50 border border-gray-700 text-gray-300 text-xs font-bold uppercase tracking-wider rounded-lg px-4 py-2">
-                SALA: {roomName}
+                {t('room')} {roomName}
             </div>
 
             <div className="relative">
@@ -981,10 +1283,10 @@ const AudienceView = () => {
                 className="bg-black/50 border border-gray-700 text-gray-300 text-xs font-bold uppercase tracking-wider rounded-lg px-3 py-2 focus:ring-1 focus:ring-primary focus:outline-none appearance-none cursor-pointer"
               >
                 <option value="es">Español</option>
-                <option value="en">Inglés</option>
-                <option value="de">Alemán</option>
-                <option value="fr">Francés</option>
-                <option value="pt">Portugués</option>
+                <option value="en">English</option>
+                <option value="de">Deutsch</option>
+                <option value="fr">Français</option>
+                <option value="pt">Português</option>
               </select>
               <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
                 <svg className="fill-current h-3 w-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
@@ -996,7 +1298,7 @@ const AudienceView = () => {
               onClick={handleExitEvent}
               className="bg-red-500/10 hover:bg-red-500 border border-red-500/30 text-red-500 hover:text-white text-xs font-bold uppercase tracking-wider rounded-lg px-4 py-2 transition-all flex items-center gap-2 shadow-sm"
             >
-              <LogOut className="w-3 h-3" /> Cerrar
+              <LogOut className="w-3 h-3" /> {t('close')}
             </button>
           </div>
 
@@ -1035,13 +1337,37 @@ const AudienceView = () => {
         </div>
       ) : !userMode ? (
         <div className="flex flex-col h-screen w-full items-center justify-center p-6 bg-darker relative">
-          <button 
-            onClick={handleExitEvent}
-            className="absolute top-6 right-6 text-gray-500 hover:text-red-500 transition-colors flex items-center gap-2 text-xs font-bold uppercase tracking-widest"
-          >
-            <LogOut className="w-4 h-4" />
-            Salir
-          </button>
+          
+          <div className="absolute top-6 right-6 flex items-center gap-3 z-10">
+            <div className="relative">
+              <select 
+                value={language} 
+                onChange={(e) => {
+                  setLanguage(e.target.value);
+                  socket.emit('audience-change-lang', e.target.value);
+                }}
+                className="bg-gray-800 border border-gray-700 text-white text-xs font-bold uppercase tracking-wider rounded-lg px-3 py-2 focus:ring-1 focus:ring-primary focus:outline-none appearance-none cursor-pointer"
+              >
+                <option value="es">Español</option>
+                <option value="en">English</option>
+                <option value="de">Deutsch</option>
+                <option value="fr">Français</option>
+                <option value="pt">Português</option>
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
+                <svg className="fill-current h-3 w-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                  <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                </svg>
+              </div>
+            </div>
+            <button 
+              onClick={handleExitEvent}
+              className="text-gray-500 hover:text-red-500 transition-colors flex items-center gap-2 text-xs font-bold uppercase tracking-widest"
+            >
+              <LogOut className="w-4 h-4" />
+              {t('exit')}
+            </button>
+          </div>
 
           <div className="w-full max-w-sm flex flex-col items-center mt-6">
             
@@ -1064,8 +1390,8 @@ const AudienceView = () => {
                   <MessageSquare className="w-6 h-6 text-white" />
                 </div>
                 <div className="flex flex-col items-start">
-                  <span className="text-white font-bold text-lg">Solo Subtítulos</span>
-                  <span className="text-gray-500 text-xs mt-1">Lectura silenciosa en pantalla</span>
+                  <span className="text-white font-bold text-lg">{t('subtitlesOnly')}</span>
+                  <span className="text-gray-500 text-xs mt-1">{t('silentReading')}</span>
                 </div>
               </button>
 
@@ -1077,8 +1403,8 @@ const AudienceView = () => {
                   <Headphones className="w-6 h-6 text-white" />
                 </div>
                 <div className="flex flex-col items-start">
-                  <span className="text-white font-bold text-lg">Solo Audio</span>
-                  <span className="text-blue-100/70 text-xs mt-1">Requiere uso de audífonos</span>
+                  <span className="text-white font-bold text-lg">{t('audioOnly')}</span>
+                  <span className="text-blue-100/70 text-xs mt-1">{t('headphonesReq')}</span>
                 </div>
               </button>
             </div>
@@ -1103,7 +1429,7 @@ const AudienceView = () => {
                          <MessageSquare className="w-5 h-5 text-blue-400" />
                      </div>
                      <div className="flex flex-col">
-                         <span className="text-[10px] font-bold text-blue-300 uppercase tracking-widest">Pregunta Proyectada</span>
+                         <span className="text-[10px] font-bold text-blue-300 uppercase tracking-widest">{t('projectedQuestion')}</span>
                          <span className="text-sm font-bold text-white">{projectedTextQuestion.name} {projectedTextQuestion.location ? `(${projectedTextQuestion.location})` : ''}</span>
                      </div>
                  </div>
@@ -1125,13 +1451,13 @@ const AudienceView = () => {
             </div>
             <div className="flex items-center gap-3">
               <span className="text-xs font-bold text-gray-500 uppercase tracking-widest hidden sm:inline-block">
-                {userMode === 'text' ? 'Lectura' : 'Escucha'}
+                {userMode === 'text' ? t('subtitlesOnly') : t('audioOnly')}
               </span>
               <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-accent animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-red-500'}`} />
               <button 
                 onClick={handleExitEvent}
                 className="ml-2 text-gray-600 hover:text-red-500 transition-colors"
-                title="Salir de la sala"
+                title={t('exit')}
               >
                 <LogOut className="w-5 h-5" />
               </button>
@@ -1141,7 +1467,7 @@ const AudienceView = () => {
           <div className="mb-6 shrink-0">
             <label className="flex items-center gap-2 text-sm font-semibold text-gray-400 mb-3 uppercase tracking-wider">
               <Globe2 className="w-4 h-4" />
-              Idioma de traducción
+              {t('targetLang')}
             </label>
             <div className="relative">
               <select 
@@ -1156,10 +1482,10 @@ const AudienceView = () => {
                 className="w-full bg-dark border border-gray-700 text-white text-lg rounded-xl p-4 focus:ring-2 focus:ring-accent focus:outline-none appearance-none cursor-pointer"
               >
                 <option value="es">Español</option>
-                <option value="en">English (Inglés)</option>
-                <option value="de">Deutsch (Alemán)</option>
-                <option value="fr">Français (Francés)</option>
-                <option value="pt">Português (Portugués)</option>
+                <option value="en">English</option>
+                <option value="de">Deutsch</option>
+                <option value="fr">Français</option>
+                <option value="pt">Português</option>
               </select>
               <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-400">
                 <svg className="fill-current h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
@@ -1178,7 +1504,7 @@ const AudienceView = () => {
                   </p>
                 ))}
                 <p className="text-2xl md:text-3xl font-medium leading-relaxed text-white min-h-[3rem] text-left tracking-wide transition-all duration-200">
-                  {partialText || (finalTexts.length === 0 ? "Esperando al orador..." : "")}
+                  {partialText || (finalTexts.length === 0 ? t('waitingSpeaker') : "")}
                 </p>
                 <div ref={messagesEndRef} />
               </div>
@@ -1192,10 +1518,10 @@ const AudienceView = () => {
                   </div>
                 </div>
                 <p className="text-gray-400 text-center text-lg font-medium tracking-wide">
-                  Audio neuronal activo
+                  {t('neuralAudioActive')}
                 </p>
                 <p className="text-gray-500 text-sm text-center mt-2 px-4">
-                  La transcripción visual está pausada para maximizar el rendimiento.
+                  {t('transcriptionPaused')}
                 </p>
               </div>
             )}
@@ -1208,27 +1534,27 @@ const AudienceView = () => {
                   {qaState === 'idle' && (
                     <div className="flex gap-3 w-full">
                         <button
-                          onClick={() => { setActiveQaTab('voice'); setIsQaModalOpen(true); }}
+                          onClick={() => { setQaModalType('live'); setIsQaModalOpen(true); }}
                           className="flex-1 flex items-center justify-center gap-2 sm:gap-3 bg-gray-800 border border-gray-700 hover:border-green-500 hover:bg-gray-700 p-3 rounded-xl transition-all shadow-lg group"
                         >
                           <div className="bg-gray-700 group-hover:bg-green-500 p-2.5 rounded-lg transition-colors shadow-inner">
                             <Hand className="w-4 h-4 text-gray-400 group-hover:text-white" />
                           </div>
                           <div className="flex flex-col items-start text-left">
-                            <span className="text-[10px] font-bold text-gray-400 group-hover:text-white uppercase tracking-widest leading-tight transition-colors">Pedir</span>
-                            <span className="text-[11px] font-bold text-gray-300 group-hover:text-white uppercase tracking-widest leading-tight transition-colors">Palabra</span>
+                            <span className="text-[10px] font-bold text-gray-400 group-hover:text-white uppercase tracking-widest leading-tight transition-colors">{t('requestFloorBtn1')}</span>
+                            <span className="text-[11px] font-bold text-gray-300 group-hover:text-white uppercase tracking-widest leading-tight transition-colors">{t('requestFloorBtn2')}</span>
                           </div>
                         </button>
                         <button
-                          onClick={() => { setActiveQaTab('text'); setIsQaModalOpen(true); }}
+                          onClick={() => { setQaModalType('mailbox'); setIsQaModalOpen(true); }}
                           className="flex-1 flex items-center justify-center gap-2 sm:gap-3 bg-gray-800 border border-gray-700 hover:border-primary hover:bg-gray-700 p-3 rounded-xl transition-all shadow-lg group"
                         >
                           <div className="bg-gray-700 group-hover:bg-primary p-2.5 rounded-lg transition-colors shadow-inner">
                             <MessageSquare className="w-4 h-4 text-gray-400 group-hover:text-white" />
                           </div>
                           <div className="flex flex-col items-start text-left">
-                            <span className="text-[10px] font-bold text-gray-400 group-hover:text-white uppercase tracking-widest leading-tight transition-colors">Pregunta</span>
-                            <span className="text-[11px] font-bold text-gray-300 group-hover:text-white uppercase tracking-widest leading-tight transition-colors">Escrita</span>
+                            <span className="text-[10px] font-bold text-gray-400 group-hover:text-white uppercase tracking-widest leading-tight transition-colors">{t('writtenQuestionBtn1')}</span>
+                            <span className="text-[11px] font-bold text-gray-300 group-hover:text-white uppercase tracking-widest leading-tight transition-colors">{t('writtenQuestionBtn2')}</span>
                           </div>
                         </button>
                     </div>
@@ -1242,8 +1568,8 @@ const AudienceView = () => {
                                <Hand className="w-4 h-4 text-gray-400" />
                            </div>
                            <div className="flex flex-col">
-                               <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest leading-tight">Estado</span>
-                               <span className="text-xs font-bold text-gray-300 uppercase tracking-widest leading-tight">En fila de espera...</span>
+                               <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest leading-tight">{t('status')}</span>
+                               <span className="text-xs font-bold text-gray-300 uppercase tracking-widest leading-tight">{t('waitingQueue')}</span>
                            </div>
                        </div>
                        <button onClick={cancelQaRequest} className="bg-gray-800 hover:bg-red-500 text-gray-400 hover:text-white p-2.5 rounded-lg transition-colors shadow-inner">
@@ -1261,8 +1587,8 @@ const AudienceView = () => {
                                    <Mic className="w-4 h-4 text-white" />
                                </div>
                                <div className="flex flex-col">
-                                   <span className="text-[10px] font-bold text-red-400 uppercase tracking-widest leading-tight">Transmitiendo</span>
-                                   <span className="text-xs font-bold text-white uppercase tracking-widest leading-tight">¡Tu micrófono está activo!</span>
+                                   <span className="text-[10px] font-bold text-red-400 uppercase tracking-widest leading-tight">{t('broadcasting')}</span>
+                                   <span className="text-xs font-bold text-white uppercase tracking-widest leading-tight">{t('micActive')}</span>
                                </div>
                            </div>
                        </div>
@@ -1270,7 +1596,7 @@ const AudienceView = () => {
                          onClick={cancelQaRequest}
                          className="w-full bg-red-600 hover:bg-red-700 text-white font-bold text-[10px] sm:text-xs uppercase tracking-widest py-3 rounded-xl shadow-lg border border-red-500 transition-all flex items-center justify-center gap-2"
                        >
-                         <Square className="w-4 h-4 fill-current" /> Terminar mi intervención
+                         <Square className="w-4 h-4 fill-current" /> {t('endIntervention')}
                        </button>
                     </div>
                   )}
@@ -1286,12 +1612,12 @@ const AudienceView = () => {
               {userMode === 'text' ? (
                 <>
                   <Headphones className="w-5 h-5 text-gray-400 group-hover:text-white transition-colors" />
-                  <span className="text-gray-300 font-medium tracking-wide">Cambiar a Modo Audio</span>
+                  <span className="text-gray-300 font-medium tracking-wide">{t('switchToAudio')}</span>
                 </>
               ) : (
                 <>
                   <MessageSquare className="w-5 h-5 text-gray-400 group-hover:text-white transition-colors" />
-                  <span className="text-gray-300 font-medium tracking-wide">Cambiar a Modo Texto</span>
+                  <span className="text-gray-300 font-medium tracking-wide">{t('switchToText')}</span>
                 </>
               )}
             </button>
@@ -1303,11 +1629,11 @@ const AudienceView = () => {
             )}
 
             <div className="mt-4 flex flex-wrap justify-center items-center gap-x-2 gap-y-1 text-[9px] text-gray-600 font-semibold uppercase tracking-widest text-center w-full opacity-60 hover:opacity-100 transition-opacity">
-                <button onClick={() => setLegalModalContent('privacy')} className="hover:text-gray-300 transition-colors">Privacidad</button>
+                <button onClick={() => setLegalModalContent('privacy')} className="hover:text-gray-300 transition-colors">{t('privacy')}</button>
                 <span className="text-gray-800">•</span>
-                <button onClick={() => setLegalModalContent('terms')} className="hover:text-gray-300 transition-colors">Términos</button>
+                <button onClick={() => setLegalModalContent('terms')} className="hover:text-gray-300 transition-colors">{t('terms')}</button>
                 <span className="text-gray-800">•</span>
-                <button onClick={() => setLegalModalContent('cookies')} className="hover:text-gray-300 transition-colors">Cookies</button>
+                <button onClick={() => setLegalModalContent('cookies')} className="hover:text-gray-300 transition-colors">{t('cookies')}</button>
             </div>
           </footer>
         </div>
