@@ -946,7 +946,7 @@ const AudienceView = () => {
         <div className="flex flex-col h-screen w-full bg-black p-8 md:p-16 lg:pb-16 overflow-hidden relative">
           
           {projectedTextQuestion && (
-             <div className="absolute top-8 left-1/2 -translate-x-1/2 bg-blue-900/40 border border-blue-500/50 backdrop-blur-xl p-8 rounded-3xl shadow-[0_0_50px_rgba(59,130,246,0.3)] z-50 max-w-4xl w-[90%] flex flex-col gap-4 animate-[logo-glow_3s_ease-in-out_infinite]">
+             <div className="absolute top-12 left-0 right-0 mx-auto bg-blue-900/40 border border-blue-500/50 backdrop-blur-xl p-8 rounded-3xl shadow-[0_0_50px_rgba(59,130,246,0.3)] z-[100] max-w-4xl w-[90%] flex flex-col gap-4 animate-[logo-glow_3s_ease-in-out_infinite]">
                  <div className="flex items-center gap-3 border-b border-blue-500/30 pb-4">
                      <div className="bg-blue-500/20 p-2 rounded-full">
                          <MessageSquare className="w-8 h-8 text-blue-400" />
@@ -956,7 +956,7 @@ const AudienceView = () => {
                          <span className="text-xl font-bold text-white">{projectedTextQuestion.name} {projectedTextQuestion.location ? `(${projectedTextQuestion.location})` : ''}</span>
                      </div>
                  </div>
-                 <p className="text-3xl md:text-4xl text-white font-medium leading-relaxed">
+                 <p className="text-3xl md:text-4xl text-white font-medium leading-relaxed break-words whitespace-normal">
                      "{projectedTextQuestion.translations && projectedTextQuestion.translations[language] 
                         ? projectedTextQuestion.translations[language] 
                         : projectedTextQuestion.text}"
@@ -1107,7 +1107,7 @@ const AudienceView = () => {
                          <span className="text-sm font-bold text-white">{projectedTextQuestion.name} {projectedTextQuestion.location ? `(${projectedTextQuestion.location})` : ''}</span>
                      </div>
                  </div>
-                 <p className="text-lg text-white font-medium italic">
+                 <p className="text-lg text-white font-medium italic break-words whitespace-normal">
                      "{projectedTextQuestion.translations && projectedTextQuestion.translations[language] 
                         ? projectedTextQuestion.translations[language] 
                         : projectedTextQuestion.text}"
