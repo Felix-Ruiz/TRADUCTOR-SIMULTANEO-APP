@@ -1141,7 +1141,7 @@ const AudienceView = () => {
           <div className="mb-6 shrink-0">
             <label className="flex items-center gap-2 text-sm font-semibold text-gray-400 mb-3 uppercase tracking-wider">
               <Globe2 className="w-4 h-4" />
-              Idioma de destino
+              Idioma de traducción
             </label>
             <div className="relative">
               <select 
