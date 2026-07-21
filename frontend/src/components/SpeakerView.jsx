@@ -526,6 +526,56 @@ const SpeakerView = () => {
         `}
       </style>
 
+      {/* MENÚ DE AJUSTES EN ESQUINA SUPERIOR DERECHA */}
+      <div className="flex justify-end w-full mb-4 z-[100] relative" ref={menuRef}>
+          <button 
+              onClick={() => setIsMenuOpen(!isMenuOpen)} 
+              className={`inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all duration-300 border shadow-lg ${isMenuOpen ? 'bg-gray-700 text-white border-gray-500' : 'bg-dark border-gray-800 text-gray-400 hover:text-white hover:bg-gray-800'}`}
+              title="Configurar Paneles"
+          >
+              <Settings className={`w-4 h-4 shrink-0 transition-transform duration-300 ${isMenuOpen ? 'rotate-90' : 'rotate-0'}`} />
+              Ajustes
+          </button>
+
+          {isMenuOpen && (
+              <div className="absolute right-0 top-full mt-2 w-64 bg-darker border border-gray-600 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.8)] p-5 flex flex-col gap-4">
+                  <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-800 pb-2">Control de Paneles</h4>
+                  
+                  <label className="flex items-center justify-between cursor-pointer group">
+                      <span className="text-xs font-bold uppercase tracking-wider text-gray-300 group-hover:text-white transition-colors">Subtítulos Orador</span>
+                      <div className={`w-10 h-5 rounded-full relative transition-colors shadow-inner ${showTranscriptionPanel ? 'bg-primary' : 'bg-gray-700'}`}>
+                          <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${showTranscriptionPanel ? 'translate-x-5' : 'translate-x-0'}`} />
+                      </div>
+                      <input type="checkbox" className="hidden" checked={showTranscriptionPanel} onChange={() => setShowTranscriptionPanel(!showTranscriptionPanel)} />
+                  </label>
+
+                  <label className="flex items-center justify-between cursor-pointer group">
+                      <span className="text-xs font-bold uppercase tracking-wider text-gray-300 group-hover:text-white transition-colors">Moderación Q&A</span>
+                      <div className={`w-10 h-5 rounded-full relative transition-colors shadow-inner ${showQaPanel ? 'bg-primary' : 'bg-gray-700'}`}>
+                          <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${showQaPanel ? 'translate-x-5' : 'translate-x-0'}`} />
+                      </div>
+                      <input type="checkbox" className="hidden" checked={showQaPanel} onChange={() => setShowQaPanel(!showQaPanel)} />
+                  </label>
+                  
+                  <label className="flex items-center justify-between cursor-pointer group">
+                      <span className="text-xs font-bold uppercase tracking-wider text-gray-300 group-hover:text-white transition-colors">Modo TV</span>
+                      <div className={`w-10 h-5 rounded-full relative transition-colors shadow-inner ${showTvPanel ? 'bg-primary' : 'bg-gray-700'}`}>
+                          <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${showTvPanel ? 'translate-x-5' : 'translate-x-0'}`} />
+                      </div>
+                      <input type="checkbox" className="hidden" checked={showTvPanel} onChange={() => setShowTvPanel(!showTvPanel)} />
+                  </label>
+                  
+                  <label className="flex items-center justify-between cursor-pointer group">
+                      <span className="text-xs font-bold uppercase tracking-wider text-gray-300 group-hover:text-white transition-colors">Monitores</span>
+                      <div className={`w-10 h-5 rounded-full relative transition-colors shadow-inner ${showMonitorsPanel ? 'bg-primary' : 'bg-gray-700'}`}>
+                          <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${showMonitorsPanel ? 'translate-x-5' : 'translate-x-0'}`} />
+                      </div>
+                      <input type="checkbox" className="hidden" checked={showMonitorsPanel} onChange={() => setShowMonitorsPanel(!showMonitorsPanel)} />
+                  </label>
+              </div>
+          )}
+      </div>
+
       {/* Modal para Expandir Código QR */}
       {isQrModalOpen && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm transition-opacity" onClick={() => setIsQrModalOpen(false)}>
@@ -638,68 +688,6 @@ const SpeakerView = () => {
                     <span className="font-bold text-sm leading-none">Detener Transmisión</span>
                   </button>
               )}
-
-              {/* BOTÓN DE MENÚ (AJUSTES) REUBICADO Y REDISEÑADO */}
-              <div className="relative w-full sm:w-auto" ref={menuRef}>
-                  <button 
-                      onClick={() => setIsMenuOpen(!isMenuOpen)} 
-                      className={`inline-flex items-center justify-center gap-2 px-4 py-1.5 sm:py-2 rounded-xl sm:rounded-full font-bold text-xs uppercase tracking-widest transition-all duration-300 w-full sm:w-auto shadow-lg border ${isMenuOpen ? 'bg-gray-700 text-white border-gray-500' : 'bg-darker border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800'}`}
-                      title="Configuraciones y Descargas"
-                  >
-                      <Settings className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 transition-transform duration-300 ${isMenuOpen ? 'rotate-90' : 'rotate-0'}`} />
-                      Ajustes
-                  </button>
-
-                  {isMenuOpen && (
-                      <div className="absolute left-0 sm:left-auto sm:right-0 top-full mt-3 w-[260px] bg-darker border border-gray-600 rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.8)] z-50 p-5 flex flex-col gap-4">
-                          <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-800 pb-2">Control de Paneles</h4>
-                          
-                          <label className="flex items-center justify-between cursor-pointer group">
-                              <span className="text-xs font-bold uppercase tracking-wider text-gray-300 group-hover:text-white transition-colors">Subtítulos Orador</span>
-                              <div className={`w-10 h-5 rounded-full relative transition-colors shadow-inner ${showTranscriptionPanel ? 'bg-primary' : 'bg-gray-700'}`}>
-                                  <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${showTranscriptionPanel ? 'translate-x-5' : 'translate-x-0'}`} />
-                              </div>
-                              <input type="checkbox" className="hidden" checked={showTranscriptionPanel} onChange={() => setShowTranscriptionPanel(!showTranscriptionPanel)} />
-                          </label>
-
-                          <label className="flex items-center justify-between cursor-pointer group">
-                              <span className="text-xs font-bold uppercase tracking-wider text-gray-300 group-hover:text-white transition-colors">Moderación Q&A</span>
-                              <div className={`w-10 h-5 rounded-full relative transition-colors shadow-inner ${showQaPanel ? 'bg-primary' : 'bg-gray-700'}`}>
-                                  <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${showQaPanel ? 'translate-x-5' : 'translate-x-0'}`} />
-                              </div>
-                              <input type="checkbox" className="hidden" checked={showQaPanel} onChange={() => setShowQaPanel(!showQaPanel)} />
-                          </label>
-                          
-                          <label className="flex items-center justify-between cursor-pointer group">
-                              <span className="text-xs font-bold uppercase tracking-wider text-gray-300 group-hover:text-white transition-colors">Modo TV</span>
-                              <div className={`w-10 h-5 rounded-full relative transition-colors shadow-inner ${showTvPanel ? 'bg-primary' : 'bg-gray-700'}`}>
-                                  <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${showTvPanel ? 'translate-x-5' : 'translate-x-0'}`} />
-                              </div>
-                              <input type="checkbox" className="hidden" checked={showTvPanel} onChange={() => setShowTvPanel(!showTvPanel)} />
-                          </label>
-                          
-                          <label className="flex items-center justify-between cursor-pointer group">
-                              <span className="text-xs font-bold uppercase tracking-wider text-gray-300 group-hover:text-white transition-colors">Monitores</span>
-                              <div className={`w-10 h-5 rounded-full relative transition-colors shadow-inner ${showMonitorsPanel ? 'bg-primary' : 'bg-gray-700'}`}>
-                                  <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${showMonitorsPanel ? 'translate-x-5' : 'translate-x-0'}`} />
-                              </div>
-                              <input type="checkbox" className="hidden" checked={showMonitorsPanel} onChange={() => setShowMonitorsPanel(!showMonitorsPanel)} />
-                          </label>
-
-                          <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-gray-800 pb-2 pt-2">Descargas de Sesión</h4>
-                          <div className="flex flex-col gap-2">
-                              <button onClick={downloadTranscription} disabled={!fullTranscription} className="flex justify-start items-center gap-2 bg-gray-800 hover:bg-gray-700 text-white px-3 py-2.5 rounded-xl font-bold transition-colors text-xs border border-gray-700 disabled:opacity-40 disabled:cursor-not-allowed">
-                                  <Download className="w-3.5 h-3.5 shrink-0" />
-                                  <span>Transcripción</span>
-                              </button>
-                              <button onClick={downloadSummary} disabled={!fullTranscription} className="flex justify-start items-center gap-2 bg-dark hover:bg-gray-800 text-primary px-3 py-2.5 rounded-xl font-bold transition-colors text-xs border border-primary/30 disabled:opacity-40 disabled:cursor-not-allowed">
-                                  <Download className="w-3.5 h-3.5 shrink-0" />
-                                  <span>Acta de Resumen</span>
-                              </button>
-                          </div>
-                      </div>
-                  )}
-              </div>
           </div>
         </div>
         
@@ -799,7 +787,7 @@ const SpeakerView = () => {
 
         {/* PANEL DE MODERACIÓN Q&A (OCULTABLE) */}
         {isQaActive && showQaPanel && (
-            <div className="bg-dark border border-gray-800 rounded-2xl p-4 sm:p-5 shadow-xl shrink-0 flex flex-col gap-3">
+            <div className="bg-dark border border-gray-800 rounded-2xl p-4 sm:p-5 shadow-xl shrink-0 flex flex-col gap-3 mt-auto">
                 <div className="flex flex-col sm:flex-row items-center justify-between pb-3 border-b border-gray-800 gap-3">
                     <h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2">
                         <Hand className="w-4 h-4 text-blue-500" />
@@ -937,7 +925,7 @@ const SpeakerView = () => {
 
         {/* PANTALLAS MODO TV (OCULTABLE) */}
         {showTvPanel && (
-            <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between bg-dark border border-gray-800 rounded-2xl p-4 sm:p-5 shadow-xl shrink-0 gap-4">
+            <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between bg-dark border border-gray-800 rounded-2xl p-4 sm:p-5 shadow-xl shrink-0 gap-4 mt-auto">
                 <div className="flex flex-col">
                     <h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2 mb-1">
                         <Monitor className="w-4 h-4 text-primary shrink-0" />
@@ -979,7 +967,7 @@ const SpeakerView = () => {
 
         {/* LAYOUT DE MONITORES (OCULTABLE) */}
         {showMonitorsPanel && (
-            <div className="flex flex-col gap-4 shrink-0">
+            <div className="flex flex-col gap-4 shrink-0 mt-auto">
               <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                 <span className="text-xs sm:text-sm font-semibold text-primary uppercase tracking-wider">Layout de Monitores:</span>
                 <div className="grid grid-cols-3 sm:flex gap-2 w-full sm:w-auto">
@@ -1036,15 +1024,34 @@ const SpeakerView = () => {
         )}
       </main>
 
-      {/* FOOTER LIMPIO */}
-      <footer className="flex flex-col items-center pt-2 border-t border-gray-800 shrink-0 w-full">
+      {/* FOOTER LIMPIO CON DESCARGAS RESTAURADAS */}
+      <footer className="flex flex-col items-center pt-2 border-t border-gray-800 shrink-0 w-full mt-2">
+        {!isRecording && fullTranscription && (
+          <div className="flex flex-col sm:flex-row w-full sm:w-auto gap-3 mb-4 transition-all duration-500 ease-in-out px-4 sm:px-0">
+            <button 
+              onClick={downloadTranscription}
+              className="w-full sm:w-auto flex justify-center items-center gap-2 bg-gray-800 hover:bg-gray-700 text-white px-4 sm:px-5 py-3 sm:py-2.5 rounded-xl font-medium transition-colors text-xs sm:text-sm border border-gray-700 shadow-lg"
+            >
+              <Download className="w-4 h-4 shrink-0" />
+              <span>Descargar Transcripción</span>
+            </button>
+            <button 
+              onClick={downloadSummary}
+              className="w-full sm:w-auto flex justify-center items-center gap-2 bg-dark hover:bg-gray-800 text-primary px-4 sm:px-5 py-3 sm:py-2.5 rounded-xl font-medium transition-colors text-xs sm:text-sm border border-primary/30 shadow-lg"
+            >
+              <Download className="w-4 h-4 shrink-0" />
+              <span>Descargar Acta de Resumen</span>
+            </button>
+          </div>
+        )}
+
         {eventInfo?.sponsorText && (
           <div className="mt-2 text-[10px] font-bold tracking-widest uppercase text-center w-full">
               <span className="animate-metallic text-xs">{eventInfo.sponsorText}</span>
           </div>
         )}
         
-        <div className="mt-2 flex items-center justify-center gap-1.5 text-[9px] font-bold text-gray-600 tracking-widest uppercase opacity-50 w-full text-center">
+        <div className="mt-2 flex items-center justify-center gap-1.5 text-[9px] font-bold text-gray-600 tracking-widest uppercase opacity-50 w-full text-center pb-2">
             <Scale className="w-3 h-3" />
             <span>© {new Date().getFullYear()} ACOFI TRANSLATOR • LICENCIA DE USO EXCLUSIVO</span>
         </div>
