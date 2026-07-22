@@ -14,7 +14,7 @@ const getDeviceId = () => {
     return id;
 };
 
-// DICCIONARIO MULTILINGÜE PARA LA INTERFAZ
+// DICCIONARIO MULTILINGÜE PARA LA INTERFAZ (Textos legales restaurados y traducidos)
 const uiTranslations = {
   es: {
     exit: "Salir",
@@ -71,11 +71,33 @@ const uiTranslations = {
     roomPausedText: "El sistema o esta sala se encuentra inactiva en este momento. Por favor, espera a que se reanude.",
     scanToJoin: "Escanear Acceso",
     pointCamera: "Apunta la cámara al código QR de tu sala para ingresar automáticamente.",
-    legalNotice: "Las transcripciones se generan automáticamente. Puede contener errores. No almacena voz.",
     cancel: "Cancelar",
     confirm: "Confirmar",
     understood: "Entendido",
-    exitPrompt: "¿Deseas desconectarte y volver al menú principal?"
+    exitPrompt: "¿Deseas desconectarte y volver al menú principal?",
+    // TEXTOS LEGALES RESTAURADOS
+    privacy1Title: "1. Captura y Procesamiento de Voz:",
+    privacy1Desc: "La plataforma utiliza el micrófono del dispositivo emisor exclusivamente para capturar la voz durante la sesión activa. El audio se transmite en tiempo real mediante canales cifrados a servidores de procesamiento automatizado de terceros con certificación de seguridad corporativa para generar la traducción y síntesis de voz neuronal.",
+    privacy2Title: "2. Almacenamiento No Persistente:",
+    privacy2Desc: "Las transmisiones de audio son efímeras. No almacenamos, grabamos ni guardamos copias de voz de los oradores ni de la audiencia en bases de datos a largo plazo.",
+    privacy3Title: "3. Telemetría y Analíticas:",
+    privacy3Desc: "Recopilamos información analítica anónima, como el recuento de usuarios por sala y los idiomas seleccionados, para proporcionar métricas de calidad al organizador del evento. No se recopilan datos de identificación personal sin consentimiento.",
+    privacy4Title: "4. Marco Normativo:",
+    privacy4Desc: "Este tratamiento se realiza garantizando el cumplimiento de los estándares de protección de datos vigentes aplicables a entornos institucionales y corporativos.",
+    terms1Title: "1. Uso del Servicio:",
+    terms1Desc: "Esta plataforma se proporciona \"tal cual\" como una herramienta de asistencia en tiempo real para eventos en vivo. El usuario se compromete a no utilizar el sistema para fines ilícitos o que interfieran con la transmisión tecnológica del evento.",
+    terms2Title: "2. Propiedad Intelectual:",
+    terms2Desc: "El diseño de la interfaz y la marca blanca mostrada pertenecen al organizador del evento o a la entidad licenciante. Queda prohibida su reproducción o distribución sin autorización expresa.",
+    terms3Title: "3. Naturaleza de la Traducción:",
+    terms3Desc: "La plataforma proporciona traducciones generadas de forma automática en tiempo real para facilitar la comprensión general. Debido a la naturaleza del procesamiento automatizado y el lenguaje hablado, pueden presentarse variaciones, omisiones o inexactitudes con respecto al mensaje original. Este servicio está diseñado como soporte comunicativo y no constituye ni sustituye una traducción humana certificada.",
+    terms4Title: "4. Disponibilidad:",
+    terms4Desc: "Al ser un sistema que depende de conexiones de red y proveedores en la nube, el servicio puede presentar latencia o interrupciones inherentes a la infraestructura de internet local del usuario.",
+    cookies1Title: "1. Cookies Técnicas Estrictamente Necesarias:",
+    cookies1Desc: "Utilizamos tecnologías de almacenamiento local en su navegador (SessionStorage, LocalStorage y cachés de Service Workers para Aplicaciones Web Progresivas) exclusivamente para garantizar el funcionamiento técnico de la aplicación (ej. mantener su sesión activa en una sala, recordar su idioma de preferencia y cargar la interfaz rápidamente ante cortes de red).",
+    cookies2Title: "2. Ausencia de Rastreadores de Publicidad:",
+    cookies2Desc: "No implementamos cookies de terceros con fines publicitarios, de marketing cruzado ni de venta de perfiles de navegación. Nuestra plataforma está diseñada desde el principio bajo el principio de privacidad por diseño (Privacy by Design).",
+    cookies3Title: "3. Gestión del Usuario:",
+    cookies3Desc: "Al hacer clic en \"Salir del evento\" o utilizar el botón de desconexión, el sistema limpia activamente el rastro de su sesión de las salas en memoria."
   },
   en: {
     exit: "Leave",
@@ -84,7 +106,7 @@ const uiTranslations = {
     silentReading: "Silent reading on screen",
     audioOnly: "Audio Only",
     headphonesReq: "Headphones required",
-    targetLang: "Translation Language",
+    targetLang: "Traslation Language",
     waitingSpeaker: "Waiting for the speaker...",
     neuralAudioActive: "Neural audio active",
     transcriptionPaused: "Visual transcription is paused to maximize performance.",
@@ -132,11 +154,32 @@ const uiTranslations = {
     roomPausedText: "The system or this room is currently inactive. Please wait for it to resume.",
     scanToJoin: "Scan to Join",
     pointCamera: "Point your camera at your room's QR code to enter automatically.",
-    legalNotice: "Transcriptions are generated automatically. May contain errors. Voice is not stored.",
     cancel: "Cancel",
     confirm: "Confirm",
     understood: "Understood",
-    exitPrompt: "Do you want to disconnect and return to the main menu?"
+    exitPrompt: "Do you want to disconnect and return to the main menu?",
+    privacy1Title: "1. Voice Capture and Processing:",
+    privacy1Desc: "The platform uses the emitting device's microphone exclusively to capture voice during the active session. Audio is transmitted in real time via encrypted channels to third-party automated processing servers with corporate security certification to generate translation and neural speech synthesis.",
+    privacy2Title: "2. Non-Persistent Storage:",
+    privacy2Desc: "Audio transmissions are ephemeral. We do not store, record, or keep voice copies of speakers or the audience in long-term databases.",
+    privacy3Title: "3. Telemetry and Analytics:",
+    privacy3Desc: "We collect anonymous analytical information, such as the count of users per room and selected languages, to provide quality metrics to the event organizer. Personally identifiable data is not collected without consent.",
+    privacy4Title: "4. Regulatory Framework:",
+    privacy4Desc: "This processing is carried out guaranteeing compliance with current data protection standards applicable to institutional and corporate environments.",
+    terms1Title: "1. Use of the Service:",
+    terms1Desc: "This platform is provided \"as is\" as a real-time assistance tool for live events. The user agrees not to use the system for illegal purposes or to interfere with the event's technological transmission.",
+    terms2Title: "2. Intellectual Property:",
+    terms2Desc: "The interface design and the white label shown belong to the event organizer or the licensing entity. Its reproduction or distribution without express authorization is prohibited.",
+    terms3Title: "3. Nature of the Translation:",
+    terms3Desc: "The platform provides automatically generated real-time translations to facilitate general understanding. Due to the nature of automated processing and spoken language, variations, omissions, or inaccuracies may occur regarding the original message. This service is designed as communicative support and does not constitute or replace a certified human translation.",
+    terms4Title: "4. Availability:",
+    terms4Desc: "As a system that depends on network connections and cloud providers, the service may present latency or interruptions inherent to the user's local internet infrastructure.",
+    cookies1Title: "1. Strictly Necessary Technical Cookies:",
+    cookies1Desc: "We use local storage technologies in your browser (SessionStorage, LocalStorage, and Service Worker caches for Progressive Web Apps) exclusively to guarantee the application's technical operation (e.g., keeping your session active in a room, remembering your preferred language, and loading the interface quickly in case of network cuts).",
+    cookies2Title: "2. Absence of Advertising Trackers:",
+    cookies2Desc: "We do not implement third-party cookies for advertising, cross-marketing, or selling browsing profiles. Our platform is designed from the ground up under the Privacy by Design principle.",
+    cookies3Title: "3. User Management:",
+    cookies3Desc: "By clicking \"Leave event\" or using the disconnect button, the system actively clears your session trace from memory rooms."
   },
   pt: {
     exit: "Sair",
@@ -145,7 +188,7 @@ const uiTranslations = {
     silentReading: "Leitura silenciosa na tela",
     audioOnly: "Apenas Áudio",
     headphonesReq: "Requer uso de fones de ouvido",
-    targetLang: "Idioma de traducción",
+    targetLang: "Idioma de destino",
     waitingSpeaker: "Aguardando o orador...",
     neuralAudioActive: "Áudio neural ativo",
     transcriptionPaused: "A transcrição visual está pausada para maximizar o desempenho.",
@@ -193,11 +236,32 @@ const uiTranslations = {
     roomPausedText: "O sistema ou esta sala está inativo no momento. Por favor, aguarde.",
     scanToJoin: "Escanear Acesso",
     pointCamera: "Aponte a câmera para o código QR da sua sala para entrar.",
-    legalNotice: "Tradução gerada automaticamente.",
     cancel: "Cancelar",
     confirm: "Confirmar",
     understood: "Entendido",
-    exitPrompt: "Deseja desconectar e voltar ao menu?"
+    exitPrompt: "Deseja desconectar e voltar ao menu?",
+    privacy1Title: "1. Captura e Processamento de Voz:",
+    privacy1Desc: "A plataforma utiliza o microfone do dispositivo emissor exclusivamente para capturar a voz durante a sessão ativa. O áudio é transmitido em tempo real através de canais criptografados para servidores de processamento automatizado de terceiros com certificação de segurança corporativa para gerar tradução e síntese de fala neural.",
+    privacy2Title: "2. Armazenamento Não Persistente:",
+    privacy2Desc: "As transmissões de áudio são efêmeras. Não armazenamos, gravamos ou mantemos cópias de voz dos oradores ou do público em bancos de dados de longo prazo.",
+    privacy3Title: "3. Telemetria e Análise:",
+    privacy3Desc: "Coletamos informações analíticas anônimas, como o número de usuários por sala e os idiomas selecionados, para fornecer métricas de qualidade ao organizador do evento. Dados de identificação pessoal não são coletados sem consentimento.",
+    privacy4Title: "4. Quadro Regulatório:",
+    privacy4Desc: "Este processamento é realizado garantindo a conformidade com as normas atuais de proteção de dados aplicáveis a ambientes institucionais e corporativos.",
+    terms1Title: "1. Uso do Serviço:",
+    terms1Desc: "Esta plataforma é fornecida \"como está\" como uma ferramenta de assistência em tempo real para eventos ao vivo. O usuário concorda em não usar o sistema para fins ilegais ou que interfiram na transmissão tecnológica do evento.",
+    terms2Title: "2. Propriedade Intelectual:",
+    terms2Desc: "O design da interface e a marca branca mostrada pertencem ao organizador do evento ou à entidade licenciante. Sua reprodução ou distribuição sem autorização expressa é proibida.",
+    terms3Title: "3. Natureza da Tradução:",
+    terms3Desc: "A plataforma fornece traduções em tempo real geradas automaticamente para facilitar o entendimento geral. Devido à natureza do processamento automatizado e da linguagem falada, podem ocorrer variações, omissões ou imprecisões em relação à mensagem original. Este serviço foi concebido como suporte comunicativo e não constitui nem substitui uma tradução humana certificada.",
+    terms4Title: "4. Disponibilidade:",
+    terms4Desc: "Sendo um sistema que depende de conexões de rede e provedores de nuvem, o serviço pode apresentar latência ou interrupções inerentes à infraestrutura de internet local do usuário.",
+    cookies1Title: "1. Cookies Técnicos Estritamente Necessários:",
+    cookies1Desc: "Usamos tecnologias de armazenamento local em seu navegador (SessionStorage, LocalStorage e caches de Service Worker para Progressive Web Apps) exclusivamente para garantir o funcionamento técnico do aplicativo.",
+    cookies2Title: "2. Ausência de Rastreadores de Publicidade:",
+    cookies2Desc: "Não implementamos cookies de terceiros para publicidade, marketing cruzado ou venda de perfis de navegação. Nossa plataforma foi projetada desde o início sob o princípio de Privacy by Design.",
+    cookies3Title: "3. Gerenciamento de Usuários:",
+    cookies3Desc: "Ao clicar em \"Sair do evento\" ou usar o botão de desconexão, o sistema limpa ativamente o rastreamento da sua sessão das salas de memória."
   },
   fr: {
     exit: "Quitter",
@@ -254,11 +318,32 @@ const uiTranslations = {
     roomPausedText: "Le système ou cette salle est actuellement inactif.",
     scanToJoin: "Scanner",
     pointCamera: "Pointez votre caméra vers le QR code.",
-    legalNotice: "Traduction générée automatiquement.",
     cancel: "Annuler",
     confirm: "Confirmer",
     understood: "Compris",
-    exitPrompt: "Voulez-vous vous déconnecter ?"
+    exitPrompt: "Voulez-vous vous déconnecter ?",
+    privacy1Title: "1. Capture et Traitement de la Voix :",
+    privacy1Desc: "La plateforme utilise le microphone de l'appareil émetteur exclusivement pour capturer la voix pendant la session active. L'audio est transmis en temps réel via des canaux cryptés à des serveurs de traitement automatisé tiers pour générer la traduction et la synthèse vocale neuronale.",
+    privacy2Title: "2. Stockage Non Persistant :",
+    privacy2Desc: "Les transmissions audio sont éphémères. Nous ne stockons, n'enregistrons ni ne conservons de copies vocales des orateurs ou du public dans des bases de données à long terme.",
+    privacy3Title: "3. Télémétrie et Analytique :",
+    privacy3Desc: "Nous recueillons des informations analytiques anonymes, telles que le nombre d'utilisateurs par salle et les langues sélectionnées. Les données personnelles ne sont pas collectées sans consentement.",
+    privacy4Title: "4. Cadre Réglementaire :",
+    privacy4Desc: "Ce traitement est effectué en garantissant le respect des normes actuelles de protection des données.",
+    terms1Title: "1. Utilisation du Service :",
+    terms1Desc: "Cette plateforme est fournie \"telle quelle\" comme un outil d'assistance en temps réel pour les événements en direct. L'utilisateur s'engage à ne pas utiliser le système à des fins illégales.",
+    terms2Title: "2. Propriété Intellectuelle :",
+    terms2Desc: "La conception de l'interface appartient à l'organisateur de l'événement. Sa reproduction est interdite.",
+    terms3Title: "3. Nature de la Traduction :",
+    terms3Desc: "La plateforme fournit des traductions générées automatiquement. En raison de la nature du traitement automatisé, des inexactitudes peuvent survenir. Ce service ne remplace pas une traduction humaine certifiée.",
+    terms4Title: "4. Disponibilité :",
+    terms4Desc: "Le service peut présenter une latence ou des interruptions inhérentes à l'infrastructure internet locale de l'utilisateur.",
+    cookies1Title: "1. Cookies Techniques Strictement Nécessaires :",
+    cookies1Desc: "Nous utilisons des technologies de stockage local dans votre navigateur exclusivement pour garantir le fonctionnement technique de l'application.",
+    cookies2Title: "2. Absence de Traceurs Publicitaires :",
+    cookies2Desc: "Nous ne mettons pas en œuvre de cookies tiers à des fins publicitaires. Notre plateforme est conçue selon le principe de Privacy by Design.",
+    cookies3Title: "3. Gestion des Utilisateurs :",
+    cookies3Desc: "En cliquant sur \"Quitter l'événement\", le système efface activement la trace de votre session de la mémoire."
   },
   de: {
     exit: "Verlassen",
@@ -315,11 +400,32 @@ const uiTranslations = {
     roomPausedText: "Das System oder dieser Raum ist derzeit inaktiv.",
     scanToJoin: "Scannen",
     pointCamera: "Richte die Kamera auf den QR-Code.",
-    legalNotice: "Automatisch generierte Übersetzung.",
     cancel: "Abbrechen",
     confirm: "Bestätigen",
     understood: "Verstanden",
-    exitPrompt: "Möchten Sie die Verbindung trennen?"
+    exitPrompt: "Möchten Sie die Verbindung trennen?",
+    privacy1Title: "1. Spracherfassung und -verarbeitung:",
+    privacy1Desc: "Die Plattform verwendet das Mikrofon des sendenden Geräts ausschließlich zur Erfassung der Stimme während der aktiven Sitzung. Das Audio wird in Echtzeit über verschlüsselte Kanäle an automatisierte Verarbeitungsserver von Drittanbietern übertragen.",
+    privacy2Title: "2. Nicht-persistente Speicherung:",
+    privacy2Desc: "Audioübertragungen sind flüchtig. Wir speichern oder zeichnen keine Sprachkopien der Sprecher oder des Publikums in langfristigen Datenbanken auf.",
+    privacy3Title: "3. Telemetrie und Analytik:",
+    privacy3Desc: "Wir sammeln anonyme analytische Informationen, wie die Anzahl der Benutzer pro Raum und ausgewählte Sprachen. Personenbezogene Daten werden nicht ohne Zustimmung erfasst.",
+    privacy4Title: "4. Regulatorischer Rahmen:",
+    privacy4Desc: "Diese Verarbeitung erfolgt unter Gewährleistung der Einhaltung der geltenden Datenschutzstandards.",
+    terms1Title: "1. Nutzung des Dienstes:",
+    terms1Desc: "Diese Plattform wird \"wie besehen\" als Echtzeit-Assistenztool für Live-Events bereitgestellt. Der Nutzer stimmt zu, das System nicht für illegale Zwecke zu nutzen.",
+    terms2Title: "2. Geistiges Eigentum:",
+    terms2Desc: "Das Design der Benutzeroberfläche gehört dem Veranstalter. Eine Vervielfältigung ist untersagt.",
+    terms3Title: "3. Art der Übersetzung:",
+    terms3Desc: "Die Plattform bietet automatisch generierte Echtzeitübersetzungen. Aufgrund der Art der automatisierten Verarbeitung können Ungenauigkeiten auftreten. Dieser Dienst ersetzt keine zertifizierte menschliche Übersetzung.",
+    terms4Title: "4. Verfügbarkeit:",
+    terms4Desc: "Als System, das von Netzwerkverbindungen abhängt, kann der Dienst Latenzen oder Unterbrechungen aufweisen.",
+    cookies1Title: "1. Zwingend erforderliche technische Cookies:",
+    cookies1Desc: "Wir verwenden lokale Speichertechnologien in Ihrem Browser ausschließlich, um den technischen Betrieb der Anwendung zu gewährleisten.",
+    cookies2Title: "2. Fehlen von Werbe-Trackern:",
+    cookies2Desc: "Wir implementieren keine Cookies von Drittanbietern für Werbezwecke. Unsere Plattform ist nach dem Prinzip Privacy by Design konzipiert.",
+    cookies3Title: "3. Benutzerverwaltung:",
+    cookies3Desc: "Durch Klicken auf \"Event verlassen\" löscht das System aktiv Ihre Sitzungsspur aus dem Speicher."
   }
 };
 
@@ -335,7 +441,7 @@ const AudienceView = () => {
   const [audienceCode, setAudienceCode] = useState(initialCode);
   const [eventInput, setEventInput] = useState('');
   const [eventError, setEventError] = useState('');
-  const [eventName, setEventName] = useState(''); 
+  const [eventName, setEventName] = useState('Traducción en Vivo');
 
   const [eventLogo, setEventLogo] = useState('');
   const [eventLogos, setEventLogos] = useState([]); 
@@ -372,7 +478,7 @@ const AudienceView = () => {
   const [qaName, setQaName] = useState('');
   const [qaLocation, setQaLocation] = useState('');
   
-  // Estados para el Buzón
+  // Estados para el Buzón de Preguntas Escritas/Dictadas
   const [textQuestionContent, setTextQuestionContent] = useState('');
   const [isDictating, setIsDictating] = useState(false);
   const [projectedTextQuestion, setProjectedTextQuestion] = useState(null);
@@ -381,6 +487,7 @@ const AudienceView = () => {
 
   const [dialogConfig, setDialogConfig] = useState({ isOpen: false, title: '', message: '', type: 'confirm', onConfirm: null, confirmStyle: '' });
 
+  // FUNCIÓN DE TRADUCCIÓN DE INTERFAZ
   const t = (key) => {
     return uiTranslations[language]?.[key] || uiTranslations['es'][key] || key;
   };
@@ -1141,7 +1248,29 @@ const AudienceView = () => {
            </div>
            <div className="flex-1 overflow-y-auto p-6 md:p-8 text-gray-300 text-sm leading-relaxed">
               <div className="max-w-2xl mx-auto space-y-6">
-                  {t('legalNotice')}
+                  {legalModalContent === 'privacy' && (
+                      <>
+                          <p><strong>{t('privacy1Title')}</strong> {t('privacy1Desc')}</p>
+                          <p><strong>{t('privacy2Title')}</strong> {t('privacy2Desc')}</p>
+                          <p><strong>{t('privacy3Title')}</strong> {t('privacy3Desc')}</p>
+                          <p><strong>{t('privacy4Title')}</strong> {t('privacy4Desc')}</p>
+                      </>
+                  )}
+                  {legalModalContent === 'terms' && (
+                      <>
+                          <p><strong>{t('terms1Title')}</strong> {t('terms1Desc')}</p>
+                          <p><strong>{t('terms2Title')}</strong> {t('terms2Desc')}</p>
+                          <p><strong>{t('terms3Title')}</strong> {t('terms3Desc')}</p>
+                          <p><strong>{t('terms4Title')}</strong> {t('terms4Desc')}</p>
+                      </>
+                  )}
+                  {legalModalContent === 'cookies' && (
+                      <>
+                          <p><strong>{t('cookies1Title')}</strong> {t('cookies1Desc')}</p>
+                          <p><strong>{t('cookies2Title')}</strong> {t('cookies2Desc')}</p>
+                          <p><strong>{t('cookies3Title')}</strong> {t('cookies3Desc')}</p>
+                      </>
+                  )}
               </div>
            </div>
         </div>
@@ -1482,10 +1611,10 @@ const AudienceView = () => {
                 className="w-full bg-dark border border-gray-700 text-white text-lg rounded-xl p-4 focus:ring-2 focus:ring-accent focus:outline-none appearance-none cursor-pointer"
               >
                 <option value="es">Español</option>
-                <option value="en">English</option>
-                <option value="de">Deutsch</option>
-                <option value="fr">Français</option>
-                <option value="pt">Português</option>
+                <option value="en">English (Inglés)</option>
+                <option value="de">Deutsch (Alemán)</option>
+                <option value="fr">Français (Francés)</option>
+                <option value="pt">Português (Portugués)</option>
               </select>
               <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-400">
                 <svg className="fill-current h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
