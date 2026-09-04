@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
-import { Headphones, Globe2, AlertCircle, MessageSquare, Radio, PowerOff, Key, LogOut, QrCode, X, Scale, RefreshCw, Hand, Mic, Keyboard, Square } from 'lucide-react';
+import { Headphones, Globe2, AlertCircle, MessageSquare, Radio, PowerOff, Key, LogOut, QrCode, X, Scale, RefreshCw, Hand, Mic, Keyboard, Square, Settings } from 'lucide-react';
 import { Scanner } from '@yudiel/react-qr-scanner';
 
 const socket = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001');
@@ -14,7 +14,7 @@ const getDeviceId = () => {
     return id;
 };
 
-// DICCIONARIO MULTILINGÜE PARA LA INTERFAZ (Textos legales restaurados y traducidos)
+// DICCIONARIO MULTILINGÜE PARA LA INTERFAZ
 const uiTranslations = {
   es: {
     exit: "Salir",
@@ -23,7 +23,7 @@ const uiTranslations = {
     silentReading: "Lectura silenciosa en pantalla",
     audioOnly: "Solo Audio",
     headphonesReq: "Requiere uso de audífonos",
-    targetLang: "Idioma de traducción",
+    targetLang: "Idioma de destino",
     waitingSpeaker: "Esperando al orador...",
     neuralAudioActive: "Audio neuronal activo",
     transcriptionPaused: "La transcripción visual está pausada para maximizar el rendimiento.",
@@ -75,7 +75,10 @@ const uiTranslations = {
     confirm: "Confirmar",
     understood: "Entendido",
     exitPrompt: "¿Deseas desconectarte y volver al menú principal?",
-    // TEXTOS LEGALES RESTAURADOS
+    projectionSettings: "Ajustes de Proyección",
+    subtitleSize: "Tamaño Subtítulos",
+    logoSize: "Tamaño Logos",
+    settings: "Ajustes",
     privacy1Title: "1. Captura y Procesamiento de Voz:",
     privacy1Desc: "La plataforma utiliza el micrófono del dispositivo emisor exclusivamente para capturar la voz durante la sesión activa. El audio se transmite en tiempo real mediante canales cifrados a servidores de procesamiento automatizado de terceros con certificación de seguridad corporativa para generar la traducción y síntesis de voz neuronal.",
     privacy2Title: "2. Almacenamiento No Persistente:",
@@ -106,7 +109,7 @@ const uiTranslations = {
     silentReading: "Silent reading on screen",
     audioOnly: "Audio Only",
     headphonesReq: "Headphones required",
-    targetLang: "Traslation Language",
+    targetLang: "Target Language",
     waitingSpeaker: "Waiting for the speaker...",
     neuralAudioActive: "Neural audio active",
     transcriptionPaused: "Visual transcription is paused to maximize performance.",
@@ -158,6 +161,10 @@ const uiTranslations = {
     confirm: "Confirm",
     understood: "Understood",
     exitPrompt: "Do you want to disconnect and return to the main menu?",
+    projectionSettings: "Projection Settings",
+    subtitleSize: "Subtitle Size",
+    logoSize: "Logo Size",
+    settings: "Settings",
     privacy1Title: "1. Voice Capture and Processing:",
     privacy1Desc: "The platform uses the emitting device's microphone exclusively to capture voice during the active session. Audio is transmitted in real time via encrypted channels to third-party automated processing servers with corporate security certification to generate translation and neural speech synthesis.",
     privacy2Title: "2. Non-Persistent Storage:",
@@ -240,6 +247,10 @@ const uiTranslations = {
     confirm: "Confirmar",
     understood: "Entendido",
     exitPrompt: "Deseja desconectar e voltar ao menu?",
+    projectionSettings: "Configurações de Projeção",
+    subtitleSize: "Tamanho das Legendas",
+    logoSize: "Tamanho dos Logos",
+    settings: "Configurações",
     privacy1Title: "1. Captura e Processamento de Voz:",
     privacy1Desc: "A plataforma utiliza o microfone do dispositivo emissor exclusivamente para capturar a voz durante a sessão ativa. O áudio é transmitido em tempo real através de canais criptografados para servidores de processamento automatizado de terceiros com certificação de segurança corporativa para gerar tradução e síntese de fala neural.",
     privacy2Title: "2. Armazenamento Não Persistente:",
@@ -322,6 +333,10 @@ const uiTranslations = {
     confirm: "Confirmer",
     understood: "Compris",
     exitPrompt: "Voulez-vous vous déconnecter ?",
+    projectionSettings: "Paramètres de Projection",
+    subtitleSize: "Taille des Sous-titres",
+    logoSize: "Taille des Logos",
+    settings: "Paramètres",
     privacy1Title: "1. Capture et Traitement de la Voix :",
     privacy1Desc: "La plateforme utilise le microphone de l'appareil émetteur exclusivement pour capturer la voix pendant la session active. L'audio est transmis en temps réel via des canaux cryptés à des serveurs de traitement automatisé tiers pour générer la traduction et la synthèse vocale neuronale.",
     privacy2Title: "2. Stockage Non Persistant :",
@@ -404,6 +419,10 @@ const uiTranslations = {
     confirm: "Bestätigen",
     understood: "Verstanden",
     exitPrompt: "Möchten Sie die Verbindung trennen?",
+    projectionSettings: "Projektionseinstellungen",
+    subtitleSize: "Untertitelgröße",
+    logoSize: "Logogröße",
+    settings: "Einstellungen",
     privacy1Title: "1. Spracherfassung und -verarbeitung:",
     privacy1Desc: "Die Plattform verwendet das Mikrofon des sendenden Geräts ausschließlich zur Erfassung der Stimme während der aktiven Sitzung. Das Audio wird in Echtzeit über verschlüsselte Kanäle an automatisierte Verarbeitungsserver von Drittanbietern übertragen.",
     privacy2Title: "2. Nicht-persistente Speicherung:",
@@ -482,6 +501,13 @@ const AudienceView = () => {
   const [textQuestionContent, setTextQuestionContent] = useState('');
   const [isDictating, setIsDictating] = useState(false);
   const [projectedTextQuestion, setProjectedTextQuestion] = useState(null);
+
+  // NUEVO: Estados para los controles locales de Pantalla (Modo TV)
+  const [tvSettings, setTvSettings] = useState(() => {
+    const saved = localStorage.getItem('acofiTvSettings');
+    return saved ? JSON.parse(saved) : { fontSize: 48, logoSize: 80 };
+  });
+  const [showTvSettings, setShowTvSettings] = useState(false);
   
   const speechRecognitionRef = useRef(null);
 
@@ -549,6 +575,13 @@ const AudienceView = () => {
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [userMode]);
+
+  // Guardar configuración de TV al cambiar
+  useEffect(() => {
+    if (isTvMode) {
+        localStorage.setItem('acofiTvSettings', JSON.stringify(tvSettings));
+    }
+  }, [tvSettings, isTvMode]);
 
   const playNextInQueue = async () => {
     if (isPlaying.current || audioQueue.current.length === 0 || !isSystemActive || !isEventActive || !isRoomActive) return;
@@ -1376,8 +1409,9 @@ const AudienceView = () => {
       ) : isTvMode ? (
         <div className="flex flex-col h-screen w-full bg-black p-8 md:p-16 lg:pb-16 overflow-hidden relative">
           
+          {/* NUEVO: Tarjeta de Pregunta Proyectada para Modo TV con ajuste flex-wrap */}
           {projectedTextQuestion && (
-             <div className="absolute top-12 left-0 right-0 mx-auto bg-blue-900/40 border border-blue-500/50 backdrop-blur-xl p-8 rounded-3xl shadow-[0_0_50px_rgba(59,130,246,0.3)] z-[100] max-w-4xl w-[90%] flex flex-col gap-4 animate-[logo-glow_3s_ease-in-out_infinite]">
+             <div className="absolute top-12 left-0 right-0 mx-auto bg-blue-900/40 border border-blue-500/50 backdrop-blur-xl p-8 rounded-3xl shadow-[0_0_50px_rgba(59,130,246,0.3)] z-[100] max-w-5xl w-[90%] flex flex-col gap-4 animate-[logo-glow_3s_ease-in-out_infinite]">
                  <div className="flex items-center gap-3 border-b border-blue-500/30 pb-4">
                      <div className="bg-blue-500/20 p-2 rounded-full">
                          <MessageSquare className="w-8 h-8 text-blue-400" />
@@ -1387,7 +1421,8 @@ const AudienceView = () => {
                          <span className="text-xl font-bold text-white">{projectedTextQuestion.name} {projectedTextQuestion.location ? `(${projectedTextQuestion.location})` : ''}</span>
                      </div>
                  </div>
-                 <p className="text-3xl md:text-4xl text-white font-medium leading-relaxed break-words whitespace-normal">
+                 {/* Ajuste clave: break-words y whitespace-normal para que el texto haga saltos de línea y no se salga */}
+                 <p className="text-white font-medium leading-relaxed break-words whitespace-normal" style={{ fontSize: `${Math.max(24, tvSettings.fontSize * 0.8)}px` }}>
                      "{projectedTextQuestion.translations && projectedTextQuestion.translations[language] 
                         ? projectedTextQuestion.translations[language] 
                         : projectedTextQuestion.text}"
@@ -1395,12 +1430,12 @@ const AudienceView = () => {
              </div>
           )}
 
-          <div className="absolute top-6 right-8 z-10 flex items-center gap-4 bg-dark/80 p-3 rounded-2xl backdrop-blur-md border border-gray-800 shadow-xl transition-all duration-500 opacity-10 hover:opacity-100 hover:bg-dark">
-            <div className="bg-black/50 border border-gray-700 text-gray-300 text-xs font-bold uppercase tracking-wider rounded-lg px-4 py-2">
+          <div className={`absolute top-6 right-8 z-[120] flex items-start gap-4 p-3 rounded-2xl backdrop-blur-md border border-gray-800 shadow-xl transition-all duration-500 ${showTvSettings ? 'opacity-100 bg-dark' : 'opacity-10 hover:opacity-100 hover:bg-dark bg-dark/80'}`}>
+            <div className="bg-black/50 border border-gray-700 text-gray-300 text-xs font-bold uppercase tracking-wider rounded-lg px-4 py-2 flex items-center h-full">
                 {t('room')} {roomName}
             </div>
 
-            <div className="relative">
+            <div className="relative h-full flex items-center">
               <select 
                 value={language} 
                 onChange={(e) => {
@@ -1409,7 +1444,7 @@ const AudienceView = () => {
                   setPartialText('');
                   socket.emit('audience-change-lang', e.target.value);
                 }}
-                className="bg-black/50 border border-gray-700 text-gray-300 text-xs font-bold uppercase tracking-wider rounded-lg px-3 py-2 focus:ring-1 focus:ring-primary focus:outline-none appearance-none cursor-pointer"
+                className="bg-black/50 border border-gray-700 text-gray-300 text-xs font-bold uppercase tracking-wider rounded-lg px-3 py-2 focus:ring-1 focus:ring-primary focus:outline-none appearance-none cursor-pointer h-full"
               >
                 <option value="es">Español</option>
                 <option value="en">English</option>
@@ -1423,44 +1458,85 @@ const AudienceView = () => {
                 </svg>
               </div>
             </div>
+
+            {/* MENÚ DE AJUSTES NATIVO PARA LA TV */}
+            <div className="relative h-full flex items-center">
+                <button 
+                    onClick={() => setShowTvSettings(!showTvSettings)}
+                    className="bg-black/50 border border-gray-700 text-gray-300 hover:text-white px-3 py-2 rounded-lg flex items-center gap-2 transition-colors h-full"
+                >
+                    <Settings className="w-4 h-4" /> <span className="hidden lg:inline">{t('settings')}</span>
+                </button>
+                
+                {showTvSettings && (
+                    <div className="absolute right-0 top-full mt-2 w-72 bg-darker border border-gray-700 p-5 rounded-2xl shadow-2xl flex flex-col gap-4 z-[200]">
+                        <div className="flex justify-between items-center border-b border-gray-800 pb-2">
+                            <h4 className="text-white font-bold text-sm">{t('projectionSettings')}</h4>
+                            <button onClick={() => setShowTvSettings(false)} className="text-gray-500 hover:text-white transition-colors"><X className="w-4 h-4"/></button>
+                        </div>
+
+                        <div className="flex flex-col gap-2">
+                            <label className="text-gray-400 text-xs flex justify-between font-bold">
+                                <span>{t('subtitleSize')}</span>
+                                <span className="text-primary">{tvSettings.fontSize}px</span>
+                            </label>
+                            <input type="range" min="20" max="150" value={tvSettings.fontSize} onChange={e => setTvSettings({...tvSettings, fontSize: Number(e.target.value)})} className="w-full accent-primary" />
+                        </div>
+
+                        <div className="flex flex-col gap-2">
+                            <label className="text-gray-400 text-xs flex justify-between font-bold">
+                                <span>{t('logoSize')}</span>
+                                <span className="text-primary">{tvSettings.logoSize}px</span>
+                            </label>
+                            <input type="range" min="30" max="300" value={tvSettings.logoSize} onChange={e => setTvSettings({...tvSettings, logoSize: Number(e.target.value)})} className="w-full accent-primary" />
+                        </div>
+                    </div>
+                )}
+            </div>
+
             <button 
               onClick={handleExitEvent}
-              className="bg-red-500/10 hover:bg-red-500 border border-red-500/30 text-red-500 hover:text-white text-xs font-bold uppercase tracking-wider rounded-lg px-4 py-2 transition-all flex items-center gap-2 shadow-sm"
+              className="bg-red-500/10 hover:bg-red-500 border border-red-500/30 text-red-500 hover:text-white text-xs font-bold uppercase tracking-wider rounded-lg px-4 py-2 transition-all flex items-center gap-2 shadow-sm h-full"
             >
-              <LogOut className="w-3 h-3" /> {t('close')}
+              <LogOut className="w-3 h-3" /> <span className="hidden lg:inline">{t('close')}</span>
             </button>
           </div>
 
-          <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col justify-end gap-6 overflow-hidden relative z-0 mb-32 md:mb-40">
+          {/* CONTENEDOR DINÁMICO DE SUBTÍTULOS (Ajusta su margen inferior según el tamaño del logo) */}
+          <div 
+             className="w-full max-w-6xl mx-auto flex-1 flex flex-col justify-end gap-6 overflow-hidden relative z-0" 
+             style={{ paddingBottom: `${tvSettings.logoSize + 80}px` }}
+          >
             {finalTexts.map((text, idx) => (
-              <p key={idx} className="text-4xl md:text-5xl lg:text-6xl font-medium text-white/50 text-left leading-normal tracking-wide drop-shadow-2xl transition-all duration-300">
+              <p key={idx} className="font-medium text-white/50 text-left tracking-wide drop-shadow-2xl transition-all duration-300" style={{ fontSize: `${tvSettings.fontSize}px`, lineHeight: '1.4' }}>
                 {text}
               </p>
             ))}
-            <p className="text-4xl md:text-5xl lg:text-6xl font-medium text-white text-left leading-normal tracking-wide drop-shadow-2xl min-h-[5rem] transition-all duration-200">
+            <p className="font-medium text-white text-left tracking-wide drop-shadow-2xl transition-all duration-200" style={{ fontSize: `${tvSettings.fontSize}px`, lineHeight: '1.4', minHeight: `${tvSettings.fontSize * 1.5}px` }}>
               {partialText || (finalTexts.length === 0 ? "..." : "")}
             </p>
             <div ref={messagesEndRef} />
           </div>
           
+          {/* CONTENEDOR DINÁMICO DE LOGOS */}
           {(computedLogos.length > 0 || eventSponsor) && (
               <div className="absolute bottom-8 left-8 right-8 z-10 flex items-center justify-between gap-6 opacity-80 pointer-events-none">
                   {animateLogos && computedLogos.length > 0 ? (
                       <div className="flex-1 overflow-hidden mask-edges flex">
                           <div className="flex w-max animate-scroll-left gap-8 md:gap-12 pr-8 md:pr-12">
                               {[...computedLogos, ...computedLogos, ...computedLogos, ...computedLogos, ...computedLogos, ...computedLogos, ...computedLogos, ...computedLogos].map((logo, idx) => (
-                                  <img key={idx} src={logo.url} alt={`Sponsor`} className="h-16 md:h-20 lg:h-24 w-auto max-w-[150px] object-contain drop-shadow-2xl" onError={(e) => { e.target.style.display = 'none'; }} />
+                                  <img key={idx} src={logo.url} alt={`Sponsor`} className="w-auto object-contain drop-shadow-2xl" style={{ height: `${tvSettings.logoSize}px` }} onError={(e) => { e.target.style.display = 'none'; }} />
                               ))}
                           </div>
                       </div>
                   ) : (
                       <div className="flex-1 flex flex-wrap items-center justify-evenly gap-4 md:gap-8 w-full">
                           {computedLogos.map((logo, idx) => (
-                              <img key={idx} src={logo.url} alt={`Sponsor ${idx+1}`} className="h-16 md:h-20 lg:h-24 w-auto max-w-[150px] object-contain animate-logo-pulse drop-shadow-2xl" onError={(e) => { e.target.style.display = 'none'; }} />
+                              <img key={idx} src={logo.url} alt={`Sponsor ${idx+1}`} className="w-auto object-contain animate-logo-pulse drop-shadow-2xl" style={{ height: `${tvSettings.logoSize}px` }} onError={(e) => { e.target.style.display = 'none'; }} />
                           ))}
                       </div>
                   )}
-                  {eventSponsor && <span className="text-lg md:text-xl font-semibold tracking-wider text-right shrink-0 max-w-[250px]"><span className="animate-metallic">{eventSponsor}</span></span>}
+                  {eventSponsor && <span className="font-semibold tracking-wider text-right shrink-0 max-w-[250px]" style={{ fontSize: `${Math.max(16, tvSettings.logoSize * 0.3)}px` }}><span className="animate-metallic">{eventSponsor}</span></span>}
               </div>
           )}
         </div>
