@@ -489,23 +489,20 @@ const AudienceView = () => {
 
   const [gracefulPauseMsg, setGracefulPauseMsg] = useState(null);
 
-  // Estados para Preguntas del Público (Q&A)
   const [isQaActive, setIsQaActive] = useState(false); 
-  const [qaState, setQaState] = useState('idle'); // idle, pending, approved
+  const [qaState, setQaState] = useState('idle');
   const [isQaModalOpen, setIsQaModalOpen] = useState(false);
-  const [qaModalType, setQaModalType] = useState('live'); // 'live' | 'mailbox'
+  const [qaModalType, setQaModalType] = useState('live'); 
   const [qaName, setQaName] = useState('');
   const [qaLocation, setQaLocation] = useState('');
   
-  // Estados para el Buzón de Preguntas Escritas/Dictadas
   const [textQuestionContent, setTextQuestionContent] = useState('');
   const [isDictating, setIsDictating] = useState(false);
   const [projectedTextQuestion, setProjectedTextQuestion] = useState(null);
 
-  // NUEVO: Estados para los controles locales de Pantalla (Modo TV)
   const [tvSettings, setTvSettings] = useState(() => {
-    const saved = localStorage.getItem('acofiTvSettings');
-    return saved ? JSON.parse(saved) : { fontSize: 48, logoSize: 80 };
+    const saved = localStorage.getItem('acofiTvSettingsV2');
+    return saved ? JSON.parse(saved) : { fontSize: 6, logoSize: 10 };
   });
   const [showTvSettings, setShowTvSettings] = useState(false);
   
@@ -513,7 +510,6 @@ const AudienceView = () => {
 
   const [dialogConfig, setDialogConfig] = useState({ isOpen: false, title: '', message: '', type: 'confirm', onConfirm: null, confirmStyle: '' });
 
-  // FUNCIÓN DE TRADUCCIÓN DE INTERFAZ
   const t = (key) => {
     return uiTranslations[language]?.[key] || uiTranslations['es'][key] || key;
   };
@@ -576,10 +572,9 @@ const AudienceView = () => {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [userMode]);
 
-  // Guardar configuración de TV al cambiar
   useEffect(() => {
     if (isTvMode) {
-        localStorage.setItem('acofiTvSettings', JSON.stringify(tvSettings));
+        localStorage.setItem('acofiTvSettingsV2', JSON.stringify(tvSettings));
     }
   }, [tvSettings, isTvMode]);
 
@@ -953,7 +948,10 @@ const AudienceView = () => {
           if (currentText.trim() !== '') {
             setFinalTexts(prev => {
               const newTexts = [...prev, currentText];
-              const limit = isTvMode ? 5 : 4; 
+              // AQUÍ ESTÁ EL CAMBIO CLAVE PARA MODO TV:
+              // Antes limitaba a 5. Ahora permite hasta 15 párrafos en memoria.
+              // Si el usuario baja el tamaño de letra en Ajustes, podrá ver los 15 en pantalla.
+              const limit = isTvMode ? 15 : 4; 
               return newTexts.slice(-limit);
             });
           }
@@ -1407,29 +1405,8 @@ const AudienceView = () => {
           </div>
         </div>
       ) : isTvMode ? (
-        <div className="flex flex-col h-screen w-full bg-black p-8 md:p-16 lg:pb-16 overflow-hidden relative">
+        <div className="flex flex-col h-screen w-full bg-black px-8 py-8 md:px-16 md:py-12 overflow-hidden relative">
           
-          {/* NUEVO: Tarjeta de Pregunta Proyectada para Modo TV con ajuste flex-wrap */}
-          {projectedTextQuestion && (
-             <div className="absolute top-12 left-0 right-0 mx-auto bg-blue-900/40 border border-blue-500/50 backdrop-blur-xl p-8 rounded-3xl shadow-[0_0_50px_rgba(59,130,246,0.3)] z-[100] max-w-5xl w-[90%] flex flex-col gap-4 animate-[logo-glow_3s_ease-in-out_infinite]">
-                 <div className="flex items-center gap-3 border-b border-blue-500/30 pb-4">
-                     <div className="bg-blue-500/20 p-2 rounded-full">
-                         <MessageSquare className="w-8 h-8 text-blue-400" />
-                     </div>
-                     <div className="flex flex-col">
-                         <span className="text-sm font-bold text-blue-300 uppercase tracking-widest">{t('projectedQuestion')}</span>
-                         <span className="text-xl font-bold text-white">{projectedTextQuestion.name} {projectedTextQuestion.location ? `(${projectedTextQuestion.location})` : ''}</span>
-                     </div>
-                 </div>
-                 {/* Ajuste clave: break-words y whitespace-normal para que el texto haga saltos de línea y no se salga */}
-                 <p className="text-white font-medium leading-relaxed break-words whitespace-normal" style={{ fontSize: `${Math.max(24, tvSettings.fontSize * 0.8)}px` }}>
-                     "{projectedTextQuestion.translations && projectedTextQuestion.translations[language] 
-                        ? projectedTextQuestion.translations[language] 
-                        : projectedTextQuestion.text}"
-                 </p>
-             </div>
-          )}
-
           <div className={`absolute top-6 right-8 z-[120] flex items-start gap-4 p-3 rounded-2xl backdrop-blur-md border border-gray-800 shadow-xl transition-all duration-500 ${showTvSettings ? 'opacity-100 bg-dark' : 'opacity-10 hover:opacity-100 hover:bg-dark bg-dark/80'}`}>
             <div className="bg-black/50 border border-gray-700 text-gray-300 text-xs font-bold uppercase tracking-wider rounded-lg px-4 py-2 flex items-center h-full">
                 {t('room')} {roomName}
@@ -1459,7 +1436,6 @@ const AudienceView = () => {
               </div>
             </div>
 
-            {/* MENÚ DE AJUSTES NATIVO PARA LA TV */}
             <div className="relative h-full flex items-center">
                 <button 
                     onClick={() => setShowTvSettings(!showTvSettings)}
@@ -1478,17 +1454,17 @@ const AudienceView = () => {
                         <div className="flex flex-col gap-2">
                             <label className="text-gray-400 text-xs flex justify-between font-bold">
                                 <span>{t('subtitleSize')}</span>
-                                <span className="text-primary">{tvSettings.fontSize}px</span>
+                                <span className="text-primary">{tvSettings.fontSize}vh</span>
                             </label>
-                            <input type="range" min="20" max="150" value={tvSettings.fontSize} onChange={e => setTvSettings({...tvSettings, fontSize: Number(e.target.value)})} className="w-full accent-primary" />
+                            <input type="range" min="2" max="15" step="0.5" value={tvSettings.fontSize} onChange={e => setTvSettings({...tvSettings, fontSize: Number(e.target.value)})} className="w-full accent-primary" />
                         </div>
 
                         <div className="flex flex-col gap-2">
                             <label className="text-gray-400 text-xs flex justify-between font-bold">
                                 <span>{t('logoSize')}</span>
-                                <span className="text-primary">{tvSettings.logoSize}px</span>
+                                <span className="text-primary">{tvSettings.logoSize}vh</span>
                             </label>
-                            <input type="range" min="30" max="300" value={tvSettings.logoSize} onChange={e => setTvSettings({...tvSettings, logoSize: Number(e.target.value)})} className="w-full accent-primary" />
+                            <input type="range" min="4" max="25" step="0.5" value={tvSettings.logoSize} onChange={e => setTvSettings({...tvSettings, logoSize: Number(e.target.value)})} className="w-full accent-primary" />
                         </div>
                     </div>
                 )}
@@ -1502,41 +1478,55 @@ const AudienceView = () => {
             </button>
           </div>
 
-          {/* CONTENEDOR DINÁMICO DE SUBTÍTULOS (Ajusta su margen inferior según el tamaño del logo) */}
-          <div 
-             className="w-full max-w-6xl mx-auto flex-1 flex flex-col justify-end gap-6 overflow-hidden relative z-0" 
-             style={{ paddingBottom: `${tvSettings.logoSize + 80}px` }}
-          >
+          {projectedTextQuestion && (
+             <div className="absolute top-24 left-0 right-0 mx-auto bg-blue-900/40 border border-blue-500/50 backdrop-blur-xl p-8 rounded-3xl shadow-[0_0_50px_rgba(59,130,246,0.3)] z-[100] max-w-5xl w-[90%] flex flex-col gap-4 animate-[logo-glow_3s_ease-in-out_infinite]">
+                 <div className="flex items-center gap-3 border-b border-blue-500/30 pb-4">
+                     <div className="bg-blue-500/20 p-2 rounded-full">
+                         <MessageSquare className="w-8 h-8 text-blue-400" />
+                     </div>
+                     <div className="flex flex-col">
+                         <span className="text-sm font-bold text-blue-300 uppercase tracking-widest">{t('projectedQuestion')}</span>
+                         <span className="text-xl font-bold text-white">{projectedTextQuestion.name} {projectedTextQuestion.location ? `(${projectedTextQuestion.location})` : ''}</span>
+                     </div>
+                 </div>
+                 <p className="text-white font-medium leading-relaxed break-words whitespace-normal" style={{ fontSize: `${Math.max(3, tvSettings.fontSize * 0.8)}vh` }}>
+                     "{projectedTextQuestion.translations && projectedTextQuestion.translations[language] 
+                        ? projectedTextQuestion.translations[language] 
+                        : projectedTextQuestion.text}"
+                 </p>
+             </div>
+          )}
+
+          <div className="w-full max-w-7xl mx-auto flex-1 flex flex-col justify-end gap-4 overflow-hidden relative z-0 pb-6 border-b border-gray-900/50">
             {finalTexts.map((text, idx) => (
-              <p key={idx} className="font-medium text-white/50 text-left tracking-wide drop-shadow-2xl transition-all duration-300" style={{ fontSize: `${tvSettings.fontSize}px`, lineHeight: '1.4' }}>
+              <p key={idx} className="font-medium text-white/50 text-left tracking-wide drop-shadow-2xl transition-all duration-300" style={{ fontSize: `${tvSettings.fontSize}vh`, lineHeight: '1.4' }}>
                 {text}
               </p>
             ))}
-            <p className="font-medium text-white text-left tracking-wide drop-shadow-2xl transition-all duration-200" style={{ fontSize: `${tvSettings.fontSize}px`, lineHeight: '1.4', minHeight: `${tvSettings.fontSize * 1.5}px` }}>
+            <p className="font-medium text-white text-left tracking-wide drop-shadow-2xl transition-all duration-200" style={{ fontSize: `${tvSettings.fontSize}vh`, lineHeight: '1.4', minHeight: `${tvSettings.fontSize * 1.5}vh` }}>
               {partialText || (finalTexts.length === 0 ? "..." : "")}
             </p>
             <div ref={messagesEndRef} />
           </div>
           
-          {/* CONTENEDOR DINÁMICO DE LOGOS */}
           {(computedLogos.length > 0 || eventSponsor) && (
-              <div className="absolute bottom-8 left-8 right-8 z-10 flex items-center justify-between gap-6 opacity-80 pointer-events-none">
+              <div className="shrink-0 flex items-center justify-between gap-6 opacity-80 pointer-events-none pt-6">
                   {animateLogos && computedLogos.length > 0 ? (
                       <div className="flex-1 overflow-hidden mask-edges flex">
                           <div className="flex w-max animate-scroll-left gap-8 md:gap-12 pr-8 md:pr-12">
                               {[...computedLogos, ...computedLogos, ...computedLogos, ...computedLogos, ...computedLogos, ...computedLogos, ...computedLogos, ...computedLogos].map((logo, idx) => (
-                                  <img key={idx} src={logo.url} alt={`Sponsor`} className="w-auto object-contain drop-shadow-2xl" style={{ height: `${tvSettings.logoSize}px` }} onError={(e) => { e.target.style.display = 'none'; }} />
+                                  <img key={idx} src={logo.url} alt={`Sponsor`} className="w-auto object-contain drop-shadow-2xl" style={{ height: `${tvSettings.logoSize}vh` }} onError={(e) => { e.target.style.display = 'none'; }} />
                               ))}
                           </div>
                       </div>
                   ) : (
                       <div className="flex-1 flex flex-wrap items-center justify-evenly gap-4 md:gap-8 w-full">
                           {computedLogos.map((logo, idx) => (
-                              <img key={idx} src={logo.url} alt={`Sponsor ${idx+1}`} className="w-auto object-contain animate-logo-pulse drop-shadow-2xl" style={{ height: `${tvSettings.logoSize}px` }} onError={(e) => { e.target.style.display = 'none'; }} />
+                              <img key={idx} src={logo.url} alt={`Sponsor ${idx+1}`} className="w-auto object-contain animate-logo-pulse drop-shadow-2xl" style={{ height: `${tvSettings.logoSize}vh` }} onError={(e) => { e.target.style.display = 'none'; }} />
                           ))}
                       </div>
                   )}
-                  {eventSponsor && <span className="font-semibold tracking-wider text-right shrink-0 max-w-[250px]" style={{ fontSize: `${Math.max(16, tvSettings.logoSize * 0.3)}px` }}><span className="animate-metallic">{eventSponsor}</span></span>}
+                  {eventSponsor && <span className="font-semibold tracking-wider text-right shrink-0 max-w-[250px]" style={{ fontSize: `${Math.max(1.5, tvSettings.logoSize * 0.2)}vh` }}><span className="animate-metallic">{eventSponsor}</span></span>}
               </div>
           )}
         </div>
