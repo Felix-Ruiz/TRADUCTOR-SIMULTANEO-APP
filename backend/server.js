@@ -919,15 +919,17 @@ io.on('connection', (socket) => {
         const eventRoomsMap = activeSpeakerRooms.get(eventId);
         eventRoomsMap.set(roomName, (eventRoomsMap.get(roomName) || 0) + 1);
         
-        // ACTUALIZACIÓN AQUÍ: Se inyectan los dos nuevos parámetros enviados por el Frontend
+        // ¡CORRECCIÓN AQUÍ! Se añade el parámetro string vacío '' para qaName 
+        // antes de pasar el array detectLanguages
         translationService = new TranslationService(
             socket, 
             config.fromLanguage, 
             config.toLanguages, 
             config.voiceGender, 
             isolatedRoom,
-            config.isQaMode,          // Parámetro para marcarlo como Q&A visual
-            config.detectLanguages    // Parámetro ['es-CO', 'en-US']
+            config.isQaMode,          // isQa
+            '',                       // qaName (vacío para el orador principal)
+            config.detectLanguages    // array detectLanguages
         );
         translationService.start();
     });
