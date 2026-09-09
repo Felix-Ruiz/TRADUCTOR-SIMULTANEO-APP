@@ -39,29 +39,31 @@ class TranslationService {
             return;
         }
 
-        this.translationConfig = sdk.SpeechTranslationConfig.fromSubscription(speechKey, speechRegion);
-        
-        // Configuración de idioma de origen (fijo vs auto-detectado)
-        if (detectLanguages && detectLanguages.length > 0) {
-            this.translationConfig.setProperty(sdk.PropertyId.SpeechServiceConnection_LanguageIdMode, "Continuous");
-        } else {
-            this.translationConfig.speechRecognitionLanguage = fromLanguage;
-        }
-
-        this.translationConfig.setProfanity(sdk.ProfanityOption.Masked);
-        
-        toLanguages.forEach(lang => {
-            this.translationConfig.addTargetLanguage(lang);
-        });
-
         const audioConfig = sdk.AudioConfig.fromStreamInput(this.pushStream);
         
-        // Inicialización condicionada del Recognizer corregida con sintaxis nativa de JS ('new')
-        if (detectLanguages && detectLanguages.length > 0) {
-            const autoDetectSourceLanguageConfig = sdk.AutoDetectSourceLanguageConfig.fromLanguages(detectLanguages);
-            this.recognizer = new sdk.TranslationRecognizer(this.translationConfig, autoDetectSourceLanguageConfig, audioConfig);
-            console.log(`[Azure] LID Configurado para detectar automáticamente entre: ${detectLanguages.join(', ')}`);
+        this.isAutoDetect = (detectLanguages && detectLanguages.length > 0);
+
+        if (this.isAutoDetect) {
+            // WORKAROUND CRÍTICO: La clase TranslationRecognizer de JS SDK tiene un bug con AutoDetect.
+            // Para evitar que colapse, usamos SpeechRecognizer para la detección/transcripción 
+            // y luego traducimos manualmente el resultado final vía API REST.
+            this.speechConfig = sdk.SpeechConfig.fromSubscription(speechKey, speechRegion);
+            this.speechConfig.setProperty(sdk.PropertyId.SpeechServiceConnection_LanguageIdMode, "Continuous");
+            this.speechConfig.setProfanity(sdk.ProfanityOption.Masked);
+            
+            const autoDetectConfig = sdk.AutoDetectSourceLanguageConfig.fromLanguages(detectLanguages);
+            
+            this.recognizer = sdk.SpeechRecognizer.FromConfig(this.speechConfig, autoDetectConfig, audioConfig);
+            console.log(`[Azure] LID Configurado en SpeechRecognizer para: ${detectLanguages.join(', ')}`);
         } else {
+            this.translationConfig = sdk.SpeechTranslationConfig.fromSubscription(speechKey, speechRegion);
+            this.translationConfig.speechRecognitionLanguage = fromLanguage;
+            this.translationConfig.setProfanity(sdk.ProfanityOption.Masked);
+            
+            toLanguages.forEach(lang => {
+                this.translationConfig.addTargetLanguage(lang);
+            });
+
             this.recognizer = new sdk.TranslationRecognizer(this.translationConfig, audioConfig);
         }
 
@@ -72,17 +74,21 @@ class TranslationService {
         this.recognizer.recognizing = (s, e) => {
             if (!this.isActive) return; 
             try {
-                if (e.result.reason === sdk.ResultReason.TranslatingSpeech) {
-                    // En modo auto-detect, actualizamos el fromLanguage en tiempo real basado en lo que Azure dedujo
+                if (e.result.reason === sdk.ResultReason.TranslatingSpeech || e.result.reason === sdk.ResultReason.RecognizingSpeech) {
+                    
                     if (e.result.language) {
                         this.fromLanguage = e.result.language;
                     }
                     
-                    const translations = this.extractTranslations(e.result.translations, e.result.text);
+                    let translations = {};
+                    if (!this.isAutoDetect) {
+                        translations = this.extractTranslations(e.result.translations, e.result.text);
+                    }
+                    
                     const payload = { 
                         type: 'partial', 
                         original: e.result.text, 
-                        translations,
+                        translations, // En auto-detect enviamos vacío los parciales para ahorrar cuota de API
                         isQa: this.isQa, 
                         qaName: this.qaName 
                     };
@@ -95,18 +101,26 @@ class TranslationService {
             }
         };
 
-        this.recognizer.recognized = (s, e) => {
+        this.recognizer.recognized = async (s, e) => {
             if (!this.isActive) return;
             try {
-                if (e.result.reason === sdk.ResultReason.TranslatedSpeech) {
-                    if (e.result.language) {
-                        this.fromLanguage = e.result.language;
+                if (e.result.reason === sdk.ResultReason.TranslatedSpeech || e.result.reason === sdk.ResultReason.RecognizedSpeech) {
+                    const text = e.result.text;
+                    const detectedLang = e.result.language || this.fromLanguage;
+                    this.fromLanguage = detectedLang;
+
+                    let translations = {};
+                    
+                    // Si estamos en Q&A Libre, llamamos a la API de texto para traducir la frase completa detectada
+                    if (this.isAutoDetect) {
+                        translations = await this.manualTranslate(text, detectedLang);
+                    } else {
+                        translations = this.extractTranslations(e.result.translations, text);
                     }
 
-                    const translations = this.extractTranslations(e.result.translations, e.result.text);
                     const payload = { 
                         type: 'final', 
-                        original: e.result.text, 
+                        original: text, 
                         translations,
                         isQa: this.isQa,
                         qaName: this.qaName
@@ -137,11 +151,59 @@ class TranslationService {
         };
     }
 
+    async manualTranslate(text, sourceLangCode) {
+        let result = {};
+        this.targetLanguages.forEach(l => result[l] = "");
+        if (!text) return result;
+
+        const baseLang = sourceLangCode.split('-')[0];
+        const toLangs = this.targetLanguages.filter(l => l !== baseLang);
+        
+        if (this.targetLanguages.includes(baseLang)) {
+            result[baseLang] = text;
+        }
+
+        if (toLangs.length === 0) return result;
+
+        // Utilizamos la misma API REST robusta del buzón de preguntas
+        const key = process.env.AZURE_TRANSLATOR_KEY;
+        const region = process.env.AZURE_TRANSLATOR_REGION;
+
+        if (!key || !region) return result;
+
+        try {
+            const queryLangs = toLangs.join('&to=');
+            const url = `https://api.cognitive.microsofttranslator.com/translate?api-version=3.0&from=${baseLang}&to=${queryLangs}`;
+            
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Ocp-Apim-Subscription-Key': key,
+                    'Ocp-Apim-Subscription-Region': region,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify([{ text }])
+            });
+            
+            const data = await response.json();
+            if (data && data[0] && data[0].translations) {
+                data[0].translations.forEach(t => {
+                    result[t.to] = t.text;
+                });
+            }
+        } catch (err) {
+            console.error('[Azure Text] Error en manualTranslate:', err);
+        }
+
+        return result;
+    }
+
     extractTranslations(translationMap, originalText) {
         let result = {};
+        if (!translationMap) return result;
+        
         this.targetLanguages.forEach(lang => {
             let translated = translationMap.get(lang);
-            // Compara la base del idioma (ej. 'es-CO' -> 'es')
             const baseFromLang = this.fromLanguage ? this.fromLanguage.split('-')[0] : '';
             if (!translated && baseFromLang === lang) {
                 translated = originalText;
