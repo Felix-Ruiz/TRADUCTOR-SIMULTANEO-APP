@@ -17,7 +17,6 @@ const maleVoiceMap = {
 };
 
 class TranslationService {
-    // ACTUALIZADO: Añadido parámetro detectLanguages para habilitar el LID (Auto-Detección)
     constructor(socket, fromLanguage = 'es-CO', toLanguages = ['en', 'pt'], voiceGender = 'female', roomName = 'PRINCIPAL', isQa = false, qaName = '', detectLanguages = []) {
         this.socket = socket; 
         this.targetLanguages = toLanguages; 
@@ -57,10 +56,10 @@ class TranslationService {
 
         const audioConfig = sdk.AudioConfig.fromStreamInput(this.pushStream);
         
-        // Inicialización condicionada del Recognizer
+        // Inicialización condicionada del Recognizer corregida con sintaxis nativa de JS ('new')
         if (detectLanguages && detectLanguages.length > 0) {
             const autoDetectSourceLanguageConfig = sdk.AutoDetectSourceLanguageConfig.fromLanguages(detectLanguages);
-            this.recognizer = sdk.TranslationRecognizer.FromConfig(this.translationConfig, autoDetectSourceLanguageConfig, audioConfig);
+            this.recognizer = new sdk.TranslationRecognizer(this.translationConfig, autoDetectSourceLanguageConfig, audioConfig);
             console.log(`[Azure] LID Configurado para detectar automáticamente entre: ${detectLanguages.join(', ')}`);
         } else {
             this.recognizer = new sdk.TranslationRecognizer(this.translationConfig, audioConfig);
