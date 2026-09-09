@@ -27,6 +27,7 @@ const SpeakerView = () => {
   const [isRoomActive, setIsRoomActive] = useState(true); 
 
   const [isRecording, setIsRecording] = useState(false);
+  const [isAutoDetectMode, setIsAutoDetectMode] = useState(false); // NUEVO ESTADO: Modo Q&A Libre
   const [isConnected, setIsConnected] = useState(false);
   const [transcription, setTranscription] = useState('');
   
@@ -310,6 +311,7 @@ const SpeakerView = () => {
   const stopRecordingLocally = () => {
     console.warn("[🎤 CLIENT] Deteniendo captura de hardware local de audio.");
     setIsRecording(false);
+    setIsAutoDetectMode(false); // Reinicia el modo automático al detener
     if (processorRef.current) processorRef.current.disconnect();
     if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
       audioContextRef.current.close().catch(() => {});
@@ -317,7 +319,8 @@ const SpeakerView = () => {
     if (streamRef.current) streamRef.current.getTracks().forEach(track => track.stop());
   };
 
-  const startRecording = async () => {
+  // ACTUALIZACIÓN: Se agrega el parámetro 'mode'
+  const startRecording = async (mode = 'speech') => {
     console.warn("\n=== [🚀 SENSOR CLIENTE: INICIAR DISCURSO] ===");
     console.warn("-> Estado de la sala (roomName):", roomName);
     console.warn("-> ¿Sala activa internamente? (isRoomActive):", isRoomActive);
@@ -340,13 +343,18 @@ const SpeakerView = () => {
       streamRef.current = stream;
       console.warn("[🎤 SENSOR] Permiso de micrófono CONCEDIDO por el usuario.");
       
+      const isAuto = mode === 'qna-auto';
+      setIsAutoDetectMode(isAuto);
+
       console.warn("[📡 SENSOR] Emitiendo evento WebSocket 'start-translation' hacia Render...");
       socket.emit('start-translation', { 
-        fromLanguage: inputLanguage, 
+        fromLanguage: isAuto ? 'auto' : inputLanguage, 
+        detectLanguages: isAuto ? ['es-CO', 'en-US'] : [],
         toLanguages: ['es', 'en', 'pt', 'fr', 'de'],
         voiceGender: voiceGender,
         roomName: roomName,
-        eventId: eventInfo.id 
+        eventId: eventInfo.id,
+        isQaMode: isAuto
       });
       
       const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -650,9 +658,9 @@ const SpeakerView = () => {
           </div>
           
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-              <div className={`inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl sm:rounded-full font-medium text-xs sm:text-sm w-full sm:w-max ${isRecording ? 'bg-red-500/10 text-red-500 border border-red-500/20' : 'bg-gray-800 text-gray-400 border border-gray-700'}`}>
+              <div className={`inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl sm:rounded-full font-medium text-xs sm:text-sm w-full sm:w-max ${isRecording ? (isAutoDetectMode ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' : 'bg-red-500/10 text-red-500 border border-red-500/20') : 'bg-gray-800 text-gray-400 border border-gray-700'}`}>
                 <Radio className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 ${isRecording ? 'animate-pulse' : ''}`} />
-                <span>{isRecording ? `Transmitiendo en Vivo` : 'Sistema en espera'}</span>
+                <span>{isRecording ? (isAutoDetectMode ? `Modo Q&A Libre (ES/EN)` : `Transmitiendo en Vivo`) : 'Sistema en espera'}</span>
               </div>
               
               <div className={`inline-flex items-center justify-center gap-2 px-3 py-1.5 sm:py-2 rounded-xl sm:rounded-full transition-all duration-300 w-full sm:w-auto ${isRecording ? 'bg-green-500/10 border border-green-500/30 shadow-lg shadow-green-500/10' : 'bg-darker border border-gray-800 shadow-inner'}`}>
@@ -671,14 +679,25 @@ const SpeakerView = () => {
               </button>
 
               {!isRecording ? (
-                  <button 
-                    onClick={startRecording}
-                    disabled={activeQuestion !== null}
-                    className="inline-flex items-center justify-center gap-2 px-4 py-1.5 sm:py-2 rounded-xl sm:rounded-full bg-primary hover:bg-blue-600 text-white transition-all shadow-lg hover:shadow-blue-500/25 disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
-                  >
-                    <Mic className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
-                    <span className="font-bold text-sm leading-none">{activeQuestion ? 'Auditorio en uso' : 'Iniciar Discurso'}</span>
-                  </button>
+                  <div className="flex gap-2 w-full sm:w-auto">
+                      <button 
+                          onClick={() => startRecording('speech')}
+                          disabled={activeQuestion !== null}
+                          className="inline-flex items-center justify-center gap-2 px-4 py-1.5 sm:py-2 rounded-xl sm:rounded-full bg-primary hover:bg-blue-600 text-white transition-all shadow-lg hover:shadow-blue-500/25 disabled:opacity-50 disabled:cursor-not-allowed flex-1 sm:flex-none"
+                      >
+                          <Mic className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                          <span className="font-bold text-sm leading-none">{activeQuestion ? 'Auditorio en uso' : 'Iniciar Discurso'}</span>
+                      </button>
+                      <button 
+                          onClick={() => startRecording('qna-auto')}
+                          disabled={activeQuestion !== null}
+                          className="inline-flex items-center justify-center gap-2 px-4 py-1.5 sm:py-2 rounded-xl sm:rounded-full bg-purple-600 hover:bg-purple-700 text-white transition-all shadow-lg hover:shadow-purple-500/25 disabled:opacity-50 disabled:cursor-not-allowed flex-1 sm:flex-none"
+                          title="Micrófono de Sala. Detecta automáticamente Español o Inglés."
+                      >
+                          <Globe className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                          <span className="font-bold text-sm leading-none">Modo Q&A Libre</span>
+                      </button>
+                  </div>
               ) : (
                   <button 
                     onClick={stopRecording}
@@ -739,22 +758,30 @@ const SpeakerView = () => {
                   <span className="text-xs sm:text-sm font-semibold text-gray-500 uppercase tracking-wider">Idioma:</span>
                   <div className="relative w-full sm:w-auto">
                     <select 
-                      value={inputLanguage}
+                      value={isAutoDetectMode ? 'auto' : inputLanguage}
                       onChange={(e) => setInputLanguage(e.target.value)}
-                      disabled={isRecording || activeQuestion !== null}
+                      disabled={isRecording || activeQuestion !== null || isAutoDetectMode}
                       className="w-full sm:w-auto bg-darker border border-gray-700 text-primary text-xs sm:text-sm font-bold uppercase tracking-wider rounded-lg px-3 py-2 sm:py-1.5 focus:ring-1 focus:ring-primary focus:outline-none appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <option value="es-CO">Español</option>
-                      <option value="en-US">Inglés</option>
-                      <option value="de-DE">Alemán</option>
-                      <option value="fr-FR">Francés</option>
-                      <option value="pt-BR">Portugués</option>
+                      {isAutoDetectMode ? (
+                        <option value="auto">🌐 Detectando ES / EN</option>
+                      ) : (
+                        <>
+                          <option value="es-CO">Español</option>
+                          <option value="en-US">Inglés</option>
+                          <option value="de-DE">Alemán</option>
+                          <option value="fr-FR">Francés</option>
+                          <option value="pt-BR">Portugués</option>
+                        </>
+                      )}
                     </select>
-                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-primary">
-                      <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
-                        <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
-                      </svg>
-                    </div>
+                    {!isAutoDetectMode && (
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-primary">
+                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                            <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                        </svg>
+                        </div>
+                    )}
                   </div>
                 </div>
 
@@ -779,8 +806,8 @@ const SpeakerView = () => {
                 </div>
               </div>
               
-              <p className={`text-2xl sm:text-3xl md:text-4xl font-bold leading-tight flex-1 overflow-y-auto text-left p-4 sm:p-0 bg-black/20 sm:bg-transparent rounded-xl border border-gray-800 sm:border-none transition-colors ${activeQuestion ? 'text-blue-300' : 'text-white'}`}>
-                {transcription || "Presiona el botón superior de 'Iniciar Discurso' para comenzar a hablar..."}
+              <p className={`text-2xl sm:text-3xl md:text-4xl font-bold leading-tight flex-1 overflow-y-auto text-left p-4 sm:p-0 bg-black/20 sm:bg-transparent rounded-xl border border-gray-800 sm:border-none transition-colors ${activeQuestion || isAutoDetectMode ? 'text-purple-300' : 'text-white'}`}>
+                {transcription || (isAutoDetectMode ? "🎤 Modo Q&A Libre Activo. Puedes hablar en Español o Inglés, el sistema te entenderá..." : "Presiona el botón superior de 'Iniciar Discurso' para comenzar a hablar...")}
               </p>
             </div>
         )}

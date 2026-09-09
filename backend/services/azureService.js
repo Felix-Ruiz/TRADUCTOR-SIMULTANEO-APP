@@ -17,14 +17,14 @@ const maleVoiceMap = {
 };
 
 class TranslationService {
-    // NUEVO: Añadido parámetro isQa y qaName para diferenciar tráfico de orador vs público
-    constructor(socket, fromLanguage = 'es-CO', toLanguages = ['en', 'pt'], voiceGender = 'female', roomName = 'PRINCIPAL', isQa = false, qaName = '') {
+    // ACTUALIZADO: Añadido parámetro detectLanguages para habilitar el LID (Auto-Detección)
+    constructor(socket, fromLanguage = 'es-CO', toLanguages = ['en', 'pt'], voiceGender = 'female', roomName = 'PRINCIPAL', isQa = false, qaName = '', detectLanguages = []) {
         this.socket = socket; 
         this.targetLanguages = toLanguages; 
         this.fromLanguage = fromLanguage;
         this.voiceGender = voiceGender;
         this.roomName = roomName;
-        this.isActive = true; // NUEVO: Candado de estado vital
+        this.isActive = true; 
         
         // Q&A Identifiers
         this.isQa = isQa;
@@ -41,7 +41,14 @@ class TranslationService {
         }
 
         this.translationConfig = sdk.SpeechTranslationConfig.fromSubscription(speechKey, speechRegion);
-        this.translationConfig.speechRecognitionLanguage = fromLanguage;
+        
+        // Configuración de idioma de origen (fijo vs auto-detectado)
+        if (detectLanguages && detectLanguages.length > 0) {
+            this.translationConfig.setProperty(sdk.PropertyId.SpeechServiceConnection_LanguageIdMode, "Continuous");
+        } else {
+            this.translationConfig.speechRecognitionLanguage = fromLanguage;
+        }
+
         this.translationConfig.setProfanity(sdk.ProfanityOption.Masked);
         
         toLanguages.forEach(lang => {
@@ -49,16 +56,29 @@ class TranslationService {
         });
 
         const audioConfig = sdk.AudioConfig.fromStreamInput(this.pushStream);
-        this.recognizer = new sdk.TranslationRecognizer(this.translationConfig, audioConfig);
+        
+        // Inicialización condicionada del Recognizer
+        if (detectLanguages && detectLanguages.length > 0) {
+            const autoDetectSourceLanguageConfig = sdk.AutoDetectSourceLanguageConfig.fromLanguages(detectLanguages);
+            this.recognizer = sdk.TranslationRecognizer.FromConfig(this.translationConfig, autoDetectSourceLanguageConfig, audioConfig);
+            console.log(`[Azure] LID Configurado para detectar automáticamente entre: ${detectLanguages.join(', ')}`);
+        } else {
+            this.recognizer = new sdk.TranslationRecognizer(this.translationConfig, audioConfig);
+        }
 
         this.setupEvents();
     }
 
     setupEvents() {
         this.recognizer.recognizing = (s, e) => {
-            if (!this.isActive) return; // Si el switch se bajó, ignorar todo
+            if (!this.isActive) return; 
             try {
                 if (e.result.reason === sdk.ResultReason.TranslatingSpeech) {
+                    // En modo auto-detect, actualizamos el fromLanguage en tiempo real basado en lo que Azure dedujo
+                    if (e.result.language) {
+                        this.fromLanguage = e.result.language;
+                    }
+                    
                     const translations = this.extractTranslations(e.result.translations, e.result.text);
                     const payload = { 
                         type: 'partial', 
@@ -80,6 +100,10 @@ class TranslationService {
             if (!this.isActive) return;
             try {
                 if (e.result.reason === sdk.ResultReason.TranslatedSpeech) {
+                    if (e.result.language) {
+                        this.fromLanguage = e.result.language;
+                    }
+
                     const translations = this.extractTranslations(e.result.translations, e.result.text);
                     const payload = { 
                         type: 'final', 
@@ -118,7 +142,9 @@ class TranslationService {
         let result = {};
         this.targetLanguages.forEach(lang => {
             let translated = translationMap.get(lang);
-            if (!translated && this.fromLanguage.startsWith(lang)) {
+            // Compara la base del idioma (ej. 'es-CO' -> 'es')
+            const baseFromLang = this.fromLanguage ? this.fromLanguage.split('-')[0] : '';
+            if (!translated && baseFromLang === lang) {
                 translated = originalText;
             }
             result[lang] = translated;
@@ -177,22 +203,19 @@ class TranslationService {
         }
     }
 
-    // EL NUEVO KILL SWITCH: Destruye todo en orden estricto
     stop() {
-        if (!this.isActive) return; // Evitar bucles si ya se detuvo
-        this.isActive = false; // Bloquea recepción de nuevo audio instantáneamente
+        if (!this.isActive) return; 
+        this.isActive = false; 
         
         const prefix = this.isQa ? '[Q&A Público] ' : '';
         console.log(`[Azure] ${prefix}Ejecutando Kill Switch para sala ${this.roomName} (Ahorro de costos activo)`);
         
         try {
-            // 1. Matar el stream PRIMERO. Azure se da cuenta inmediatamente que no hay más datos.
             if (this.pushStream) {
                 this.pushStream.close();
                 this.pushStream = null;
             }
 
-            // 2. Apagar el reconocedor de forma segura
             if (this.recognizer) {
                 this.recognizer.stopContinuousRecognitionAsync(
                     () => {
@@ -205,7 +228,7 @@ class TranslationService {
                     (err) => {
                         console.error(`[Azure] ${prefix}Error al detener reconocedor:`, err);
                         if (this.recognizer) {
-                            this.recognizer.close(); // Forzamos el cierre de la clase C++ subyacente
+                            this.recognizer.close(); 
                             this.recognizer = null;
                         }
                     }
@@ -213,7 +236,6 @@ class TranslationService {
             }
         } catch (e) {
             console.error(`[Azure] ${prefix}Excepción en Kill Switch:`, e);
-            // Red de seguridad máxima
             if (this.recognizer) {
                 try { this.recognizer.close(); } catch(err) {}
                 this.recognizer = null;
@@ -222,7 +244,7 @@ class TranslationService {
     }
 
     writeAudio(data) {
-        if (!this.isActive) return; // Si estamos detenidos, descartamos la basura de red
+        if (!this.isActive) return; 
         try {
             if (this.pushStream) this.pushStream.write(data);
         } catch (e) {
