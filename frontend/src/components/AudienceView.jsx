@@ -338,7 +338,7 @@ const uiTranslations = {
     logoSize: "Taille des Logos",
     settings: "Paramètres",
     privacy1Title: "1. Capture et Traitement de la Voix :",
-    privacy1Desc: "La plateforme utilise le microphone de l'appareil émetteur exclusivement pour capturer la voix pendant la session active. L'audio est transmis en temps réel via des canaux cryptés à des serveurs de traitement automatisé tiers pour générer la traduction et la synthèse vocale neuronale.",
+    privacy1Desc: "La plateforme utilise le microphone de l'appareil émetteur exclusivement pour capturar la voix pendant la session active. L'audio est transmis en temps réel via des canaux cryptés à des serveurs de traitement automatisé tiers pour générer la traduction et la synthèse vocale neuronale.",
     privacy2Title: "2. Stockage Non Persistant :",
     privacy2Desc: "Les transmissions audio sont éphémères. Nous ne stockons, n'enregistrons ni ne conservons de copies vocales des orateurs ou du public dans des bases de données à long terme.",
     privacy3Title: "3. Télémétrie et Analytique :",
@@ -941,7 +941,7 @@ const AudienceView = () => {
             currentText = data.translations && data.translations[targetAutoLang] ? data.translations[targetAutoLang] : data.original;
             
             if (currentText) {
-                currentText = `🗣️ [${isSpanish ? 'ES ➔ EN' : 'EN ➔ ES'}] ${currentText}`;
+                currentText = `🗣️ ${currentText}`;
             }
         } else {
             // Comportamiento normal (Orador estándar o Público leyendo en su celular)

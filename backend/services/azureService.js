@@ -44,9 +44,6 @@ class TranslationService {
         this.isAutoDetect = (detectLanguages && detectLanguages.length > 0);
 
         if (this.isAutoDetect) {
-            // WORKAROUND CRÍTICO: La clase TranslationRecognizer de JS SDK tiene un bug con AutoDetect.
-            // Para evitar que colapse, usamos SpeechRecognizer para la detección/transcripción 
-            // y luego traducimos manualmente el resultado final vía API REST.
             this.speechConfig = sdk.SpeechConfig.fromSubscription(speechKey, speechRegion);
             this.speechConfig.setProperty(sdk.PropertyId.SpeechServiceConnection_LanguageIdMode, "Continuous");
             this.speechConfig.setProfanity(sdk.ProfanityOption.Masked);
@@ -76,6 +73,8 @@ class TranslationService {
             try {
                 if (e.result.reason === sdk.ResultReason.TranslatingSpeech || e.result.reason === sdk.ResultReason.RecognizingSpeech) {
                     
+                    if (this.isAutoDetect) return; 
+
                     if (e.result.language) {
                         this.fromLanguage = e.result.language;
                     }
