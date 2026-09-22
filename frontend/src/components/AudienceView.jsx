@@ -932,14 +932,27 @@ const AudienceView = () => {
 
       if (isTvMode || userMode === 'text') {
         let currentText = '';
-        if (data.translations && data.translations[language]) {
-          currentText = data.translations[language];
-        } else if (data.original) {
-          currentText = data.original;
-        }
-
-        if (data.isQa && currentText) {
-            currentText = `🗣️ ${currentText}`;
+        
+        // LÓGICA ESPEJO INTELIGENTE PARA PROYECTORES
+        if (isTvMode && data.isQa && data.detectedLang) {
+            const isSpanish = data.detectedLang.startsWith('es');
+            const targetAutoLang = isSpanish ? 'en' : 'es';
+            
+            currentText = data.translations && data.translations[targetAutoLang] ? data.translations[targetAutoLang] : data.original;
+            
+            if (currentText) {
+                currentText = `🗣️ [${isSpanish ? 'ES ➔ EN' : 'EN ➔ ES'}] ${currentText}`;
+            }
+        } else {
+            // Comportamiento normal (Orador estándar o Público leyendo en su celular)
+            if (data.translations && data.translations[language]) {
+              currentText = data.translations[language];
+            } else if (data.original) {
+              currentText = data.original;
+            }
+            if (data.isQa && currentText) {
+                currentText = `🗣️ ${currentText}`;
+            }
         }
 
         if (data.type === 'partial') {
@@ -948,9 +961,6 @@ const AudienceView = () => {
           if (currentText.trim() !== '') {
             setFinalTexts(prev => {
               const newTexts = [...prev, currentText];
-              // AQUÍ ESTÁ EL CAMBIO CLAVE PARA MODO TV:
-              // Antes limitaba a 5. Ahora permite hasta 15 párrafos en memoria.
-              // Si el usuario baja el tamaño de letra en Ajustes, podrá ver los 15 en pantalla.
               const limit = isTvMode ? 15 : 4; 
               return newTexts.slice(-limit);
             });

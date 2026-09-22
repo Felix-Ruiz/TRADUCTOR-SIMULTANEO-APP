@@ -85,12 +85,15 @@ class TranslationService {
                         translations = this.extractTranslations(e.result.translations, e.result.text);
                     }
                     
+                    const detectedLang = e.result.language || this.fromLanguage;
+
                     const payload = { 
                         type: 'partial', 
                         original: e.result.text, 
-                        translations, // En auto-detect enviamos vacío los parciales para ahorrar cuota de API
+                        translations, 
                         isQa: this.isQa, 
-                        qaName: this.qaName 
+                        qaName: this.qaName,
+                        detectedLang: detectedLang
                     };
                     
                     this.socket.emit('translation-result', payload); 
@@ -111,7 +114,6 @@ class TranslationService {
 
                     let translations = {};
                     
-                    // Si estamos en Q&A Libre, llamamos a la API de texto para traducir la frase completa detectada
                     if (this.isAutoDetect) {
                         translations = await this.manualTranslate(text, detectedLang);
                     } else {
@@ -123,7 +125,8 @@ class TranslationService {
                         original: text, 
                         translations,
                         isQa: this.isQa,
-                        qaName: this.qaName
+                        qaName: this.qaName,
+                        detectedLang: detectedLang
                     };
                     
                     this.socket.emit('translation-result', payload);
@@ -165,7 +168,6 @@ class TranslationService {
 
         if (toLangs.length === 0) return result;
 
-        // Utilizamos la misma API REST robusta del buzón de preguntas
         const key = process.env.AZURE_TRANSLATOR_KEY;
         const region = process.env.AZURE_TRANSLATOR_REGION;
 
